@@ -1,0 +1,399 @@
+---
+import RadarLayout from "../layouts/RadarLayout.astro";
+---
+
+<RadarLayout title="Stromausfall Radar">
+  <section class="grid gap-3 py-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div class="panel soft-grid rounded-md p-4 sm:p-5">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Lageübersicht Schweiz</p>
+          <h1 class="mt-2 max-w-3xl font-display text-3xl font-extrabold leading-tight sm:text-5xl">Schnell prüfen, was wirklich nach Stromausfall aussieht.</h1>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">Verdichtete Event-Akten aus Google Alerts, Quellen und manueller Recherche. Jede Karte zeigt Ort, Zeitfenster, Quellenlage und Unsicherheit.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="refresh-button" class="lift-hover rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface">Aktualisieren</button>
+        </div>
+      </div>
+
+      <div id="event-metrics" class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {["Offen", "Belegt", "Neue Akten", "Mails"].map((label) => (
+          <div class="loading-stripe min-h-20 rounded-md border border-rule bg-surface/80 p-3">
+            <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{label}</span>
+            <strong class="mt-3 block h-7 rounded bg-surface2"></strong>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <aside class="panel rounded-md p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 class="font-display text-lg font-bold">Aktivität</h2>
+          <p class="mt-1 text-sm text-muted">28 Tage als Quellen-/Event-Puls.</p>
+        </div>
+        <span id="activity-total" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">-</span>
+      </div>
+      <div id="activity-grid" class="mt-4 grid grid-cols-7 gap-1">
+        {Array.from({ length: 28 }).map(() => <span class="h-8 rounded-md bg-surface2"></span>)}
+      </div>
+      <div class="mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+        <span>ruhig</span>
+        <span>mehr Signale</span>
+      </div>
+    </aside>
+  </section>
+
+  <section class="grid gap-3 pb-3 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <aside class="panel h-fit rounded-md p-3">
+      <label class="block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="event-search">Suchen</label>
+      <input id="event-search" class="mt-2 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint" placeholder="Ort, Quelle, Ursache" />
+
+      <div class="mt-4">
+        <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Ansicht</p>
+        <div class="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-1" id="status-filters">
+          <button class="filter-button is-active rounded-md border border-ink bg-ink px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-surface" data-status="active">Aktiv</button>
+          <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status="needs_review">Zu prüfen</button>
+          <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status="corroborated">Belegt</button>
+          <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status="dismissed">Archiv</button>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-md border border-rule bg-surface2 p-3">
+        <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Trennung gleicher Orte</p>
+        <p class="mt-2 text-sm leading-6 text-muted">Karten zeigen das Zeitfenster. Mehrere Akten am selben Ort bleiben getrennt, wenn die Meldungen zeitlich klar auseinanderliegen.</p>
+      </div>
+    </aside>
+
+    <section class="panel rounded-md">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+        <div>
+          <h2 class="font-display text-xl font-bold">Ereignisse</h2>
+          <p class="mt-1 text-sm text-muted">Nach letzter Beobachtung sortiert.</p>
+        </div>
+        <span id="event-count" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">-</span>
+      </div>
+      <div id="events-list" class="grid gap-2 p-3">
+        <div class="loading-stripe h-28 rounded-md bg-surface2"></div>
+        <div class="loading-stripe h-28 rounded-md bg-surface2"></div>
+      </div>
+    </section>
+  </section>
+
+  <section id="system-strip" class="panel mb-6 rounded-md p-3">
+    <button id="system-toggle" class="flex w-full items-center justify-between gap-3 text-left" type="button">
+      <span class="font-display text-lg font-bold">Systemstatus</span>
+      <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">unten am Rand</span>
+    </button>
+    <div id="system-panel" class="mt-3 hidden grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_280px]">
+      <div id="run-summary" class="rounded-md border border-rule bg-surface2 p-3"></div>
+      <div id="feed-health" class="grid gap-2"></div>
+      <div class="rounded-md border border-rule bg-surface2 p-3">
+        <label class="block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="admin-token-input">Admin Login</label>
+        <input id="admin-token-input" class="mt-2 w-full rounded-md border border-rule bg-surface px-3 py-2 font-mono text-xs text-ink" type="password" placeholder="Token lokal speichern" />
+        <p id="admin-token-state" class="mt-2 font-mono text-[10px] text-muted">Nicht angemeldet</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const fmt = new Intl.DateTimeFormat("de-CH", {
+      dateStyle: "short",
+      timeStyle: "short",
+      timeZone: "Europe/Zurich"
+    });
+
+    const viewState = {
+      events: [],
+      status: "active",
+      query: ""
+    };
+
+    const labels = {
+      status: {
+        needs_review: "Zu prüfen",
+        corroborated: "Mehrfach belegt",
+        dismissed: "Verworfen",
+        resolved: "Behoben"
+      },
+      nature: {
+        planned: "Geplant",
+        unplanned: "Ungeplant",
+        unknown: "Unklar"
+      },
+      cause: {
+        planned_maintenance: "Wartung",
+        weather: "Wetter",
+        tree_or_overhead_line: "Baum / Freileitung",
+        construction_damage: "Bauarbeiten",
+        cable_damage: "Kabelschaden",
+        transformer_or_substation: "Trafostation",
+        technical_fault: "Technische Störung",
+        fire: "Brand",
+        overload: "Überlast",
+        third_party_damage: "Dritteinwirkung",
+        water_or_flooding: "Wasser",
+        unknown: "Ursache unklar"
+      },
+      research: {
+        not_started: "Nicht geprüft",
+        running: "Prüft gerade",
+        completed: "Geprüft",
+        failed: "Prüfung fehlgeschlagen"
+      },
+      evidence: {
+        weak: "Schwach",
+        plausible: "Plausibel",
+        corroborated: "Mehrfach belegt",
+        official: "Offizielle Quelle"
+      }
+    };
+
+    const label = (group, value) => labels[group]?.[value] ?? value ?? "-";
+    const escapeHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+
+    function normalize(value) {
+      return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    }
+
+    function formatDate(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : fmt.format(date);
+    }
+
+    function durationLabel(start, end) {
+      if (!start || !end) return "-";
+      const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
+      if (!Number.isFinite(seconds)) return "-";
+      if (seconds < 60) return `${seconds}s`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+      return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
+    }
+
+    function statusClass(status) {
+      if (status === "corroborated") return "border-ok bg-oksoft text-ok";
+      if (status === "dismissed") return "border-rule bg-surface2 text-muted";
+      if (status === "resolved") return "border-accent bg-accentsoft text-accent";
+      return "border-warn bg-warnsoft text-warn";
+    }
+
+    function railColor(status) {
+      if (status === "corroborated") return "var(--color-ok)";
+      if (status === "dismissed") return "var(--color-rule-strong)";
+      if (status === "resolved") return "var(--color-accent)";
+      return "var(--color-warn)";
+    }
+
+    function statusCounts(rows) {
+      return (rows ?? []).reduce((acc, row) => {
+        acc[row.status] = Number(row.count ?? 0);
+        return acc;
+      }, {});
+    }
+
+    function samePlaceCount(event) {
+      const key = normalize(event.location_text);
+      if (!key) return 0;
+      return viewState.events.filter((candidate) => candidate.id !== event.id && normalize(candidate.location_text) === key).length;
+    }
+
+    function renderEventMetrics(data) {
+      const totals = data.totals ?? {};
+      const counts = statusCounts(data.statusCounts);
+      const metrics = [
+        ["Offen", counts.needs_review ?? 0, "Akten brauchen Blick"],
+        ["Belegt", counts.corroborated ?? 0, "mehrere Signale"],
+        ["Neue Akten", totals.events_last_24h ?? 0, "letzte 24h"],
+        ["Mails", totals.emails_last_24h ?? 0, "letzte 24h"]
+      ];
+      document.querySelector("#event-metrics").innerHTML = metrics.map(([name, value, hint]) => `
+        <div class="rounded-md border border-rule bg-surface/85 p-3">
+          <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">${escapeHtml(name)}</span>
+          <div class="mt-2 flex items-end justify-between gap-2">
+            <strong class="metric-value block font-display text-3xl font-extrabold leading-none">${escapeHtml(value)}</strong>
+            <span class="pb-1 text-right font-mono text-[10px] text-muted">${escapeHtml(hint)}</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderActivity(days) {
+      const rows = days ?? [];
+      const max = Math.max(1, ...rows.map((row) => Number(row.items ?? 0) + Number(row.events ?? 0)));
+      const total = rows.reduce((sum, row) => sum + Number(row.items ?? 0), 0);
+      document.querySelector("#activity-total").textContent = `${total} Signale`;
+      document.querySelector("#activity-grid").innerHTML = rows.map((row) => {
+        const value = Number(row.items ?? 0) + Number(row.events ?? 0);
+        const level = value === 0 ? 0 : Math.max(1, Math.ceil((value / max) * 4));
+        const classes = [
+          "bg-surface2",
+          "bg-accentsoft",
+          "bg-[color:color-mix(in_oklch,var(--color-accent)_28%,var(--color-surface))]",
+          "bg-[color:color-mix(in_oklch,var(--color-accent)_52%,var(--color-surface))]",
+          "bg-accent"
+        ];
+        return `<span title="${escapeHtml(row.day)} · ${value} Signale" class="h-8 rounded-md border border-rule ${classes[level]}"></span>`;
+      }).join("");
+    }
+
+    function renderFeeds(feeds) {
+      document.querySelector("#feed-health").innerHTML = (feeds ?? []).map((feed) => `
+        <div class="rounded-md border border-rule bg-surface p-3">
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-mono text-[11px] uppercase tracking-[0.1em]">${escapeHtml(feed.feed_language)}</span>
+            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(feed.items_new_last_run ?? 0)} neu</span>
+          </div>
+          <p class="mt-2 font-mono text-[10px] leading-5 text-muted">${escapeHtml(formatDate(feed.last_success_at))}</p>
+          ${feed.last_error ? `<p class="mt-2 text-sm text-danger">${escapeHtml(feed.last_error)}</p>` : ""}
+        </div>
+      `).join("") || `<p class="text-sm text-muted">Noch keine Feed-Daten.</p>`;
+    }
+
+    function renderRunSummary(data) {
+      const lastRun = data.lastRun ?? {};
+      const runs = data.runs ?? [];
+      const finishedRuns = runs.filter((run) => run.started_at && run.finished_at);
+      const avgSeconds = finishedRuns.length
+        ? Math.round(finishedRuns.reduce((sum, run) => {
+            const seconds = (new Date(run.finished_at) - new Date(run.started_at)) / 1000;
+            return sum + (Number.isFinite(seconds) ? seconds : 0);
+          }, 0) / finishedRuns.length)
+        : null;
+      document.querySelector("#run-summary").innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Letzter Worker-Run</p>
+            <p class="mt-1 font-display text-xl font-bold">${escapeHtml(lastRun.status ?? "-")}</p>
+          </div>
+          <span class="rounded-md border border-rule bg-surface px-2 py-1 font-mono text-[11px] text-muted">${escapeHtml(durationLabel(lastRun.started_at, lastRun.finished_at))}</span>
+        </div>
+        <div class="mt-3 grid grid-cols-3 gap-2 font-mono text-[11px] text-muted">
+          <span>${escapeHtml(lastRun.items_seen ?? 0)} gesehen</span>
+          <span>${escapeHtml(lastRun.items_classified ?? 0)} KI</span>
+          <span>${avgSeconds === null ? "-" : `${avgSeconds}s Ø`}</span>
+        </div>
+      `;
+    }
+
+    function renderEvents(events) {
+      const filtered = (events ?? []).filter((event) => {
+        const statusMatches = viewState.status === "active"
+          ? event.status !== "dismissed"
+          : event.status === viewState.status;
+        const haystack = `${event.title ?? ""} ${event.location_text ?? ""} ${event.event_type ?? ""} ${event.cause_category ?? ""}`.toLowerCase();
+        return statusMatches && haystack.includes(viewState.query.toLowerCase());
+      });
+      document.querySelector("#event-count").textContent = `${filtered.length} von ${(events ?? []).length}`;
+      document.querySelector("#events-list").innerHTML = filtered.map((event) => {
+        const eventScore = Math.max(0, Math.min(100, Math.round(Number(event.event_score ?? Number(event.confidence ?? 0) * 100))));
+        const researchPct = event.fact_confidence === null || event.fact_confidence === undefined ? null : Math.max(0, Math.min(100, Math.round(Number(event.fact_confidence) * 100)));
+        const samePlace = samePlaceCount(event);
+        const summary = event.research_summary_de || event.summary || event.title || event.primary_source_title || "Keine Kurzfassung";
+        return `
+          <a href="/events/${event.id}" class="status-rail lift-hover block rounded-md border border-rule bg-surface px-4 py-3 shadow-panel" style="--rail-color:${railColor(event.status)}">
+            <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_210px] md:items-start">
+              <div class="min-w-0 pl-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${statusClass(event.status)}">${escapeHtml(label("status", event.status))}</span>
+                  <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(label("research", event.research_status || "not_started"))}</span>
+                  <span class="rounded-md border ${event.evidence_level === "official" ? "border-ok bg-oksoft text-ok" : "border-rule bg-surface2 text-muted"} px-2 py-1 font-mono text-[10px]">${escapeHtml(label("evidence", event.evidence_level || "weak"))}</span>
+                  ${samePlace > 0 ? `<span class="rounded-md border border-accent bg-accentsoft px-2 py-1 font-mono text-[10px] text-accent">${samePlace + 1} Akten am Ort</span>` : ""}
+                </div>
+                <h3 class="clamp-title mt-3 font-display text-2xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
+                <p class="mt-2 line-clamp-2 text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
+                <div class="mt-3 flex flex-wrap gap-2 font-mono text-[11px] text-muted">
+                  <span>${escapeHtml(formatDate(event.first_seen_at))}</span>
+                  <span>bis</span>
+                  <span>${escapeHtml(formatDate(event.last_seen_at))}</span>
+                  <span>·</span>
+                  <span>${escapeHtml(durationLabel(event.first_seen_at, event.last_seen_at))}</span>
+                </div>
+              </div>
+              <div class="grid gap-2 font-mono text-[11px] text-muted">
+                <div class="rounded-md border border-rule bg-surface2 p-3">
+                  <div class="flex items-center justify-between gap-2"><span>Score</span><span>${eventScore}%</span></div>
+                  <div class="mt-1 h-1.5 rounded bg-surface"><div class="h-1.5 rounded bg-accent" style="width:${eventScore}%"></div></div>
+                  <div class="mt-2 flex items-center justify-between gap-2"><span>Recherche</span><span>${researchPct === null ? "unklar" : `${researchPct}%`}</span></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <span class="rounded-md border border-rule bg-surface2 p-2">${escapeHtml(event.source_count ?? 0)} Quellen</span>
+                  <span class="rounded-md border border-rule bg-surface2 p-2">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
+                </div>
+                <span class="rounded-md border border-rule bg-surface2 p-2">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
+              </div>
+            </div>
+          </a>
+        `;
+      }).join("") || `<div class="rounded-md border border-rule bg-surface p-6 text-sm text-muted">Keine passenden Event-Akten.</div>`;
+    }
+
+    async function loadRadar() {
+      document.querySelector("#events-list").classList.add("opacity-60");
+      const response = await fetch("/api/public/status", { cache: "no-store" });
+      if (!response.ok) throw new Error("Status konnte nicht geladen werden");
+      const data = await response.json();
+      renderEventMetrics(data);
+      renderActivity(data.activity);
+      renderRunSummary(data);
+      renderFeeds(data.feedHealth);
+      viewState.events = data.events ?? [];
+      renderEvents(viewState.events);
+      document.querySelector("#events-list").classList.remove("opacity-60");
+    }
+
+    const tokenInput = document.querySelector("#admin-token-input");
+    const tokenState = document.querySelector("#admin-token-state");
+    function syncAdminToken() {
+      const value = localStorage.getItem("outage_admin_token") ?? "";
+      tokenInput.value = value;
+      tokenState.textContent = value ? "Angemeldet, Controls in Akten sichtbar" : "Nicht angemeldet";
+    }
+    tokenInput.addEventListener("input", (event) => {
+      const value = event.target.value.trim();
+      if (value) localStorage.setItem("outage_admin_token", value);
+      else localStorage.removeItem("outage_admin_token");
+      syncAdminToken();
+    });
+    window.addEventListener("outage:admin-login", () => {
+      document.querySelector("#system-panel").classList.remove("hidden");
+      document.querySelector("#system-strip").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      tokenInput.focus();
+    });
+    syncAdminToken();
+
+    document.querySelector("#refresh-button").addEventListener("click", async (event) => {
+      event.currentTarget.textContent = "Lädt...";
+      try {
+        await loadRadar();
+      } finally {
+        event.currentTarget.textContent = "Aktualisieren";
+      }
+    });
+    document.querySelector("#event-search").addEventListener("input", (event) => {
+      viewState.query = event.target.value ?? "";
+      renderEvents(viewState.events);
+    });
+    document.querySelectorAll(".filter-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        viewState.status = button.dataset.status;
+        document.querySelectorAll(".filter-button").forEach((item) => {
+          item.className = "filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink";
+        });
+        button.className = "filter-button is-active rounded-md border border-ink bg-ink px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-surface";
+        renderEvents(viewState.events);
+      });
+    });
+    document.querySelector("#system-toggle").addEventListener("click", () => {
+      document.querySelector("#system-panel").classList.toggle("hidden");
+    });
+    loadRadar().catch((error) => {
+      document.querySelector("#events-list").innerHTML = `<div class="rounded-md border border-danger bg-dangersoft p-6 text-danger">${escapeHtml(error.message)}</div>`;
+    });
+  </script>
+</RadarLayout>

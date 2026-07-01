@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "swiss-power-outage-radar",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-30",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+  "routes": [
+    {
+      "pattern": "outage.ch",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ALERT_FEED_DE": "https://www.google.ch/alerts/feeds/16558478364210538813/6551104678731419018",
+    "ALERT_FEED_FR": "https://www.google.ch/alerts/feeds/16558478364210538813/11946241330502781765",
+    "ALERT_FEED_IT": "https://www.google.ch/alerts/feeds/16558478364210538813/6819932838852918871",
+    "NOTIFY_EMAIL": "pw@bimex.ch",
+    "FROM_EMAIL": "alert@outage.ch"
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "swiss-power-outage-radar",
+      "database_id": "3e8f9daf-1164-4b9e-ab1f-b0ef8843270a",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
+  "browser": {
+    "binding": "BROWSER"
+  },
+  "r2_buckets": [
+    {
+      "binding": "SNAPSHOTS",
+      "bucket_name": "outage-source-snapshots"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["alert@outage.ch"],
+      "allowed_destination_addresses": ["pw@bimex.ch"]
+    }
+  ],
+  "workflows": [
+    {
+      "binding": "CHECK_ALERT_FEEDS",
+      "name": "check-alert-feeds",
+      "class_name": "CheckAlertFeedsWorkflow"
+    }
+  ]
+}

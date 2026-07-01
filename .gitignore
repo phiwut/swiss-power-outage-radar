@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.astro/
+.dev.vars
+.DS_Store
+dist/
+outputs/
+work/
+.hallmark/
+coverage/
+*.log

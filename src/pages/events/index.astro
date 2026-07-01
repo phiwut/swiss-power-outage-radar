@@ -1,0 +1,587 @@
+---
+import RadarLayout from "../../layouts/RadarLayout.astro";
+---
+
+<RadarLayout title="Event-Akte">
+  <section class="py-3">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <a href="/" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink">Zurück</a>
+      <button id="detail-login-button" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" type="button">Admin anmelden</button>
+    </div>
+    <div id="event-shell">
+      <div class="panel loading-stripe h-96 rounded-md"></div>
+    </div>
+  </section>
+
+  <dialog id="source-dialog" class="source-modal w-[min(760px,calc(100vw-24px))] rounded-md border border-rule bg-surface p-0 text-ink shadow-panel">
+    <div class="border-b border-rule px-4 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Quellen-Snapshot</p>
+          <h2 id="source-dialog-title" class="clamp-title mt-1 font-display text-xl font-bold"></h2>
+        </div>
+        <button id="source-dialog-close" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted" type="button">Schliessen</button>
+      </div>
+    </div>
+    <div class="grid gap-3 p-4">
+      <div class="rounded-md border border-warn bg-warnsoft p-3 text-sm leading-6">Es wird nur ein gespeicherter Auszug angezeigt, nicht der vollständige Artikel. Für Einordnung immer die Originalquelle öffnen.</div>
+      <div id="source-dialog-body" class="markdown-preview max-h-[55vh] overflow-auto rounded-md border border-rule bg-surface2 p-4"></div>
+      <a id="source-dialog-link" class="rounded-md border border-ink bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface" rel="noreferrer" target="_blank">Originalquelle öffnen</a>
+    </div>
+  </dialog>
+
+  <script>
+    const id = location.pathname.match(/\/events\/(\d+)/)?.[1];
+    const fmt = new Intl.DateTimeFormat("de-CH", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Europe/Zurich"
+    });
+
+    let currentData = null;
+    let currentAdminBusy = false;
+
+    const labels = {
+      status: {
+        needs_review: "Zu prüfen",
+        corroborated: "Mehrfach belegt",
+        dismissed: "Verworfen",
+        resolved: "Behoben"
+      },
+      eventType: {
+        power_outage: "Stromausfall",
+        grid_disturbance: "Netzstörung",
+        planned_outage: "Geplanter Unterbruch",
+        unclear: "Unklar",
+        not_relevant: "Nicht relevant"
+      },
+      nature: {
+        planned: "Geplanter Unterbruch",
+        unplanned: "Ungeplanter Unterbruch",
+        unknown: "Unklar"
+      },
+      cause: {
+        planned_maintenance: "Wartung / geplanter Unterbruch",
+        weather: "Wetter / Sturm / Blitz",
+        tree_or_overhead_line: "Baum / Freileitung",
+        construction_damage: "Bauarbeiten / Bagger",
+        cable_damage: "Kabelschaden",
+        transformer_or_substation: "Trafostation / Unterwerk",
+        technical_fault: "Technische Störung",
+        fire: "Brand",
+        overload: "Überlast / Netzproblem",
+        third_party_damage: "Dritteinwirkung",
+        water_or_flooding: "Wasser / Überschwemmung",
+        unknown: "Unbekannt"
+      },
+      research: {
+        not_started: "Nicht gestartet",
+        running: "Läuft",
+        completed: "Abgeschlossen",
+        failed: "Fehlgeschlagen"
+      },
+      evidence: {
+        weak: "Schwach",
+        plausible: "Plausibel",
+        corroborated: "Mehrfach belegt",
+        official: "Offizielle Quelle"
+      },
+      sourceKind: {
+        official: "Offiziell",
+        local_media: "Lokalmedium",
+        national_media: "Medium",
+        operator: "Betreiber",
+        aggregator: "Aggregator",
+        other: "Quelle"
+      }
+    };
+
+    const label = (group, value) => labels[group]?.[value] ?? value ?? "-";
+    const escapeHtml = (value) => String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+
+    function formatDate(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : fmt.format(date);
+    }
+
+    function durationLabel(start, end) {
+      if (!start || !end) return "-";
+      const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
+      if (!Number.isFinite(seconds)) return "-";
+      if (seconds < 60) return `${seconds}s`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+      return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
+    }
+
+    function adminToken() {
+      return localStorage.getItem("outage_admin_token") ?? "";
+    }
+
+    function statusClass(status) {
+      if (status === "corroborated") return "border-ok bg-oksoft text-ok";
+      if (status === "dismissed") return "border-rule bg-surface2 text-muted";
+      if (status === "resolved") return "border-accent bg-accentsoft text-accent";
+      return "border-warn bg-warnsoft text-warn";
+    }
+
+    function pct(value) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return null;
+      return Math.max(0, Math.min(100, Math.round(Number(value) * 100)));
+    }
+
+    function miniBar(value, color = "bg-accent") {
+      const width = value ?? 0;
+      return `<div class="mt-2 h-2 rounded bg-surface"><div class="h-2 rounded ${color}" style="width:${width}%"></div></div>`;
+    }
+
+    function renderMarkdownExcerpt(markdown) {
+      const lines = String(markdown ?? "").split(/\n+/).slice(0, 80);
+      return lines.map((line) => {
+        const clean = escapeHtml(line.trim());
+        if (!clean) return "";
+        if (clean.startsWith("### ")) return `<h3>${clean.slice(4)}</h3>`;
+        if (clean.startsWith("## ")) return `<h2>${clean.slice(3)}</h2>`;
+        if (clean.startsWith("# ")) return `<h1>${clean.slice(2)}</h1>`;
+        if (clean.startsWith("* ") || clean.startsWith("- ")) return `<ul><li>${clean.slice(2)}</li></ul>`;
+        return `<p>${clean}</p>`;
+      }).join("");
+    }
+
+    function openSourceDialog(source, snapshot) {
+      const dialog = document.querySelector("#source-dialog");
+      document.querySelector("#source-dialog-title").textContent = source.source_title || "Quelle";
+      document.querySelector("#source-dialog-link").href = source.source_url;
+      document.querySelector("#source-dialog-body").innerHTML = snapshot?.markdown_excerpt
+        ? renderMarkdownExcerpt(snapshot.markdown_excerpt)
+        : `<p>Für diese Quelle ist kein Markdown-Auszug vorhanden. Öffne die Originalquelle für Details.</p>`;
+      dialog.showModal();
+    }
+
+    async function adminAction(path, body) {
+      const token = adminToken();
+      if (!token) throw new Error("Bitte zuerst mit Admin-Token anmelden.");
+      const response = await fetch(path, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body ?? {})
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error ?? "Admin-Aktion fehlgeschlagen");
+      return payload;
+    }
+
+    function sourceQuality(source, snapshot) {
+      if (source.is_official === 1) return "Offizielle Quelle";
+      if (source.is_primary) return "Hauptquelle";
+      if (snapshot?.markdown_excerpt) return "Snapshot-Auszug";
+      if (snapshot?.fetch_status === "success") return "Snapshot vorhanden";
+      if (snapshot?.fetch_status === "failed") return "Snapshot fehlgeschlagen";
+      return "Quelle";
+    }
+
+    function parseFactSheet(event) {
+      if (!event.fact_sheet_json) return null;
+      try {
+        return JSON.parse(event.fact_sheet_json);
+      } catch {
+        return null;
+      }
+    }
+
+    function renderFactList(items, empty) {
+      const rows = (items ?? []).filter(Boolean);
+      if (!rows.length) return `<p class="text-sm leading-6 text-muted">${escapeHtml(empty)}</p>`;
+      return `<ul class="grid gap-2 text-sm leading-6 text-muted">${rows.map((item) => `<li class="rounded-md border border-rule bg-surface2 px-3 py-2">${escapeHtml(item)}</li>`).join("")}</ul>`;
+    }
+
+    function renderFactSheetCard(factSheet, event) {
+      if (!factSheet) {
+        return `
+          <section class="panel rounded-md p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="font-display text-xl font-bold">Lagebild</h2>
+              <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">noch nicht berechnet</span>
+            </div>
+            <p class="mt-3 text-sm leading-6 text-muted">${escapeHtml(event.research_summary_de || event.summary || "Noch kein Fact-Sheet vorhanden.")}</p>
+          </section>
+        `;
+      }
+      return `
+        <section class="panel rounded-md">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+            <div>
+              <h2 class="font-display text-xl font-bold">Lagebild</h2>
+              <p class="mt-1 text-sm text-muted">${escapeHtml(factSheet.source_assessment || "Automatisch verdichtete Quellenlage.")}</p>
+            </div>
+            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">${escapeHtml(factSheet.independent_source_count ?? 0)} unabhängige Quellen</span>
+          </div>
+          <div class="grid gap-3 p-4 lg:grid-cols-2">
+            <div>
+              <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Kurzfassung</p>
+              <p class="mt-2 text-sm leading-6 text-muted">${escapeHtml(factSheet.summary_de || event.summary || "")}</p>
+            </div>
+            <div>
+              <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Gesicherte Punkte</p>
+              <div class="mt-2">${renderFactList(factSheet.confirmed_facts, "Noch keine harten Punkte.")}</div>
+            </div>
+            <div class="lg:col-span-2">
+              <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Offene Punkte</p>
+              <div class="mt-2">${renderFactList(factSheet.open_questions, "Keine offenen Punkte gespeichert.")}</div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderEvent(data) {
+      currentData = data;
+      const event = data.event;
+      const sources = data.sources ?? [];
+      const snapshots = data.snapshots ?? [];
+      const mergeSuggestions = data.merge_suggestions ?? [];
+      const snapshotsBySource = new Map(
+        snapshots
+          .filter((snapshot) => snapshot.outage_source_id !== null)
+          .map((snapshot) => [snapshot.outage_source_id, snapshot])
+      );
+      const eventScore = Math.max(0, Math.min(100, Math.round(Number(event.event_score ?? Number(event.confidence ?? 0) * 100))));
+      const researchPct = pct(event.fact_confidence);
+      const factSheet = parseFactSheet(event);
+      const canonicalUrl = `${location.origin}/events/${event.id}`;
+      const observedDuration = durationLabel(event.first_seen_at, event.last_seen_at);
+      const snapshotSuccess = snapshots.filter((snapshot) => snapshot.fetch_status === "success").length;
+      const snapshotFailed = snapshots.filter((snapshot) => snapshot.fetch_status === "failed").length;
+      const adminAvailable = Boolean(adminToken());
+      const summary = event.research_summary_de || event.summary || "Keine Kurzfassung gespeichert.";
+      document.title = `${event.location_text || event.title} - Outage Radar`;
+
+      document.querySelector("#detail-login-button").textContent = adminAvailable ? "Admin aktiv" : "Admin anmelden";
+      document.querySelector("#event-shell").innerHTML = `
+        <article class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <section class="grid gap-3">
+            <div class="panel rounded-md p-4 sm:p-5">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${statusClass(event.status)}">${escapeHtml(label("status", event.status))}</span>
+                    <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">Akte #${event.id}</span>
+                    <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(label("research", event.research_status || "not_started"))}</span>
+                    <span class="rounded-md border ${event.evidence_level === "official" ? "border-ok bg-oksoft text-ok" : "border-rule bg-surface2 text-muted"} px-2 py-1 font-mono text-[10px]">${escapeHtml(label("evidence", event.evidence_level || "weak"))}</span>
+                  </div>
+                  <h1 class="clamp-title mt-4 font-display text-4xl font-extrabold leading-tight sm:text-5xl">${escapeHtml(event.location_text || "Ort unklar")}</h1>
+                  <p class="mt-3 max-w-3xl text-base leading-7 text-muted">${escapeHtml(summary)}</p>
+                </div>
+                <div class="grid min-w-[150px] gap-2 rounded-md border border-rule bg-surface2 p-3 font-mono text-[11px] text-muted">
+                  <span>Erkannt</span>
+                  <strong class="text-sm text-ink">${escapeHtml(formatDate(event.first_seen_at))}</strong>
+                  <span>Aktualisiert</span>
+                  <strong class="text-sm text-ink">${escapeHtml(formatDate(event.last_seen_at))}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-4">
+              <div class="panel rounded-md p-3">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Event-Score</p>
+                <strong class="mt-2 block font-display text-3xl">${eventScore}%</strong>
+                ${miniBar(eventScore)}
+              </div>
+              <div class="panel rounded-md p-3">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Recherche</p>
+                <strong class="mt-2 block font-display text-3xl">${researchPct === null ? "?" : `${researchPct}%`}</strong>
+                ${miniBar(researchPct, "bg-ok")}
+              </div>
+              <div class="panel rounded-md p-3">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Quellen</p>
+                <strong class="mt-2 block font-display text-3xl">${escapeHtml(event.source_count ?? sources.length)}</strong>
+                <p class="mt-2 font-mono text-[11px] text-muted">${snapshotSuccess} Snapshot · ${snapshotFailed} Fehler</p>
+              </div>
+              <div class="panel rounded-md p-3">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Zeitfenster</p>
+                <strong class="mt-2 block font-display text-2xl">${escapeHtml(observedDuration)}</strong>
+                <p class="mt-2 font-mono text-[11px] text-muted">Ort + Zeit trennt Ereignisse</p>
+              </div>
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-3">
+              <section class="panel rounded-md p-4">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Art</p>
+                <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</h2>
+                <p class="mt-2 text-sm leading-6 text-muted">${escapeHtml(label("eventType", event.event_type))}</p>
+              </section>
+              <section class="panel rounded-md p-4">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Vermutete Ursache</p>
+                <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(label("cause", event.cause_category || "unknown"))}</h2>
+                <p class="mt-2 text-sm leading-6 text-muted">${escapeHtml(event.cause_text || "Nicht eindeutig ableitbar.")}</p>
+              </section>
+              <section class="panel rounded-md p-4">
+                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Einordnung</p>
+                <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(event.country || "-")}</h2>
+                <p class="mt-2 text-sm leading-6 text-muted">Automatisch erstellt. Nicht offiziell verifiziert.</p>
+              </section>
+            </div>
+
+            ${renderFactSheetCard(factSheet, event)}
+
+            <section class="panel rounded-md">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+                <div>
+                  <h2 class="font-display text-xl font-bold">Quellenlage</h2>
+                  <p class="mt-1 text-sm text-muted">Klick öffnet Auszug oder Originalquelle.</p>
+                </div>
+                <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">${escapeHtml(sources.length)} Einträge</span>
+              </div>
+              <div class="grid gap-2 p-3">
+                ${sources.map((source) => {
+                  const snapshot = snapshotsBySource.get(source.id);
+                  const hasExcerpt = Boolean(snapshot?.markdown_excerpt);
+                  const hasSnapshotOnly = !hasExcerpt && snapshot?.fetch_status === "success";
+                  return `
+                    <button class="source-button lift-hover rounded-md border border-rule bg-surface p-3 text-left" data-source-id="${source.id}" type="button">
+                      <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_160px] md:items-start">
+                        <div class="min-w-0">
+                          <h3 class="clamp-title font-display text-lg font-bold leading-snug">${escapeHtml(source.source_title)}</h3>
+                          <div class="mt-2 flex flex-wrap gap-2 font-mono text-[11px] text-muted">
+                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1">${escapeHtml(source.source_name || "Quelle unbekannt")}</span>
+                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1">Score ${escapeHtml(source.relation_score)}</span>
+                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1">${escapeHtml(label("sourceKind", source.source_kind || "other"))} · Gewicht ${escapeHtml(source.source_weight ?? "-")}</span>
+                            <span class="rounded-md border ${hasExcerpt ? "border-ok bg-oksoft text-ok" : snapshot?.fetch_status === "failed" ? "border-warn bg-warnsoft text-warn" : hasSnapshotOnly ? "border-accent bg-accentsoft text-accent" : "border-rule bg-surface2 text-muted"} px-2 py-1">${escapeHtml(sourceQuality(source, snapshot))}</span>
+                          </div>
+                        </div>
+                        <span class="font-mono text-[11px] text-muted md:text-right">${escapeHtml(formatDate(source.published_at))}</span>
+                      </div>
+                    </button>
+                  `;
+                }).join("") || `<div class="rounded-md border border-rule bg-surface p-6 text-sm text-muted">Keine Quellen gespeichert.</div>`}
+              </div>
+            </section>
+          </section>
+
+          <aside class="grid h-fit gap-3">
+            ${adminAvailable ? renderAdminCard(event) : renderLoginCard()}
+            <section class="panel rounded-md p-4">
+              <h2 class="font-display text-lg font-bold">Akten-Link</h2>
+              <p class="mt-2 break-all font-mono text-[11px] leading-5 text-muted">${escapeHtml(canonicalUrl)}</p>
+              <button id="copy-event-link" class="mt-3 w-full rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-ink" type="button">Link kopieren</button>
+            </section>
+            <section class="rounded-md border border-warn bg-warnsoft p-4 text-sm leading-6">
+              Keine offizielle Verifikation. Bei kritischen Fällen immer Quelle und Betreiberkommunikation prüfen.
+            </section>
+          </aside>
+        </article>
+      `;
+
+      document.querySelector("#copy-event-link")?.addEventListener("click", async (buttonEvent) => {
+        await navigator.clipboard.writeText(canonicalUrl);
+        buttonEvent.currentTarget.textContent = "Kopiert";
+      });
+
+      document.querySelectorAll(".source-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          const sourceId = Number(button.dataset.sourceId);
+          const source = sources.find((item) => item.id === sourceId);
+          const snapshot = snapshotsBySource.get(sourceId);
+          if (source) openSourceDialog(source, snapshot);
+        });
+      });
+
+      bindLoginControls();
+      if (adminAvailable) bindAdminControls(event.id);
+    }
+
+    function renderLoginCard() {
+      return `
+        <section class="panel rounded-md p-4">
+          <h2 class="font-display text-lg font-bold">Admin</h2>
+          <p class="mt-1 text-sm leading-6 text-muted">Controls werden erst nach Token-Login geladen.</p>
+          <input id="detail-admin-token" class="mt-3 w-full rounded-md border border-rule bg-surface px-3 py-2 font-mono text-xs text-ink" type="password" placeholder="Admin Token" />
+          <button id="detail-admin-save" class="mt-2 w-full rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">Anmelden</button>
+        </section>
+      `;
+    }
+
+    function renderAdminCard(event) {
+      const researchBusy = event.research_status === "running";
+      return `
+        <section class="panel rounded-md p-4" id="admin-card">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="font-display text-lg font-bold">Admin</h2>
+              <p class="mt-1 text-sm text-muted">Kuratieren ohne Portal.</p>
+            </div>
+            <button id="admin-logout" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted" type="button">Logout</button>
+          </div>
+          <label class="mt-3 block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="admin-note">Notiz</label>
+          <textarea id="admin-note" class="mt-2 min-h-20 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink" placeholder="Optionaler Admin-Kommentar"></textarea>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button data-admin-action="corroborate" class="admin-button rounded-md border border-ok bg-oksoft px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-ok" type="button">Bestätigen</button>
+            <button data-admin-action="dismiss" class="admin-button rounded-md border border-danger bg-dangersoft px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-danger" type="button">Verwerfen</button>
+          </div>
+          <button data-admin-action="research" class="admin-button mt-2 w-full rounded-md border border-accent bg-accentsoft px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-accent disabled:opacity-60" ${researchBusy ? "disabled" : ""} type="button">${researchBusy ? "Recherche läuft" : "Prüfen"}</button>
+          <button data-admin-action="fact-sheet" class="admin-button mt-2 w-full rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-ink" type="button">Fact-Sheet neu berechnen</button>
+          <label class="mt-4 block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="merge-target">Merge in Akte</label>
+          <select id="merge-target" class="mt-2 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink">
+            <option value="">Zielakte laden...</option>
+          </select>
+          <button data-admin-action="merge" class="admin-button mt-2 w-full rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">Merge ausführen</button>
+          ${renderMergeSuggestions(currentData?.merge_suggestions ?? [])}
+          <p id="admin-result" class="mt-3 min-h-5 font-mono text-[11px] text-muted"></p>
+        </section>
+      `;
+    }
+
+    function renderMergeSuggestions(suggestions) {
+      if (!suggestions?.length) {
+        return `<div class="mt-3 rounded-md border border-rule bg-surface2 p-3 text-sm text-muted">Keine offenen Merge-Vorschläge.</div>`;
+      }
+      return `
+        <div class="mt-3 rounded-md border border-rule bg-surface2 p-3">
+          <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Merge-Vorschläge</p>
+          <div class="mt-2 grid gap-2">
+            ${suggestions.map((suggestion) => `
+              <button class="merge-suggestion rounded-md border border-rule bg-surface px-3 py-2 text-left text-sm" data-target-id="${suggestion.target_event_id}" type="button">
+                <strong class="font-mono text-[11px]">#${suggestion.target_event_id} · ${Math.round(suggestion.heuristic_score)} Heuristik · ${suggestion.ai_confidence === null ? "AI ?" : `${Math.round(Number(suggestion.ai_confidence) * 100)}% AI`}</strong>
+                <span class="mt-1 block text-muted">${escapeHtml(suggestion.reason || "Kein Grund gespeichert.")}</span>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function bindLoginControls() {
+      document.querySelector("#detail-admin-save")?.addEventListener("click", async () => {
+        const token = document.querySelector("#detail-admin-token")?.value?.trim();
+        if (token) localStorage.setItem("outage_admin_token", token);
+        await loadEvent();
+      });
+      document.querySelector("#admin-logout")?.addEventListener("click", async () => {
+        localStorage.removeItem("outage_admin_token");
+        await loadEvent();
+      });
+    }
+
+    async function setAdminBusy(label) {
+      currentAdminBusy = true;
+      document.querySelectorAll(".admin-button").forEach((button) => {
+        button.disabled = true;
+        button.classList.add("opacity-60");
+      });
+      const result = document.querySelector("#admin-result");
+      if (result) result.textContent = label;
+    }
+
+    function clearAdminBusy(message) {
+      currentAdminBusy = false;
+      const result = document.querySelector("#admin-result");
+      if (result) result.textContent = message ?? "";
+    }
+
+    async function bindAdminControls(eventId) {
+      const target = document.querySelector("#merge-target");
+      try {
+        const response = await fetch("/api/public/status", { cache: "no-store" });
+        const data = await response.json();
+        const candidates = (data.events ?? [])
+          .filter((event) => event.id !== eventId && event.status !== "dismissed")
+          .slice(0, 30);
+        target.innerHTML = `<option value="">Zielakte wählen</option>` + candidates.map((event) => `
+          <option value="${event.id}">#${event.id} · ${escapeHtml(event.location_text || event.title || "Ort unklar")} · ${escapeHtml(label("status", event.status))}</option>
+        `).join("");
+      } catch {
+        target.innerHTML = `<option value="">Zielakte konnte nicht geladen werden</option>`;
+      }
+
+      document.querySelectorAll(".admin-button").forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (currentAdminBusy) return;
+          const action = button.dataset.adminAction;
+          const note = document.querySelector("#admin-note")?.value ?? "";
+          try {
+            if (action === "corroborate") {
+              await setAdminBusy("Bestätige...");
+              await adminAction(`/admin/events/${eventId}/corroborate`, { admin_note: note });
+              clearAdminBusy("Bestätigt.");
+              await loadEvent();
+            }
+            if (action === "dismiss") {
+              await setAdminBusy("Verwerfe...");
+              await adminAction(`/admin/events/${eventId}/dismiss`, { admin_note: note });
+              clearAdminBusy("Verworfen.");
+              await loadEvent();
+            }
+            if (action === "research") {
+              await setAdminBusy("Recherche läuft. Das kann etwas dauern...");
+              await adminAction(`/admin/events/${eventId}/research`, { admin_note: note });
+              clearAdminBusy("Recherche abgeschlossen.");
+              await loadEvent();
+            }
+            if (action === "fact-sheet") {
+              await setAdminBusy("Fact-Sheet wird neu berechnet...");
+              await adminAction(`/admin/events/${eventId}/fact-sheet`, { admin_note: note });
+              clearAdminBusy("Fact-Sheet aktualisiert.");
+              await loadEvent();
+            }
+            if (action === "merge") {
+              const targetEventId = Number(target.value);
+              if (!targetEventId) throw new Error("Zielakte wählen.");
+              await setAdminBusy("Merge läuft...");
+              const payload = await adminAction(`/admin/events/${eventId}/merge`, {
+                target_event_id: targetEventId,
+                admin_note: note
+              });
+              clearAdminBusy("Gemerged.");
+              location.href = `/events/${payload.target.id}`;
+            }
+          } catch (error) {
+            clearAdminBusy(error.message);
+            await loadEvent();
+          }
+        });
+      });
+      document.querySelectorAll(".merge-suggestion").forEach((button) => {
+        button.addEventListener("click", () => {
+          target.value = button.dataset.targetId;
+        });
+      });
+    }
+
+    async function loadEvent() {
+      if (!id) throw new Error("Event-ID fehlt");
+      document.querySelector("#event-shell").classList.add("opacity-70");
+      const response = await fetch(`/api/public/events/${id}`, { cache: "no-store" });
+      if (response.status === 404) throw new Error("Event nicht gefunden");
+      if (!response.ok) throw new Error("Event konnte nicht geladen werden");
+      renderEvent(await response.json());
+      document.querySelector("#event-shell").classList.remove("opacity-70");
+    }
+
+    document.querySelector("#source-dialog-close").addEventListener("click", () => {
+      document.querySelector("#source-dialog").close();
+    });
+    document.querySelector("#detail-login-button").addEventListener("click", () => {
+      if (adminToken()) {
+        localStorage.removeItem("outage_admin_token");
+        loadEvent();
+      } else {
+        document.querySelector("#detail-admin-token")?.focus();
+      }
+    });
+    window.addEventListener("outage:admin-login", () => {
+      document.querySelector("#detail-admin-token")?.focus();
+    });
+
+    loadEvent().catch((error) => {
+      document.querySelector("#event-shell").innerHTML = `<div class="panel rounded-md p-8 text-danger">${escapeHtml(error.message)}</div>`;
+    });
+  </script>
+</RadarLayout>

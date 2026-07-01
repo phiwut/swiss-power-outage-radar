@@ -1,0 +1,24 @@
+{
+  "name": "swiss-power-outage-radar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "wrangler dev --persist-to .wrangler/state",
+    "deploy": "npm run build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply swiss-power-outage-radar --local",
+    "db:migrate:remote": "wrangler d1 migrations apply swiss-power-outage-radar --remote"
+  },
+  "devDependencies": {
+    "@astrojs/tailwind": "^6.0.2",
+    "@cloudflare/workers-types": "^4.20250630.0",
+    "astro": "^7.0.3",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.23.0"
+  }
+}

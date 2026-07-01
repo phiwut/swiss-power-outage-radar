@@ -1,0 +1,207 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap");
+@import "../../tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+html {
+  min-height: 100%;
+  overflow-x: clip;
+  background: var(--color-bg);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow-x: clip;
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in oklch, var(--color-accent) 13%, transparent), transparent 26rem),
+    linear-gradient(135deg, color-mix(in oklch, var(--color-surface-2) 70%, white) 0, var(--color-bg) 38rem),
+    var(--color-bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+a {
+  text-decoration-thickness: var(--rule-thin);
+  text-underline-offset: 0.18em;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    opacity var(--dur-short) var(--ease-out),
+    transform var(--dur-short) var(--ease-out);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.panel {
+  border: var(--rule-thin) solid var(--color-rule);
+  background:
+    linear-gradient(180deg, color-mix(in oklch, white 52%, var(--color-surface)) 0, var(--color-surface) 100%);
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 70%, transparent) inset,
+    0 14px 32px color-mix(in oklch, var(--color-ink) 7%, transparent);
+}
+
+.hairline-grid {
+  background-image:
+    linear-gradient(var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
+    linear-gradient(90deg, var(--color-rule) var(--rule-thin), transparent var(--rule-thin));
+  background-size: 3rem 3rem;
+  background-position: -1px -1px;
+}
+
+.event-row:hover {
+  background: color-mix(in oklch, var(--color-accent-soft) 45%, var(--color-surface));
+  border-color: var(--color-rule-strong);
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.clamp-title {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.loading-stripe {
+  overflow: hidden;
+  position: relative;
+}
+
+.page-enter {
+  animation: page-enter 360ms var(--ease-out) both;
+}
+
+.lift-hover:hover {
+  transform: translateY(-1px);
+}
+
+.status-rail {
+  position: relative;
+}
+
+.status-rail::before {
+  background: var(--rail-color, var(--color-accent));
+  border-radius: 999px;
+  content: "";
+  inset: 0 auto 0 0;
+  position: absolute;
+  width: 4px;
+}
+
+.soft-grid {
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--color-rule) 65%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--color-rule) 65%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.source-modal[open] {
+  animation: modal-in 180ms var(--ease-out) both;
+}
+
+.source-modal::backdrop {
+  background: color-mix(in oklch, var(--color-ink) 36%, transparent);
+  backdrop-filter: blur(5px);
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3 {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 1rem 0 0.5rem;
+}
+
+.markdown-preview p,
+.markdown-preview li {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.markdown-preview ul {
+  list-style: disc;
+  margin: 0.5rem 0 0.5rem 1.25rem;
+}
+
+.loading-stripe::after {
+  animation: scan 1.2s linear infinite;
+  background: linear-gradient(90deg, transparent, var(--color-accent-soft), transparent);
+  content: "";
+  inset: 0;
+  position: absolute;
+  transform: translateX(-100%);
+}
+
+@keyframes scan {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}
