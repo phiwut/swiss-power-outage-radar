@@ -1,4 +1,4 @@
-import { normalizeLocation } from "./events";
+import { canonicalLocation, normalizeLocation } from "./events";
 import type {
   EvidenceLevel,
   FactSheet,
@@ -285,8 +285,8 @@ export function mergeHeuristicScore(left: OutageEvent, right: OutageEvent): numb
   if (left.id === right.id) return 0;
   if (left.status === "dismissed" || right.status === "dismissed") return 0;
 
-  const leftLocation = normalizeLocation(left.location_text);
-  const rightLocation = normalizeLocation(right.location_text);
+  const leftLocation = canonicalLocation(left.location_text);
+  const rightLocation = canonicalLocation(right.location_text);
   let score = 0;
 
   if (leftLocation !== "unknown" && leftLocation === rightLocation) score += 45;

@@ -37,6 +37,36 @@ export function normalizeLocation(location: string | null | undefined): string {
   return normalized || "unknown";
 }
 
+const LOCATION_QUALIFIER_WORDS = new Set([
+  "gemeinde",
+  "stadt",
+  "kanton",
+  "region",
+  "bezirk",
+  "bern",
+  "be"
+]);
+
+export function canonicalLocation(location: string | null | undefined): string {
+  const raw = (location ?? "").trim();
+  if (!raw) return "unknown";
+
+  const parts = raw
+    .split(",")
+    .map((part) =>
+      normalizeLocation(part)
+        .split(" ")
+        .filter((token) => !LOCATION_QUALIFIER_WORDS.has(token))
+        .join(" ")
+        .trim()
+    )
+    .filter(Boolean);
+
+  const unique = [...new Set(parts)];
+  if (unique.length === 1) return unique[0];
+  return normalizeLocation(raw);
+}
+
 export function canAutoMergeLocation(normalizedLocation: string): boolean {
   return normalizedLocation !== "unknown" && !GENERIC_LOCATIONS.has(normalizedLocation);
 }
@@ -86,14 +116,15 @@ export function scoreEventCandidate(
   normalizedLocation: string
 ): number {
   let score = 0;
-  const eventLocation = event.normalized_location ?? "unknown";
+  const eventLocation = canonicalLocation(event.location_text ?? event.normalized_location);
+  const itemLocation = canonicalLocation(classification.location_text || normalizedLocation);
 
-  if (eventLocation === normalizedLocation) {
+  if (eventLocation === itemLocation) {
     score += 50;
   } else if (
     eventLocation !== "unknown" &&
-    normalizedLocation !== "unknown" &&
-    (eventLocation.includes(normalizedLocation) || normalizedLocation.includes(eventLocation))
+    itemLocation !== "unknown" &&
+    (eventLocation.includes(itemLocation) || itemLocation.includes(eventLocation))
   ) {
     score += 20;
   }

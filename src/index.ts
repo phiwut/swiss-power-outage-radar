@@ -354,7 +354,9 @@ export default {
           targetEventId,
           bodyNote(body)
         );
-        return json({ ok: true, action: "merge", source: result.source, target: result.target });
+        const target = await refreshEventIntelligence(env, result.target.id, { useAiFactSheet: true });
+        await generateMergeSuggestions(env, target.id);
+        return json({ ok: true, action: "merge", source: result.source, target });
       } catch (error) {
         return badRequest(error instanceof Error ? error.message : String(error));
       }

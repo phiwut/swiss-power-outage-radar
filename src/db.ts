@@ -1039,6 +1039,12 @@ async function refreshOutageEventAggregates(db: D1Database, eventId: number): Pr
     .prepare(
       `UPDATE outage_events
        SET source_count = (SELECT COUNT(*) FROM outage_sources WHERE outage_event_id = ?),
+           status = CASE
+             WHEN (SELECT COUNT(*) FROM outage_sources WHERE outage_event_id = ?) >= 2
+                  AND status = 'needs_review'
+             THEN 'corroborated'
+             ELSE status
+           END,
            first_seen_at = COALESCE(
              (SELECT MIN(COALESCE(published_at, created_at)) FROM outage_sources WHERE outage_event_id = ?),
              first_seen_at
@@ -1058,7 +1064,7 @@ async function refreshOutageEventAggregates(db: D1Database, eventId: number): Pr
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
     )
-    .bind(eventId, eventId, eventId, eventId, eventId, eventId)
+    .bind(eventId, eventId, eventId, eventId, eventId, eventId, eventId)
     .run();
 
   const event = await getOutageEvent(db, eventId);

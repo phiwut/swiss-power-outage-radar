@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canAutoMergeLocation,
+  canonicalLocation,
   canCreateEvent,
   normalizeLocation,
   scoreEventCandidate
@@ -96,6 +97,13 @@ describe("event matching helpers", () => {
     expect(canAutoMergeLocation("wohlen")).toBe(true);
     expect(canAutoMergeLocation("schweiz")).toBe(false);
     expect(canAutoMergeLocation("unknown")).toBe(false);
+  });
+
+  it("canonicalizes administrative location variants without collapsing multi-place alerts", () => {
+    expect(canonicalLocation("Gemeinde Belp")).toBe("belp");
+    expect(canonicalLocation("Belp, Kanton Bern")).toBe("belp");
+    expect(canonicalLocation("Belp, Bern")).toBe("belp");
+    expect(canonicalLocation("Belp, Köniz, Ittigen")).toBe("belp koniz ittigen");
   });
 
   it("rejects low-confidence unclear events", () => {
