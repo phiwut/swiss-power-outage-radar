@@ -1,6 +1,6 @@
 # Swiss Power Outage Radar
 
-Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft drei Google-Alerts-RSS-Feeds, dedupliziert neue Items in D1, filtert billige Nicht-Kandidaten, klassifiziert Kandidaten mit Workers AI und gruppiert relevante Treffer in vorsichtige `outage_events` mit Quellen. Neue mögliche Ereignisse senden eine Mail über Cloudflare Email Sending an Philipp. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert nur Metadaten und kurze Auszüge.
+Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft drei Google-Alerts-RSS-Feeds, dedupliziert neue Items in D1, filtert billige Nicht-Kandidaten, klassifiziert Kandidaten mit Workers AI und gruppiert relevante Treffer in vorsichtige `outage_events` mit Quellen. Orte werden opportunistisch über die offizielle geo.admin.ch-Location-Suche normalisiert, mit lokalem Fallback. Neue mögliche Ereignisse senden eine Mail über Cloudflare Email Sending an Philipp. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert nur Metadaten und kurze Auszüge.
 
 Kein Portal, keine Karte, kein Strommix, kein Firecrawl. Webrecherche läuft nicht im Cron, sondern nur manuell per Admin-Klick. Ein `outage_event` ist keine offizielle Verifikation, sondern eine automatische Ereignis-Akte aus Google Alerts und optionaler manueller Recherche.
 
@@ -174,6 +174,7 @@ curl -X POST https://outage.ch/admin/events/1/research \
 - Google Alerts ist nicht garantiert realtime.
 - KI-Ergebnis ist nur eine Vorprüfung.
 - Keine offizielle Verifikation.
+- geo.admin.ch-Ortsnormalisierung ist eine Datenhilfe, kein Pflichtpfad; bei Fehlern läuft der Radar mit lokalem Fallback weiter.
 - Markdown-Snapshots werden intern in R2 gesichert, aber öffentlich nicht vollständig angezeigt.
 - Manuelle Exa-Recherche ist eine Vorprüfung, keine offizielle Bestätigung.
 - RSS-Parsing ist robust genug für RSS/Atom-Grundfelder, aber kein vollständiger XML-Validator.

@@ -1,4 +1,4 @@
-import { classifyItem } from "./ai";
+import { assessIncidentValidity, classifyItem } from "./ai";
 import {
   attachSourceToEvent,
   createWorkflowRun,
@@ -23,6 +23,7 @@ import {
 } from "./db";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { canAutoMergeLocation, canCreateEvent, makeEventTitle, normalizeLocation, scoreEventCandidate } from "./events";
+import { normalizeSwissLocation } from "./geo";
 import { decideNewEventMail, decideUpdateMail } from "./intelligence";
 import { sendEventEmail } from "./email";
 import { cheapFilterItem } from "./filter";
@@ -153,6 +154,16 @@ async function classifyAndNotify(
     return { filtered: false, classified: true, emailSent: false };
   }
 
+  const validity = await assessIncidentValidity(env, freshItem, classification.parsed);
+  if (validity.parsed && !validity.parsed.is_actual_outage_incident) {
+    await markFiltered(
+      env.DB,
+      item.id,
+      `incident_validity:${validity.parsed.false_positive_type}: ${validity.parsed.reason}`
+    );
+    return { filtered: true, classified: true, emailSent: false };
+  }
+
   try {
     const result = await linkAlertToOutageEvent(env, freshItem, classification.parsed);
     return { filtered: false, classified: true, emailSent: result.emailSent };
@@ -222,7 +233,9 @@ async function linkAlertToOutageEvent(
   options: { suppressNewEventEmail?: boolean } = {}
 ): Promise<{ event: OutageEvent; created: boolean; emailSent: boolean }> {
   const now = new Date().toISOString();
-  const normalizedLocation = normalizeLocation(classification.location_text);
+  const geoLocation = await normalizeSwissLocation(classification.location_text);
+  const normalizedLocation =
+    geoLocation.normalizedLocation || normalizeLocation(classification.location_text);
   const best = await findBestEvent(env, item, classification, normalizedLocation);
 
   let event = best?.event;

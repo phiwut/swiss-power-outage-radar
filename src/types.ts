@@ -72,6 +72,20 @@ export interface AiClassificationResult {
   error?: string;
 }
 
+export type IncidentFalsePositiveType =
+  | "none"
+  | "telecom"
+  | "article_context"
+  | "crossword"
+  | "historic"
+  | "other";
+
+export interface IncidentValidity {
+  is_actual_outage_incident: boolean;
+  false_positive_type: IncidentFalsePositiveType;
+  reason: string;
+}
+
 export interface WorkflowRunSummary {
   runId: number;
   itemsSeen: number;

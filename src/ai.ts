@@ -2,6 +2,7 @@ import type {
   AiClassification,
   AiClassificationResult,
   Env,
+  IncidentValidity,
   MergeAssessment,
   NormalizedRssItem,
   OutageEvent,
@@ -189,6 +190,57 @@ function validateMergeAssessment(value: unknown): MergeAssessment {
   };
 }
 
+function validateIncidentValidity(value: unknown): IncidentValidity {
+  if (!value || typeof value !== "object") {
+    throw new Error("Incident validity JSON is not an object");
+  }
+
+  const record = value as Record<string, unknown>;
+  const falsePositiveType = String(record.false_positive_type ?? "none");
+  if (typeof record.is_actual_outage_incident !== "boolean") {
+    throw new Error("is_actual_outage_incident missing");
+  }
+  if (!["none", "telecom", "article_context", "crossword", "historic", "other"].includes(falsePositiveType)) {
+    throw new Error("false_positive_type invalid");
+  }
+
+  return {
+    is_actual_outage_incident: record.is_actual_outage_incident,
+    false_positive_type: falsePositiveType as IncidentValidity["false_positive_type"],
+    reason: String(record.reason ?? "")
+  };
+}
+
+function promptForIncidentValidity(item: NormalizedRssItem, classification: AiClassification): string {
+  return `Du bist ein vorsichtiger Schweizer Stromausfall-Filter.
+
+Prüfe, ob diese Meldung wirklich einen konkreten Unterbruch der Stromversorgung beschreibt.
+Nicht relevant sind Telekom-/Internet-Ausfälle, Kreuzworträtsel/Spiele, Ratgeber, historische Rückblicke oder Artikel, in denen ein Stromausfall nur als Nebenkontext erwähnt wird.
+
+Titel:
+${item.title}
+
+Quelle:
+${item.source ?? ""}
+
+Snippet:
+${item.snippet ?? ""}
+
+Bisherige AI-Einschätzung:
+${JSON.stringify(classification)}
+
+Antworte ausschliesslich als valides JSON:
+
+{
+  "is_actual_outage_incident": true,
+  "false_positive_type": "none",
+  "reason": ""
+}
+
+Zulässige Werte:
+false_positive_type: "none", "telecom", "article_context", "crossword", "historic", "other"`;
+}
+
 function promptForResearch(input: {
   title: string;
   location: string;
@@ -255,6 +307,13 @@ function promptForMerge(left: OutageEvent, right: OutageEvent, heuristicScore: n
 
 Prüfe, ob diese zwei Event-Akten wahrscheinlich denselben Vorfall beschreiben.
 Antworte nur anhand der angegebenen Felder. Erfinde keine Fakten.
+Antworte auf Deutsch.
+
+Wichtig:
+- Publikationszeiten und Alert-Zeiten sind kein Gegenbeweis, solange Ort und Vorfallszeitfenster kompatibel sind.
+- Unterschiedliche Quellenarten (Gemeinde, lokale Medien, Aggregator) können denselben Vorfall beschreiben.
+- Entscheide gegen Merge nur bei anderem konkretem Ort, anderem Datum/Zeitfenster, unvereinbarem Ereignistyp oder klar anderem Sachverhalt.
+- Wenn eine offizielle Gemeinde-/Betreiberquelle und Medien denselben Ort/Tag oder dieselben Teilgebiete nennen, ist same_event meist true.
 
 Event A:
 ID: ${left.id}
@@ -309,6 +368,89 @@ function mockClassify(item: NormalizedRssItem): AiClassificationResult {
   };
 
   return { parsed, raw: JSON.stringify(parsed) };
+}
+
+function heuristicIncidentValidity(item: NormalizedRssItem): IncidentValidity | null {
+  const text = `${item.title} ${item.source ?? ""} ${item.snippet ?? ""}`.toLowerCase();
+  if (/\b(swisscom|sunrise|salt|internet|mobilfunk|telefon|glasfaser|dsl|5g|4g)\b/.test(text)) {
+    return {
+      is_actual_outage_incident: false,
+      false_positive_type: "telecom",
+      reason: "Die Meldung wirkt wie ein Telekom-/Internet-Ausfall, nicht wie ein Stromunterbruch."
+    };
+  }
+  if (/\b(kreuzwortr[aä]tsel|mots croisés|cruciverba|gaming|game|spiel)\b/.test(text)) {
+    return {
+      is_actual_outage_incident: false,
+      false_positive_type: "crossword",
+      reason: "Die Meldung wirkt wie Rätsel-/Spielkontext."
+    };
+  }
+  if (/\b(geschichte|historisch|damals|archiv|jahrestag|r[üu]ckblick)\b/.test(text)) {
+    return {
+      is_actual_outage_incident: false,
+      false_positive_type: "historic",
+      reason: "Die Meldung wirkt historisch oder rückblickend."
+    };
+  }
+  if (/\b(ratgeber|vorsorge|notvorrat|blackout vorsorge|was tun bei)\b/.test(text)) {
+    return {
+      is_actual_outage_incident: false,
+      false_positive_type: "article_context",
+      reason: "Die Meldung wirkt wie Ratgeber-/Vorsorgekontext."
+    };
+  }
+  return null;
+}
+
+export async function assessIncidentValidity(
+  env: Pick<Env, "AI" | "AI_MOCK_MODE">,
+  item: NormalizedRssItem,
+  classification: AiClassification
+): Promise<{ parsed: IncidentValidity | null; raw: string; error?: string }> {
+  const heuristic = heuristicIncidentValidity(item);
+  if (heuristic) return { parsed: heuristic, raw: JSON.stringify(heuristic) };
+
+  const titleLooksConcrete =
+    /\b(stromausfall|stromunterbruch|netzausfall|netzst[oö]rung|panne de courant|coupure de courant|interruzione di corrente|guasto elettrico)\b/i.test(
+      item.title
+    );
+  if (titleLooksConcrete && classification.confidence >= 0.75) {
+    const parsed: IncidentValidity = {
+      is_actual_outage_incident: true,
+      false_positive_type: "none",
+      reason: "Titel und Klassifikation beschreiben konkret einen Stromunterbruch."
+    };
+    return { parsed, raw: JSON.stringify(parsed) };
+  }
+
+  if (env.AI_MOCK_MODE === "true") {
+    const parsed: IncidentValidity = {
+      is_actual_outage_incident: classification.is_relevant,
+      false_positive_type: classification.is_relevant ? "none" : "other",
+      reason: "Mock-Validierung anhand der bestehenden Klassifikation."
+    };
+    return { parsed, raw: JSON.stringify(parsed) };
+  }
+
+  try {
+    const response = await env.AI.run(MODEL, {
+      messages: [
+        {
+          role: "user",
+          content: promptForIncidentValidity(item, classification)
+        }
+      ]
+    });
+    const raw = extractResponseText(response);
+    return { parsed: validateIncidentValidity(extractJson(raw)), raw };
+  } catch (error) {
+    return {
+      parsed: null,
+      raw: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 export async function classifyItem(

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { classifyItem } from "../src/ai";
+import { assessIncidentValidity, classifyItem } from "../src/ai";
 import { cheapFilterItem } from "../src/filter";
 import { itemHash, parseRssFeed } from "../src/rss";
+import type { AiClassification } from "../src/types";
 
 const fixture = `<?xml version="1.0"?>
 <rss><channel>
@@ -61,5 +62,35 @@ describe("mock AI classification", () => {
       event_type: "power_outage"
     });
     expect(result.parsed?.confidence).toBeGreaterThanOrEqual(0.65);
+  });
+
+  it("rejects obvious telecom false positives before event creation", async () => {
+    const classification: AiClassification = {
+      is_relevant: true,
+      confidence: 0.9,
+      country: "CH",
+      location_text: "Belp",
+      event_type: "power_outage",
+      summary: "Mögliche Störung.",
+      reason: "Signal enthält Ausfallbegriffe."
+    };
+
+    const result = await assessIncidentValidity(
+      { AI_MOCK_MODE: "true", AI: {} as Ai },
+      {
+        feed_language: "de",
+        title: "Swisscom-Störung in Belp",
+        url: "https://example.com/swisscom",
+        source: "Example",
+        snippet: "Internet und Telefon sind wegen einer Netzstörung betroffen.",
+        published_at: null
+      },
+      classification
+    );
+
+    expect(result.parsed).toMatchObject({
+      is_actual_outage_incident: false,
+      false_positive_type: "telecom"
+    });
   });
 });
