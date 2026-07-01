@@ -3,98 +3,125 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 ---
 
 <RadarLayout title="Stromausfall Radar">
-  <section class="grid gap-3 py-3 lg:grid-cols-[minmax(0,1fr)_360px]">
-    <div class="panel soft-grid rounded-md p-4 sm:p-5">
-      <div class="flex flex-wrap items-start justify-between gap-4">
+  <section class="grid gap-3 py-3 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div class="panel rounded-md p-3 sm:p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Lageübersicht Schweiz</p>
-          <h1 class="mt-2 max-w-3xl font-display text-3xl font-extrabold leading-tight sm:text-5xl">Schnell prüfen, was wirklich nach Stromausfall aussieht.</h1>
-          <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">Verdichtete Event-Akten aus Google Alerts, Quellen und manueller Recherche. Jede Karte zeigt Ort, Zeitfenster, Quellenlage und Unsicherheit.</p>
+          <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Chronologische Lage</p>
+          <h1 class="mt-1 font-display text-2xl font-bold leading-tight sm:text-3xl">Alle Event-Akten, nach Zeit sortiert.</h1>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button id="refresh-button" class="lift-hover rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface">Aktualisieren</button>
+        <div class="hidden items-center gap-2 lg:flex">
+          <input id="event-search" class="w-64 rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint" placeholder="Ort, Quelle, Ursache" />
+          <select id="sort-select" class="rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink">
+            <option value="newest">Neueste zuerst</option>
+            <option value="oldest">Älteste zuerst</option>
+            <option value="score">Höchster Score</option>
+          </select>
+          <button id="refresh-button" class="rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">Aktualisieren</button>
         </div>
       </div>
 
-      <div id="event-metrics" class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {["Offen", "Belegt", "Neue Akten", "Mails"].map((label) => (
-          <div class="loading-stripe min-h-20 rounded-md border border-rule bg-surface/80 p-3">
+      <div id="event-metrics" class="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {["Aktiv", "Zu prüfen", "Belegt", "Verworfen", "Mails 24h"].map((label) => (
+          <div class="loading-stripe h-20 rounded-md border border-rule bg-surface2 p-3">
             <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{label}</span>
-            <strong class="mt-3 block h-7 rounded bg-surface2"></strong>
           </div>
         ))}
       </div>
+
+      <div class="mt-4 hidden items-center justify-between gap-3 border-t border-rule pt-3 lg:flex">
+        <div id="status-filters" class="flex flex-wrap gap-2">
+          {[
+            ["all", "Alle"],
+            ["active", "Aktiv"],
+            ["needs_review", "Zu prüfen"],
+            ["corroborated", "Belegt"],
+            ["dismissed", "Archiv"]
+          ].map(([value, label]) => (
+            <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status={value} type="button">{label}</button>
+          ))}
+        </div>
+        <span id="event-count" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">-</span>
+      </div>
     </div>
 
-    <aside class="panel rounded-md p-4">
+    <aside class="panel rounded-md p-3">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 class="font-display text-lg font-bold">Aktivität</h2>
-          <p class="mt-1 text-sm text-muted">28 Tage als Quellen-/Event-Puls.</p>
+          <h2 class="font-display text-lg font-bold">Signalfluss</h2>
+          <p class="mt-1 text-sm text-muted">28 Tage Quellen, Events und Mails.</p>
         </div>
         <span id="activity-total" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">-</span>
       </div>
       <div id="activity-grid" class="mt-4 grid grid-cols-7 gap-1">
-        {Array.from({ length: 28 }).map(() => <span class="h-8 rounded-md bg-surface2"></span>)}
+        {Array.from({ length: 28 }).map(() => <span class="h-7 rounded bg-surface2"></span>)}
       </div>
-      <div class="mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
-        <span>ruhig</span>
-        <span>mehr Signale</span>
+      <div id="activity-legend" class="mt-3 grid grid-cols-3 gap-2 text-center font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+        <span>Alerts</span>
+        <span>Events</span>
+        <span>Mails</span>
       </div>
     </aside>
   </section>
 
-  <section class="grid gap-3 pb-3 lg:grid-cols-[280px_minmax(0,1fr)]">
-    <aside class="panel h-fit rounded-md p-3">
-      <label class="block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="event-search">Suchen</label>
-      <input id="event-search" class="mt-2 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint" placeholder="Ort, Quelle, Ursache" />
-
-      <div class="mt-4">
-        <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Ansicht</p>
-        <div class="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-1" id="status-filters">
-          <button class="filter-button is-active rounded-md border border-ink bg-ink px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-surface" data-status="active">Aktiv</button>
-          <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status="needs_review">Zu prüfen</button>
-          <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status="corroborated">Belegt</button>
-          <button class="filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" data-status="dismissed">Archiv</button>
-        </div>
-      </div>
-
-      <div class="mt-4 rounded-md border border-rule bg-surface2 p-3">
-        <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Trennung gleicher Orte</p>
-        <p class="mt-2 text-sm leading-6 text-muted">Karten zeigen das Zeitfenster. Mehrere Akten am selben Ort bleiben getrennt, wenn die Meldungen zeitlich klar auseinanderliegen.</p>
-      </div>
-    </aside>
-
+  <section class="grid gap-3 pb-24 lg:pb-4 xl:grid-cols-[minmax(0,1fr)_340px]">
     <section class="panel rounded-md">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-3 py-2 sm:px-4">
         <div>
-          <h2 class="font-display text-xl font-bold">Ereignisse</h2>
-          <p class="mt-1 text-sm text-muted">Nach letzter Beobachtung sortiert.</p>
+          <h2 class="font-display text-lg font-bold">Event-Timeline</h2>
+          <p class="text-sm text-muted">Zeit, Ort, Score, Quellenlage. Jede Zeile ist eine Akte.</p>
         </div>
-        <span id="event-count" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">-</span>
+        <span id="mobile-count-mirror" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted lg:hidden">-</span>
       </div>
-      <div id="events-list" class="grid gap-2 p-3">
+      <div id="events-list" class="grid gap-0 p-2 sm:p-3">
         <div class="loading-stripe h-28 rounded-md bg-surface2"></div>
-        <div class="loading-stripe h-28 rounded-md bg-surface2"></div>
+        <div class="loading-stripe mt-2 h-28 rounded-md bg-surface2"></div>
       </div>
     </section>
+
+    <aside class="grid h-fit gap-3">
+      <section class="panel rounded-md p-3">
+        <h2 class="font-display text-lg font-bold">Was braucht Aufmerksamkeit?</h2>
+        <div id="attention-list" class="mt-3 grid gap-2"></div>
+      </section>
+
+      <section id="system-strip" class="panel rounded-md p-3">
+        <button id="system-toggle" class="flex w-full items-center justify-between gap-3 text-left" type="button">
+          <span class="font-display text-lg font-bold">System</span>
+          <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">Details</span>
+        </button>
+        <div id="system-panel" class="mt-3 hidden grid gap-2">
+          <div id="run-summary" class="rounded-md border border-rule bg-surface2 p-3"></div>
+          <div id="feed-health" class="grid gap-2"></div>
+          <div class="rounded-md border border-rule bg-surface2 p-3">
+            <label class="block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="admin-token-input">Admin Login</label>
+            <input id="admin-token-input" class="mt-2 w-full rounded-md border border-rule bg-surface px-3 py-2 font-mono text-xs text-ink" type="password" placeholder="Token lokal speichern" />
+            <p id="admin-token-state" class="mt-2 font-mono text-[10px] text-muted">Nicht angemeldet</p>
+          </div>
+        </div>
+      </section>
+    </aside>
   </section>
 
-  <section id="system-strip" class="panel mb-6 rounded-md p-3">
-    <button id="system-toggle" class="flex w-full items-center justify-between gap-3 text-left" type="button">
-      <span class="font-display text-lg font-bold">Systemstatus</span>
-      <span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted">unten am Rand</span>
-    </button>
-    <div id="system-panel" class="mt-3 hidden grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_280px]">
-      <div id="run-summary" class="rounded-md border border-rule bg-surface2 p-3"></div>
-      <div id="feed-health" class="grid gap-2"></div>
-      <div class="rounded-md border border-rule bg-surface2 p-3">
-        <label class="block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="admin-token-input">Admin Login</label>
-        <input id="admin-token-input" class="mt-2 w-full rounded-md border border-rule bg-surface px-3 py-2 font-mono text-xs text-ink" type="password" placeholder="Token lokal speichern" />
-        <p id="admin-token-state" class="mt-2 font-mono text-[10px] text-muted">Nicht angemeldet</p>
-      </div>
+  <nav class="fixed inset-x-2 bottom-2 z-40 grid gap-2 rounded-md border border-rule bg-surface/95 p-2 shadow-panel backdrop-blur lg:hidden">
+    <input id="mobile-search" class="rounded-md border border-rule bg-surface2 px-3 py-2 text-sm text-ink placeholder:text-faint" placeholder="Suchen" />
+    <div class="grid grid-cols-[1fr_1fr_auto_auto] gap-2">
+      <select id="mobile-status" class="min-w-0 rounded-md border border-rule bg-surface2 px-2 py-2 text-sm text-ink">
+        <option value="all">Alle</option>
+        <option value="active">Aktiv</option>
+        <option value="needs_review">Zu prüfen</option>
+        <option value="corroborated">Belegt</option>
+        <option value="dismissed">Archiv</option>
+      </select>
+      <select id="mobile-sort" class="min-w-0 rounded-md border border-rule bg-surface2 px-2 py-2 text-sm text-ink">
+        <option value="newest">Neu</option>
+        <option value="oldest">Alt</option>
+        <option value="score">Score</option>
+      </select>
+      <button id="mobile-refresh" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase text-ink" type="button">Neu</button>
+      <button id="mobile-admin" class="rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase text-surface" type="button">Admin</button>
     </div>
-  </section>
+  </nav>
 
   <script>
     const fmt = new Intl.DateTimeFormat("de-CH", {
@@ -102,11 +129,18 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       timeStyle: "short",
       timeZone: "Europe/Zurich"
     });
+    const dayFmt = new Intl.DateTimeFormat("de-CH", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "Europe/Zurich"
+    });
 
     const viewState = {
       events: [],
-      status: "active",
-      query: ""
+      status: "all",
+      query: "",
+      sort: "newest"
     };
 
     const labels = {
@@ -137,15 +171,15 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       },
       research: {
         not_started: "Nicht geprüft",
-        running: "Prüft gerade",
+        running: "Prüft",
         completed: "Geprüft",
-        failed: "Prüfung fehlgeschlagen"
+        failed: "Fehler"
       },
       evidence: {
         weak: "Schwach",
         plausible: "Plausibel",
-        corroborated: "Mehrfach belegt",
-        official: "Offizielle Quelle"
+        corroborated: "Mehrfach",
+        official: "Offiziell"
       }
     };
 
@@ -166,14 +200,20 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       return Number.isNaN(date.getTime()) ? value : fmt.format(date);
     }
 
+    function formatDay(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : dayFmt.format(date);
+    }
+
     function durationLabel(start, end) {
       if (!start || !end) return "-";
       const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
       if (!Number.isFinite(seconds)) return "-";
-      if (seconds < 60) return `${seconds}s`;
+      if (seconds < 60) return "<1m";
       if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-      return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+      return `${Math.floor(seconds / 86400)}d`;
     }
 
     function statusClass(status) {
@@ -190,6 +230,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       return "var(--color-warn)";
     }
 
+    function scoreOf(event) {
+      return Math.max(0, Math.min(100, Math.round(Number(event.event_score ?? Number(event.confidence ?? 0) * 100))));
+    }
+
     function statusCounts(rows) {
       return (rows ?? []).reduce((acc, row) => {
         acc[row.status] = Number(row.count ?? 0);
@@ -197,26 +241,39 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       }, {});
     }
 
-    function samePlaceCount(event) {
-      const key = normalize(event.location_text);
-      if (!key) return 0;
-      return viewState.events.filter((candidate) => candidate.id !== event.id && normalize(candidate.location_text) === key).length;
+    function visibleEvents() {
+      const query = viewState.query.toLowerCase();
+      const rows = (viewState.events ?? []).filter((event) => {
+        const statusMatches =
+          viewState.status === "all" ||
+          (viewState.status === "active" ? event.status !== "dismissed" : event.status === viewState.status);
+        const haystack = `${event.title ?? ""} ${event.location_text ?? ""} ${event.primary_source_title ?? ""} ${event.cause_category ?? ""} ${event.research_summary_de ?? ""}`.toLowerCase();
+        return statusMatches && haystack.includes(query);
+      });
+      return rows.sort((a, b) => {
+        if (viewState.sort === "score") return scoreOf(b) - scoreOf(a);
+        const left = new Date(a.last_seen_at ?? a.first_seen_at).getTime();
+        const right = new Date(b.last_seen_at ?? b.first_seen_at).getTime();
+        return viewState.sort === "oldest" ? left - right : right - left;
+      });
     }
 
     function renderEventMetrics(data) {
       const totals = data.totals ?? {};
       const counts = statusCounts(data.statusCounts);
+      const active = (data.events ?? []).filter((event) => event.status !== "dismissed").length;
       const metrics = [
-        ["Offen", counts.needs_review ?? 0, "Akten brauchen Blick"],
+        ["Aktiv", active, "nicht verworfen"],
+        ["Zu prüfen", counts.needs_review ?? 0, "manueller Blick"],
         ["Belegt", counts.corroborated ?? 0, "mehrere Signale"],
-        ["Neue Akten", totals.events_last_24h ?? 0, "letzte 24h"],
-        ["Mails", totals.emails_last_24h ?? 0, "letzte 24h"]
+        ["Verworfen", counts.dismissed ?? 0, "bereinigt"],
+        ["Mails 24h", totals.emails_last_24h ?? 0, "gesendet"]
       ];
       document.querySelector("#event-metrics").innerHTML = metrics.map(([name, value, hint]) => `
-        <div class="rounded-md border border-rule bg-surface/85 p-3">
+        <div class="rounded-md border border-rule bg-surface/90 p-3">
           <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">${escapeHtml(name)}</span>
           <div class="mt-2 flex items-end justify-between gap-2">
-            <strong class="metric-value block font-display text-3xl font-extrabold leading-none">${escapeHtml(value)}</strong>
+            <strong class="metric-value block font-display text-3xl font-bold leading-none">${escapeHtml(value)}</strong>
             <span class="pb-1 text-right font-mono text-[10px] text-muted">${escapeHtml(hint)}</span>
           </div>
         </div>
@@ -225,21 +282,35 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     function renderActivity(days) {
       const rows = days ?? [];
-      const max = Math.max(1, ...rows.map((row) => Number(row.items ?? 0) + Number(row.events ?? 0)));
+      const max = Math.max(1, ...rows.map((row) => Number(row.items ?? 0) + Number(row.events ?? 0) + Number(row.emails ?? 0)));
       const total = rows.reduce((sum, row) => sum + Number(row.items ?? 0), 0);
-      document.querySelector("#activity-total").textContent = `${total} Signale`;
+      document.querySelector("#activity-total").textContent = `${total} Alerts`;
       document.querySelector("#activity-grid").innerHTML = rows.map((row) => {
-        const value = Number(row.items ?? 0) + Number(row.events ?? 0);
+        const value = Number(row.items ?? 0) + Number(row.events ?? 0) + Number(row.emails ?? 0);
         const level = value === 0 ? 0 : Math.max(1, Math.ceil((value / max) * 4));
-        const classes = [
-          "bg-surface2",
-          "bg-accentsoft",
-          "bg-[color:color-mix(in_oklch,var(--color-accent)_28%,var(--color-surface))]",
-          "bg-[color:color-mix(in_oklch,var(--color-accent)_52%,var(--color-surface))]",
-          "bg-accent"
-        ];
-        return `<span title="${escapeHtml(row.day)} · ${value} Signale" class="h-8 rounded-md border border-rule ${classes[level]}"></span>`;
+        const classes = ["bg-surface2", "bg-accentsoft", "bg-[color:color-mix(in_oklch,var(--color-accent)_28%,var(--color-surface))]", "bg-[color:color-mix(in_oklch,var(--color-accent)_52%,var(--color-surface))]", "bg-accent"];
+        return `<span title="${escapeHtml(row.day)} · ${value} Aktivität" class="h-7 rounded border border-rule ${classes[level]}"></span>`;
       }).join("");
+    }
+
+    function renderAttention(events) {
+      const rows = [...(events ?? [])]
+        .filter((event) => event.status !== "dismissed")
+        .sort((a, b) => {
+          const aWeight = (a.status === "needs_review" ? 30 : 0) + (a.research_status !== "completed" ? 20 : 0) + (100 - scoreOf(a));
+          const bWeight = (b.status === "needs_review" ? 30 : 0) + (b.research_status !== "completed" ? 20 : 0) + (100 - scoreOf(b));
+          return bWeight - aWeight;
+        })
+        .slice(0, 5);
+      document.querySelector("#attention-list").innerHTML = rows.map((event) => `
+        <a href="/events/${event.id}" class="rounded-md border border-rule bg-surface2 p-3 hover:border-rulestrong">
+          <div class="flex items-center justify-between gap-2">
+            <strong class="truncate text-sm">${escapeHtml(event.location_text || event.title)}</strong>
+            <span class="font-mono text-[11px] text-muted">${scoreOf(event)}%</span>
+          </div>
+          <p class="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted">${escapeHtml(label("status", event.status))} · ${escapeHtml(label("research", event.research_status || "not_started"))}</p>
+        </a>
+      `).join("") || `<p class="text-sm text-muted">Aktuell keine offenen Akten.</p>`;
     }
 
     function renderFeeds(feeds) {
@@ -257,80 +328,85 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     function renderRunSummary(data) {
       const lastRun = data.lastRun ?? {};
-      const runs = data.runs ?? [];
-      const finishedRuns = runs.filter((run) => run.started_at && run.finished_at);
-      const avgSeconds = finishedRuns.length
-        ? Math.round(finishedRuns.reduce((sum, run) => {
-            const seconds = (new Date(run.finished_at) - new Date(run.started_at)) / 1000;
-            return sum + (Number.isFinite(seconds) ? seconds : 0);
-          }, 0) / finishedRuns.length)
+      const seconds = lastRun.started_at && lastRun.finished_at
+        ? Math.max(0, Math.round((new Date(lastRun.finished_at) - new Date(lastRun.started_at)) / 1000))
         : null;
       document.querySelector("#run-summary").innerHTML = `
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Letzter Worker-Run</p>
-            <p class="mt-1 font-display text-xl font-bold">${escapeHtml(lastRun.status ?? "-")}</p>
-          </div>
-          <span class="rounded-md border border-rule bg-surface px-2 py-1 font-mono text-[11px] text-muted">${escapeHtml(durationLabel(lastRun.started_at, lastRun.finished_at))}</span>
+        <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Letzter Worker-Run</p>
+        <div class="mt-1 flex items-end justify-between gap-3">
+          <strong class="font-display text-xl">${escapeHtml(lastRun.status ?? "-")}</strong>
+          <span class="font-mono text-[11px] text-muted">${seconds === null ? "-" : `${seconds}s`}</span>
         </div>
         <div class="mt-3 grid grid-cols-3 gap-2 font-mono text-[11px] text-muted">
           <span>${escapeHtml(lastRun.items_seen ?? 0)} gesehen</span>
-          <span>${escapeHtml(lastRun.items_classified ?? 0)} KI</span>
-          <span>${avgSeconds === null ? "-" : `${avgSeconds}s Ø`}</span>
+          <span>${escapeHtml(lastRun.items_new ?? 0)} neu</span>
+          <span>${escapeHtml(lastRun.emails_sent ?? 0)} Mails</span>
         </div>
       `;
     }
 
-    function renderEvents(events) {
-      const filtered = (events ?? []).filter((event) => {
-        const statusMatches = viewState.status === "active"
-          ? event.status !== "dismissed"
-          : event.status === viewState.status;
-        const haystack = `${event.title ?? ""} ${event.location_text ?? ""} ${event.event_type ?? ""} ${event.cause_category ?? ""}`.toLowerCase();
-        return statusMatches && haystack.includes(viewState.query.toLowerCase());
-      });
-      document.querySelector("#event-count").textContent = `${filtered.length} von ${(events ?? []).length}`;
-      document.querySelector("#events-list").innerHTML = filtered.map((event) => {
-        const eventScore = Math.max(0, Math.min(100, Math.round(Number(event.event_score ?? Number(event.confidence ?? 0) * 100))));
+    function renderEvents() {
+      const rows = visibleEvents();
+      const countText = `${rows.length} von ${(viewState.events ?? []).length}`;
+      document.querySelector("#event-count").textContent = countText;
+      document.querySelector("#mobile-count-mirror").textContent = countText;
+      let currentDay = "";
+      const html = rows.map((event) => {
+        const day = formatDay(event.last_seen_at || event.first_seen_at);
+        const dayHeader = day !== currentDay ? `<div class="sticky top-[74px] z-10 mt-1 border-b border-rule bg-bg/90 px-2 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted backdrop-blur">${escapeHtml(day)}</div>` : "";
+        currentDay = day;
+        const score = scoreOf(event);
         const researchPct = event.fact_confidence === null || event.fact_confidence === undefined ? null : Math.max(0, Math.min(100, Math.round(Number(event.fact_confidence) * 100)));
-        const samePlace = samePlaceCount(event);
-        const summary = event.research_summary_de || event.summary || event.title || event.primary_source_title || "Keine Kurzfassung";
+        const summary = event.research_summary_de || event.summary || event.primary_source_title || "Keine Kurzfassung";
         return `
-          <a href="/events/${event.id}" class="status-rail lift-hover block rounded-md border border-rule bg-surface px-4 py-3 shadow-panel" style="--rail-color:${railColor(event.status)}">
-            <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_210px] md:items-start">
-              <div class="min-w-0 pl-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${statusClass(event.status)}">${escapeHtml(label("status", event.status))}</span>
-                  <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(label("research", event.research_status || "not_started"))}</span>
-                  <span class="rounded-md border ${event.evidence_level === "official" ? "border-ok bg-oksoft text-ok" : "border-rule bg-surface2 text-muted"} px-2 py-1 font-mono text-[10px]">${escapeHtml(label("evidence", event.evidence_level || "weak"))}</span>
-                  ${samePlace > 0 ? `<span class="rounded-md border border-accent bg-accentsoft px-2 py-1 font-mono text-[10px] text-accent">${samePlace + 1} Akten am Ort</span>` : ""}
-                </div>
-                <h3 class="clamp-title mt-3 font-display text-2xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
-                <p class="mt-2 line-clamp-2 text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
-                <div class="mt-3 flex flex-wrap gap-2 font-mono text-[11px] text-muted">
-                  <span>${escapeHtml(formatDate(event.first_seen_at))}</span>
-                  <span>bis</span>
-                  <span>${escapeHtml(formatDate(event.last_seen_at))}</span>
-                  <span>·</span>
-                  <span>${escapeHtml(durationLabel(event.first_seen_at, event.last_seen_at))}</span>
-                </div>
+          ${dayHeader}
+          <a href="/events/${event.id}" class="timeline-row status-rail block border-b border-rule bg-surface px-3 py-3 hover:bg-surface2 sm:px-4" style="--rail-color:${railColor(event.status)}">
+            <div class="grid gap-3 lg:grid-cols-[120px_minmax(0,1fr)_270px] lg:items-start">
+              <div class="pl-2 font-mono text-[11px] text-muted">
+                <strong class="block text-ink">${escapeHtml(formatDate(event.last_seen_at || event.first_seen_at))}</strong>
+                <span>${escapeHtml(durationLabel(event.first_seen_at, event.last_seen_at))}</span>
               </div>
-              <div class="grid gap-2 font-mono text-[11px] text-muted">
-                <div class="rounded-md border border-rule bg-surface2 p-3">
-                  <div class="flex items-center justify-between gap-2"><span>Score</span><span>${eventScore}%</span></div>
-                  <div class="mt-1 h-1.5 rounded bg-surface"><div class="h-1.5 rounded bg-accent" style="width:${eventScore}%"></div></div>
-                  <div class="mt-2 flex items-center justify-between gap-2"><span>Recherche</span><span>${researchPct === null ? "unklar" : `${researchPct}%`}</span></div>
+              <div class="min-w-0 pl-2">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${statusClass(event.status)}">${escapeHtml(label("status", event.status))}</span>
+                  <span class="rounded-md border ${event.evidence_level === "official" ? "border-ok bg-oksoft text-ok" : "border-rule bg-surface2 text-muted"} px-2 py-1 font-mono text-[10px]">${escapeHtml(label("evidence", event.evidence_level || "weak"))}</span>
+                  <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(label("research", event.research_status || "not_started"))}</span>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <span class="rounded-md border border-rule bg-surface2 p-2">${escapeHtml(event.source_count ?? 0)} Quellen</span>
-                  <span class="rounded-md border border-rule bg-surface2 p-2">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
+                <h3 class="clamp-title mt-2 font-display text-xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
+                <p class="mt-1 line-clamp-2 text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
+              </div>
+              <div class="grid gap-2 pl-2 lg:pl-0">
+                <div class="grid grid-cols-3 gap-2 text-center font-mono text-[11px]">
+                  <span class="rounded-md border border-rule bg-surface2 p-2"><strong class="block text-sm text-ink">${score}%</strong>Score</span>
+                  <span class="rounded-md border border-rule bg-surface2 p-2"><strong class="block text-sm text-ink">${escapeHtml(event.source_count ?? 0)}</strong>Quellen</span>
+                  <span class="rounded-md border border-rule bg-surface2 p-2"><strong class="block text-sm text-ink">${researchPct === null ? "-" : `${researchPct}%`}</strong>Fakten</span>
                 </div>
-                <span class="rounded-md border border-rule bg-surface2 p-2">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
+                <div class="flex flex-wrap gap-1.5 font-mono text-[10px] text-muted">
+                  <span class="rounded-md border border-rule bg-surface2 px-2 py-1">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
+                  <span class="rounded-md border border-rule bg-surface2 px-2 py-1">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
+                </div>
               </div>
             </div>
           </a>
         `;
-      }).join("") || `<div class="rounded-md border border-rule bg-surface p-6 text-sm text-muted">Keine passenden Event-Akten.</div>`;
+      }).join("");
+      document.querySelector("#events-list").innerHTML = html || `<div class="rounded-md border border-rule bg-surface p-6 text-sm text-muted">Keine passenden Event-Akten.</div>`;
+      syncFilterButtons();
+    }
+
+    function syncFilterButtons() {
+      document.querySelectorAll(".filter-button").forEach((button) => {
+        const active = button.dataset.status === viewState.status;
+        button.className = active
+          ? "filter-button rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface"
+          : "filter-button rounded-md border border-rule bg-surface px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink";
+      });
+      const mobileStatus = document.querySelector("#mobile-status");
+      if (mobileStatus) mobileStatus.value = viewState.status;
+      const sortSelect = document.querySelector("#sort-select");
+      const mobileSort = document.querySelector("#mobile-sort");
+      if (sortSelect) sortSelect.value = viewState.sort;
+      if (mobileSort) mobileSort.value = viewState.sort;
     }
 
     async function loadRadar() {
@@ -338,12 +414,13 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       const response = await fetch("/api/public/status", { cache: "no-store" });
       if (!response.ok) throw new Error("Status konnte nicht geladen werden");
       const data = await response.json();
+      viewState.events = data.events ?? [];
       renderEventMetrics(data);
       renderActivity(data.activity);
+      renderAttention(viewState.events);
       renderRunSummary(data);
       renderFeeds(data.feedHealth);
-      viewState.events = data.events ?? [];
-      renderEvents(viewState.events);
+      renderEvents();
       document.querySelector("#events-list").classList.remove("opacity-60");
     }
 
@@ -360,38 +437,61 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       else localStorage.removeItem("outage_admin_token");
       syncAdminToken();
     });
-    window.addEventListener("outage:admin-login", () => {
+
+    function openSystemPanel() {
       document.querySelector("#system-panel").classList.remove("hidden");
       document.querySelector("#system-strip").scrollIntoView({ behavior: "smooth", block: "nearest" });
       tokenInput.focus();
-    });
+    }
+    window.addEventListener("outage:admin-login", openSystemPanel);
+    document.querySelector("#mobile-admin").addEventListener("click", openSystemPanel);
     syncAdminToken();
 
-    document.querySelector("#refresh-button").addEventListener("click", async (event) => {
-      event.currentTarget.textContent = "Lädt...";
+    async function refreshWith(button, shortLabel = "Neu") {
+      const original = button.textContent;
+      button.textContent = "Lädt";
       try {
         await loadRadar();
       } finally {
-        event.currentTarget.textContent = "Aktualisieren";
+        button.textContent = original || shortLabel;
       }
-    });
+    }
+
+    document.querySelector("#refresh-button").addEventListener("click", (event) => refreshWith(event.currentTarget, "Aktualisieren"));
+    document.querySelector("#mobile-refresh").addEventListener("click", (event) => refreshWith(event.currentTarget, "Neu"));
     document.querySelector("#event-search").addEventListener("input", (event) => {
       viewState.query = event.target.value ?? "";
-      renderEvents(viewState.events);
+      document.querySelector("#mobile-search").value = viewState.query;
+      renderEvents();
+    });
+    document.querySelector("#mobile-search").addEventListener("input", (event) => {
+      viewState.query = event.target.value ?? "";
+      document.querySelector("#event-search").value = viewState.query;
+      renderEvents();
+    });
+    document.querySelector("#sort-select").addEventListener("change", (event) => {
+      viewState.sort = event.target.value;
+      renderEvents();
+    });
+    document.querySelector("#mobile-sort").addEventListener("change", (event) => {
+      viewState.sort = event.target.value;
+      renderEvents();
+    });
+    document.querySelector("#mobile-status").addEventListener("change", (event) => {
+      viewState.status = event.target.value;
+      renderEvents();
     });
     document.querySelectorAll(".filter-button").forEach((button) => {
       button.addEventListener("click", () => {
         viewState.status = button.dataset.status;
-        document.querySelectorAll(".filter-button").forEach((item) => {
-          item.className = "filter-button rounded-md border border-rule bg-surface px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink";
-        });
-        button.className = "filter-button is-active rounded-md border border-ink bg-ink px-3 py-2 text-left font-mono text-[11px] uppercase tracking-[0.08em] text-surface";
-        renderEvents(viewState.events);
+        renderEvents();
       });
     });
     document.querySelector("#system-toggle").addEventListener("click", () => {
       document.querySelector("#system-panel").classList.toggle("hidden");
     });
+
+    syncFilterButtons();
     loadRadar().catch((error) => {
       document.querySelector("#events-list").innerHTML = `<div class="rounded-md border border-danger bg-dangersoft p-6 text-danger">${escapeHtml(error.message)}</div>`;
     });

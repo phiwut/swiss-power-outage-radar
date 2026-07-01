@@ -304,7 +304,7 @@ export async function getPublicStatus(db: D1Database) {
                 mail_decision_reason
          FROM outage_events
          ORDER BY last_seen_at DESC
-         LIMIT 40`
+         LIMIT 200`
       )
       .all()
   ]);

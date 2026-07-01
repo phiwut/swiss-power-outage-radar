@@ -3,7 +3,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
 ---
 
 <RadarLayout title="Event-Akte">
-  <section class="py-3">
+  <section class="py-3 pb-24 lg:pb-3">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <a href="/" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink">Zurück</a>
       <button id="detail-login-button" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink" type="button">Admin anmelden</button>
@@ -29,6 +29,12 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       <a id="source-dialog-link" class="rounded-md border border-ink bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface" rel="noreferrer" target="_blank">Originalquelle öffnen</a>
     </div>
   </dialog>
+
+  <nav class="fixed inset-x-2 bottom-2 z-40 grid grid-cols-3 gap-2 rounded-md border border-rule bg-surface/95 p-2 shadow-panel backdrop-blur lg:hidden">
+    <a href="/" class="rounded-md border border-rule bg-surface2 px-3 py-2 text-center font-mono text-[11px] uppercase text-ink">Akten</a>
+    <button id="mobile-detail-refresh" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase text-ink" type="button">Neu laden</button>
+    <button id="mobile-detail-admin" class="rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase text-surface" type="button">Admin</button>
+  </nav>
 
   <script>
     const id = location.pathname.match(/\/events\/(\d+)/)?.[1];
@@ -277,8 +283,8 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
                     <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(label("research", event.research_status || "not_started"))}</span>
                     <span class="rounded-md border ${event.evidence_level === "official" ? "border-ok bg-oksoft text-ok" : "border-rule bg-surface2 text-muted"} px-2 py-1 font-mono text-[10px]">${escapeHtml(label("evidence", event.evidence_level || "weak"))}</span>
                   </div>
-                  <h1 class="clamp-title mt-4 font-display text-4xl font-extrabold leading-tight sm:text-5xl">${escapeHtml(event.location_text || "Ort unklar")}</h1>
-                  <p class="mt-3 max-w-3xl text-base leading-7 text-muted">${escapeHtml(summary)}</p>
+                  <h1 class="clamp-title mt-3 font-display text-2xl font-bold leading-tight sm:text-3xl">${escapeHtml(event.location_text || "Ort unklar")}</h1>
+                  <p class="mt-2 max-w-3xl text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
                 </div>
                 <div class="grid min-w-[150px] gap-2 rounded-md border border-rule bg-surface2 p-3 font-mono text-[11px] text-muted">
                   <span>Erkannt</span>
@@ -289,7 +295,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
               </div>
             </div>
 
-            <div class="grid gap-3 md:grid-cols-4">
+            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <div class="panel rounded-md p-3">
                 <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Event-Score</p>
                 <strong class="mt-2 block font-display text-3xl">${eventScore}%</strong>
@@ -312,7 +318,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
               </div>
             </div>
 
-            <div class="grid gap-3 md:grid-cols-3">
+            <div class="grid gap-2 md:grid-cols-3">
               <section class="panel rounded-md p-4">
                 <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Art</p>
                 <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</h2>
@@ -575,6 +581,15 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       } else {
         document.querySelector("#detail-admin-token")?.focus();
       }
+    });
+    document.querySelector("#mobile-detail-refresh").addEventListener("click", async (event) => {
+      event.currentTarget.textContent = "Lädt";
+      await loadEvent();
+      event.currentTarget.textContent = "Neu laden";
+    });
+    document.querySelector("#mobile-detail-admin").addEventListener("click", () => {
+      document.querySelector("#detail-admin-token")?.focus();
+      document.querySelector("#admin-card")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
     window.addEventListener("outage:admin-login", () => {
       document.querySelector("#detail-admin-token")?.focus();

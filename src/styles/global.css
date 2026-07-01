@@ -23,9 +23,11 @@ body {
   margin: 0;
   overflow-x: clip;
   background:
-    radial-gradient(circle at 18% 0%, color-mix(in oklch, var(--color-accent) 13%, transparent), transparent 26rem),
-    linear-gradient(135deg, color-mix(in oklch, var(--color-surface-2) 70%, white) 0, var(--color-bg) 38rem),
+    linear-gradient(var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
+    linear-gradient(90deg, var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
     var(--color-bg);
+  background-size: 44px 44px;
+  background-position: -1px -1px;
 }
 
 * {
@@ -66,11 +68,10 @@ textarea:focus-visible {
 
 .panel {
   border: var(--rule-thin) solid var(--color-rule);
-  background:
-    linear-gradient(180deg, color-mix(in oklch, white 52%, var(--color-surface)) 0, var(--color-surface) 100%);
+  background: color-mix(in oklch, var(--color-surface) 94%, white);
   box-shadow:
-    0 1px 0 color-mix(in oklch, white 70%, transparent) inset,
-    0 14px 32px color-mix(in oklch, var(--color-ink) 7%, transparent);
+    0 1px 0 color-mix(in oklch, white 75%, transparent) inset,
+    0 8px 18px color-mix(in oklch, var(--color-ink) 5%, transparent);
 }
 
 .hairline-grid {
@@ -119,6 +120,21 @@ textarea:focus-visible {
   inset: 0 auto 0 0;
   position: absolute;
   width: 4px;
+}
+
+.timeline-row {
+  min-height: 112px;
+}
+
+.timeline-row:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+}
+
+.timeline-row:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
 }
 
 .soft-grid {
