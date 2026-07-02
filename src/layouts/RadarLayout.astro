@@ -4,9 +4,14 @@ import "../styles/global.css";
 interface Props {
   title: string;
   eyebrow?: string;
+  description?: string;
 }
 
-const { title, eyebrow = "Schweizer Stromausfall-Radar" } = Astro.props;
+const {
+  title,
+  eyebrow = "Schweizer Stromausfall-Radar",
+  description = "Aktuelle Hinweise zu Stromausfällen und Netzunterbrüchen in der Schweiz aus öffentlichen Quellen und Google Alerts."
+} = Astro.props;
 ---
 
 <!doctype html>
@@ -14,7 +19,12 @@ const { title, eyebrow = "Schweizer Stromausfall-Radar" } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Automatischer Stromausfall-Radar aus Google Alerts." />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="de_CH" />
+    <meta name="twitter:card" content="summary" />
     <title>{title}</title>
   </head>
   <body class="text-ink">

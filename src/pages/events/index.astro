@@ -2,7 +2,10 @@
 import RadarLayout from "../../layouts/RadarLayout.astro";
 ---
 
-<RadarLayout title="Event-Akte">
+<RadarLayout
+  title="Stromausfall-Radar Detailansicht"
+  description="Detailansicht zu einem möglichen Stromausfall oder Netzunterbruch in der Schweiz mit Status, Ursache, Quellenlage und Auszügen aus öffentlichen Quellen."
+>
   <section class="py-3 pb-24 lg:pb-3">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <a href="/" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted hover:text-ink">Zurück</a>
@@ -17,7 +20,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     <div class="border-b border-rule px-4 py-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Quellen-Snapshot</p>
+          <p class="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Quellenauszug</p>
           <h2 id="source-dialog-title" class="clamp-title mt-1 font-display text-xl font-bold"></h2>
         </div>
         <button id="source-dialog-close" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted" type="button">Schliessen</button>
@@ -49,6 +52,8 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
 
     const labels = {
       status: {
+        active: "Aktiv",
+        unknown: "Unklar",
         needs_review: "Zu prüfen",
         corroborated: "Mehrfach belegt",
         dismissed: "Verworfen",
@@ -130,10 +135,69 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     }
 
     function statusClass(status) {
-      if (status === "corroborated") return "border-ok bg-oksoft text-ok";
+      if (status === "active") return "border-warn bg-warnsoft text-warn";
+      if (status === "unknown") return "border-rule bg-surface2 text-muted";
+      if (status === "corroborated" || status === "resolved") return "border-ok bg-oksoft text-ok";
       if (status === "dismissed") return "border-rule bg-surface2 text-muted";
-      if (status === "resolved") return "border-accent bg-accentsoft text-accent";
       return "border-warn bg-warnsoft text-warn";
+    }
+
+    function parseFactSheet(event) {
+      if (!event.fact_sheet_json) return null;
+      try {
+        return JSON.parse(event.fact_sheet_json);
+      } catch {
+        return null;
+      }
+    }
+
+    function incidentStatus(event) {
+      const fact = parseFactSheet(event);
+      if (event.status === "dismissed") return "dismissed";
+      if (event.status === "needs_review") return "needs_review";
+      if (event.status === "resolved" || fact?.status === "resolved") return "resolved";
+      if (fact?.status === "active") return "active";
+      return "unknown";
+    }
+
+    function sourceLabel(event) {
+      if (event.evidence_level === "official") return "Offizielle Quelle";
+      if (Number(event.source_count ?? 0) >= 2) return "Mehrere Quellen";
+      if (Number(event.source_count ?? 0) === 1) return "1 Quelle";
+      return "Keine Quelle";
+    }
+
+    function sourceQualityLabel(event) {
+      if (event.evidence_level === "official" || event.evidence_level === "corroborated") return "stark";
+      if (event.evidence_level === "plausible" || Number(event.source_count ?? 0) >= 2) return "mittel";
+      return "schwach";
+    }
+
+    function certaintyLabel(event) {
+      if (event.evidence_level === "official" || event.evidence_level === "corroborated") return "Gut belegt";
+      if (event.evidence_level === "plausible" || Number(event.source_count ?? 0) >= 2) return "Wahrscheinlich";
+      return "Unklar";
+    }
+
+    function publicBadgeClass(kind, value) {
+      if (kind === "status") return statusClass(value);
+      if (kind === "source" && String(value).includes("Offizielle")) return "border-ok bg-oksoft text-ok";
+      if (kind === "quality" && value === "stark") return "border-ok bg-oksoft text-ok";
+      if (kind === "quality" && value === "mittel") return "border-accent bg-accentsoft text-accent";
+      if (kind === "certainty" && value === "Gut belegt") return "border-ok bg-oksoft text-ok";
+      if (kind === "certainty" && value === "Wahrscheinlich") return "border-accent bg-accentsoft text-accent";
+      return "border-rule bg-surface2 text-muted";
+    }
+
+    function durationText(event) {
+      if (!event.started_at_estimate || !event.resolved_at_estimate) return "Dauer nicht belegt";
+      return `${formatDate(event.started_at_estimate)} bis ${formatDate(event.resolved_at_estimate)}`;
+    }
+
+    function eventTitle(event) {
+      const certainty = certaintyLabel(event);
+      const location = event.location_text || "Ort unklar";
+      return certainty === "Gut belegt" ? `Stromausfall in ${location}` : `Möglicher Stromausfall in ${location}`;
     }
 
     function pct(value) {
@@ -185,22 +249,35 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       return payload;
     }
 
-    function sourceQuality(source, snapshot) {
-      if (source.is_official === 1) return "Offizielle Quelle";
-      if (source.is_primary) return "Hauptquelle";
-      if (snapshot?.markdown_excerpt) return "Snapshot-Auszug";
-      if (snapshot?.fetch_status === "success") return "Snapshot vorhanden";
-      if (snapshot?.fetch_status === "failed") return "Snapshot fehlgeschlagen";
-      return "Quelle";
+    function sourceRole(source) {
+      if (source.is_primary === 1) return "Hauptquelle";
+      if (source.is_official === 1 || source.source_kind === "official" || source.source_kind === "operator") return "Hauptquelle";
+      if (source.relation_score !== null && source.relation_score !== undefined && Number(source.relation_score) < 70) return "Unpassend";
+      return "Nebenquelle";
     }
 
-    function parseFactSheet(event) {
-      if (!event.fact_sheet_json) return null;
-      try {
-        return JSON.parse(event.fact_sheet_json);
-      } catch {
-        return null;
-      }
+    function sourceExcerpt(snapshot) {
+      const text = snapshot?.markdown_excerpt || "";
+      return text.replace(/\s+/g, " ").trim().slice(0, 520);
+    }
+
+    function highlightExcerpt(text) {
+      const escaped = escapeHtml(text || "Kein Auszug gespeichert.");
+      return escaped.replace(
+        /(Stromausfall|Stromunterbruch|Netzunterbruch|Netzstörung|Gewitter|Kabelschaden|Erdkabel|behoben|wieder am Netz)/gi,
+        "<mark>$1</mark>"
+      );
+    }
+
+    function sourceFacts(source, event) {
+      const fact = parseFactSheet(event);
+      return [
+        ["Ort", event.location_text || "unklar"],
+        ["Zeit", source.published_at ? formatDate(source.published_at) : "nicht erkannt"],
+        ["Ursache", label("cause", event.cause_category || fact?.cause_category || "unknown")],
+        ["Status", label("status", incidentStatus(event))],
+        ["Betroffenheit", event.cause_text || "nicht konkret belegt"]
+      ];
     }
 
     function renderFactList(items, empty) {
@@ -214,35 +291,22 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
         return `
           <section class="panel rounded-md p-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <h2 class="font-display text-xl font-bold">Lagebild</h2>
-              <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">noch nicht berechnet</span>
+              <h2 class="font-display text-xl font-bold">Was wir wissen</h2>
+              <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs text-muted">noch wenig belegt</span>
             </div>
             <p class="mt-3 text-sm leading-6 text-muted">${escapeHtml(event.research_summary_de || event.summary || "Noch kein Fact-Sheet vorhanden.")}</p>
           </section>
         `;
       }
       return `
-        <section class="panel rounded-md">
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
-            <div>
-              <h2 class="font-display text-xl font-bold">Lagebild</h2>
-              <p class="mt-1 text-sm text-muted">${escapeHtml(factSheet.source_assessment || "Automatisch verdichtete Quellenlage.")}</p>
-            </div>
-            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">${escapeHtml(factSheet.independent_source_count ?? 0)} unabhängige Quellen</span>
+        <section class="grid gap-3 md:grid-cols-2">
+          <div class="panel rounded-md p-4">
+            <h2 class="font-display text-xl font-bold">Was wir wissen</h2>
+            <div class="mt-3">${renderFactList(factSheet.confirmed_facts, "Noch keine gesicherten Punkte.")}</div>
           </div>
-          <div class="grid gap-3 p-4 lg:grid-cols-2">
-            <div>
-              <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Kurzfassung</p>
-              <p class="mt-2 text-sm leading-6 text-muted">${escapeHtml(factSheet.summary_de || event.summary || "")}</p>
-            </div>
-            <div>
-              <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Gesicherte Punkte</p>
-              <div class="mt-2">${renderFactList(factSheet.confirmed_facts, "Noch keine harten Punkte.")}</div>
-            </div>
-            <div class="lg:col-span-2">
-              <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Offene Punkte</p>
-              <div class="mt-2">${renderFactList(factSheet.open_questions, "Keine offenen Punkte gespeichert.")}</div>
-            </div>
+          <div class="panel rounded-md p-4">
+            <h2 class="font-display text-xl font-bold">Was unklar ist</h2>
+            <div class="mt-3">${renderFactList(factSheet.open_questions, "Keine offenen Punkte gespeichert.")}</div>
           </div>
         </section>
       `;
@@ -259,16 +323,15 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
           .filter((snapshot) => snapshot.outage_source_id !== null)
           .map((snapshot) => [snapshot.outage_source_id, snapshot])
       );
-      const eventScore = Math.max(0, Math.min(100, Math.round(Number(event.event_score ?? Number(event.confidence ?? 0) * 100))));
-      const researchPct = pct(event.fact_confidence);
       const factSheet = parseFactSheet(event);
       const canonicalUrl = `${location.origin}/events/${event.id}`;
-      const observedDuration = durationLabel(event.first_seen_at, event.last_seen_at);
-      const snapshotSuccess = snapshots.filter((snapshot) => snapshot.fetch_status === "success").length;
-      const snapshotFailed = snapshots.filter((snapshot) => snapshot.fetch_status === "failed").length;
       const adminAvailable = Boolean(adminToken());
-      const summary = event.research_summary_de || event.summary || "Keine Kurzfassung gespeichert.";
-      document.title = `${event.location_text || event.title} - Outage Radar`;
+      const status = incidentStatus(event);
+      const sourceSituation = sourceLabel(event);
+      const sourceQuality = sourceQualityLabel(event);
+      const certainty = certaintyLabel(event);
+      const summary = factSheet?.summary_de || event.research_summary_de || event.summary || "Zu dieser Meldung liegt noch keine belastbare Kurzfassung vor.";
+      document.title = `${eventTitle(event)} | outage.ch`;
 
       document.querySelector("#detail-login-button").textContent = adminAvailable ? "Admin aktiv" : "Admin anmelden";
       document.querySelector("#event-shell").innerHTML = `
@@ -278,94 +341,72 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
               <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${statusClass(event.status)}">${escapeHtml(label("status", event.status))}</span>
-                    <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">Akte #${event.id}</span>
-                    <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] text-muted">${escapeHtml(label("research", event.research_status || "not_started"))}</span>
-                    <span class="rounded-md border ${event.evidence_level === "official" ? "border-ok bg-oksoft text-ok" : "border-rule bg-surface2 text-muted"} px-2 py-1 font-mono text-[10px]">${escapeHtml(label("evidence", event.evidence_level || "weak"))}</span>
+                    <span class="rounded-md border px-2 py-1 text-xs font-semibold ${publicBadgeClass("status", status)}">${escapeHtml(label("status", status))}</span>
+                    <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
+                    <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
+                    <span class="rounded-md border px-2 py-1 text-xs font-semibold ${publicBadgeClass("quality", sourceQuality)}">Quellenlage: ${escapeHtml(sourceQuality)}</span>
+                    <span class="rounded-md border px-2 py-1 text-xs font-semibold ${publicBadgeClass("source", sourceSituation)}">${escapeHtml(sourceSituation)}</span>
+                    <span class="rounded-md border px-2 py-1 text-xs font-semibold ${publicBadgeClass("certainty", certainty)}">Sicherheit: ${escapeHtml(certainty)}</span>
                   </div>
-                  <h1 class="clamp-title mt-3 font-display text-2xl font-bold leading-tight sm:text-3xl">${escapeHtml(event.location_text || "Ort unklar")}</h1>
-                  <p class="mt-2 max-w-3xl text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
+                  <h1 class="clamp-title mt-3 font-display text-3xl font-bold leading-tight sm:text-4xl">${escapeHtml(eventTitle(event))}</h1>
+                  <p class="mt-3 max-w-3xl text-base leading-7 text-muted">${escapeHtml(summary)}</p>
                 </div>
-                <div class="grid min-w-[150px] gap-2 rounded-md border border-rule bg-surface2 p-3 font-mono text-[11px] text-muted">
-                  <span>Erkannt</span>
-                  <strong class="text-sm text-ink">${escapeHtml(formatDate(event.first_seen_at))}</strong>
-                  <span>Aktualisiert</span>
-                  <strong class="text-sm text-ink">${escapeHtml(formatDate(event.last_seen_at))}</strong>
+                <div class="grid min-w-[180px] gap-2 rounded-md border border-rule bg-surface2 p-3 text-sm text-muted">
+                  <span>Erstmals erkannt</span>
+                  <strong class="text-ink">${escapeHtml(formatDate(event.first_seen_at))}</strong>
+                  <span>Dauer</span>
+                  <strong class="text-ink">${escapeHtml(durationText(event))}</strong>
                 </div>
               </div>
-            </div>
-
-            <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <div class="panel rounded-md p-3">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Event-Score</p>
-                <strong class="mt-2 block font-display text-3xl">${eventScore}%</strong>
-                ${miniBar(eventScore)}
-              </div>
-              <div class="panel rounded-md p-3">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Recherche</p>
-                <strong class="mt-2 block font-display text-3xl">${researchPct === null ? "?" : `${researchPct}%`}</strong>
-                ${miniBar(researchPct, "bg-ok")}
-              </div>
-              <div class="panel rounded-md p-3">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Quellen</p>
-                <strong class="mt-2 block font-display text-3xl">${escapeHtml(event.source_count ?? sources.length)}</strong>
-                <p class="mt-2 font-mono text-[11px] text-muted">${snapshotSuccess} Snapshot · ${snapshotFailed} Fehler</p>
-              </div>
-              <div class="panel rounded-md p-3">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Zeitfenster</p>
-                <strong class="mt-2 block font-display text-2xl">${escapeHtml(observedDuration)}</strong>
-                <p class="mt-2 font-mono text-[11px] text-muted">Ort + Zeit trennt Ereignisse</p>
-              </div>
-            </div>
-
-            <div class="grid gap-2 md:grid-cols-3">
-              <section class="panel rounded-md p-4">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Art</p>
-                <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</h2>
-                <p class="mt-2 text-sm leading-6 text-muted">${escapeHtml(label("eventType", event.event_type))}</p>
-              </section>
-              <section class="panel rounded-md p-4">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Vermutete Ursache</p>
-                <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(label("cause", event.cause_category || "unknown"))}</h2>
-                <p class="mt-2 text-sm leading-6 text-muted">${escapeHtml(event.cause_text || "Nicht eindeutig ableitbar.")}</p>
-              </section>
-              <section class="panel rounded-md p-4">
-                <p class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Einordnung</p>
-                <h2 class="mt-2 font-display text-xl font-bold">${escapeHtml(event.country || "-")}</h2>
-                <p class="mt-2 text-sm leading-6 text-muted">Automatisch erstellt. Nicht offiziell verifiziert.</p>
-              </section>
             </div>
 
             ${renderFactSheetCard(factSheet, event)}
 
+            <section class="panel rounded-md p-4">
+              <h2 class="font-display text-xl font-bold">Zeitverlauf</h2>
+              <ol class="mt-4 grid gap-3 text-sm">
+                ${event.started_at_estimate ? `<li class="rounded-md border border-rule bg-surface2 p-3"><strong>Unterbruch gemeldet</strong><p class="mt-1 text-muted">${escapeHtml(formatDate(event.started_at_estimate))}</p></li>` : ""}
+                <li class="rounded-md border border-rule bg-surface2 p-3"><strong>Erstmals im Radar erkannt</strong><p class="mt-1 text-muted">${escapeHtml(formatDate(event.first_seen_at))}</p></li>
+                ${event.resolved_at_estimate ? `<li class="rounded-md border border-rule bg-surface2 p-3"><strong>Als behoben erkannt</strong><p class="mt-1 text-muted">${escapeHtml(formatDate(event.resolved_at_estimate))}</p></li>` : ""}
+                <li class="rounded-md border border-rule bg-surface2 p-3"><strong>Letzte Aktualisierung</strong><p class="mt-1 text-muted">${escapeHtml(formatDate(event.last_seen_at))}</p></li>
+              </ol>
+            </section>
+
             <section class="panel rounded-md">
               <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
                 <div>
-                  <h2 class="font-display text-xl font-bold">Quellenlage</h2>
-                  <p class="mt-1 text-sm text-muted">Klick öffnet Auszug oder Originalquelle.</p>
+                  <h2 class="font-display text-xl font-bold">Quellen</h2>
+                  <p class="mt-1 text-sm text-muted">Nur relevante Auszüge, keine vollständigen Artikel.</p>
                 </div>
-                <span class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[11px] text-muted">${escapeHtml(sources.length)} Einträge</span>
+                <span class="rounded-md border px-2 py-1 text-xs font-semibold ${publicBadgeClass("quality", sourceQuality)}">Quellenlage: ${escapeHtml(sourceQuality)}</span>
               </div>
-              <div class="grid gap-2 p-3">
+              <div class="grid gap-3 p-3">
                 ${sources.map((source) => {
                   const snapshot = snapshotsBySource.get(source.id);
-                  const hasExcerpt = Boolean(snapshot?.markdown_excerpt);
-                  const hasSnapshotOnly = !hasExcerpt && snapshot?.fetch_status === "success";
+                  const excerpt = sourceExcerpt(snapshot);
+                  const facts = sourceFacts(source, event);
                   return `
-                    <button class="source-button lift-hover rounded-md border border-rule bg-surface p-3 text-left" data-source-id="${source.id}" type="button">
-                      <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_160px] md:items-start">
+                    <article class="rounded-md border border-rule bg-surface p-3">
+                      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px] md:items-start">
                         <div class="min-w-0">
-                          <h3 class="clamp-title font-display text-lg font-bold leading-snug">${escapeHtml(source.source_title)}</h3>
-                          <div class="mt-2 flex flex-wrap gap-2 font-mono text-[11px] text-muted">
-                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1">${escapeHtml(source.source_name || "Quelle unbekannt")}</span>
-                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1">Score ${escapeHtml(source.relation_score)}</span>
-                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1">${escapeHtml(label("sourceKind", source.source_kind || "other"))} · Gewicht ${escapeHtml(source.source_weight ?? "-")}</span>
-                            <span class="rounded-md border ${hasExcerpt ? "border-ok bg-oksoft text-ok" : snapshot?.fetch_status === "failed" ? "border-warn bg-warnsoft text-warn" : hasSnapshotOnly ? "border-accent bg-accentsoft text-accent" : "border-rule bg-surface2 text-muted"} px-2 py-1">${escapeHtml(sourceQuality(source, snapshot))}</span>
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${escapeHtml(sourceRole(source))}</span>
+                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs text-muted">${escapeHtml(source.source_name || "Quelle")}</span>
                           </div>
+                          <h3 class="clamp-title mt-2 font-display text-lg font-bold leading-snug">${escapeHtml(source.source_title)}</h3>
+                          <p class="mt-3 rounded-md border border-rule bg-surface2 p-3 text-sm leading-6 text-muted">${highlightExcerpt(excerpt)}</p>
+                          <a class="mt-3 inline-flex rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-ink" href="${escapeHtml(source.source_url)}" target="_blank" rel="noreferrer">Quelle öffnen</a>
                         </div>
-                        <span class="font-mono text-[11px] text-muted md:text-right">${escapeHtml(formatDate(source.published_at))}</span>
+                        <div class="grid gap-2 text-sm">
+                          ${facts.map(([name, value]) => `
+                            <div class="rounded-md border border-rule bg-surface2 p-2">
+                              <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">${escapeHtml(name)}</span>
+                              <strong class="mt-1 block text-ink">${escapeHtml(value)}</strong>
+                            </div>
+                          `).join("")}
+                        </div>
                       </div>
-                    </button>
+                    </article>
                   `;
                 }).join("") || `<div class="rounded-md border border-rule bg-surface p-6 text-sm text-muted">Keine Quellen gespeichert.</div>`}
               </div>
@@ -373,7 +414,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
           </section>
 
           <aside class="grid h-fit gap-3">
-            ${adminAvailable ? renderAdminCard(event) : renderLoginCard()}
+            ${adminAvailable ? renderAdminCard(event, snapshots) : renderLoginCard()}
             <section class="panel rounded-md p-4">
               <h2 class="font-display text-lg font-bold">Akten-Link</h2>
               <p class="mt-2 break-all font-mono text-[11px] leading-5 text-muted">${escapeHtml(canonicalUrl)}</p>
@@ -415,16 +456,26 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       `;
     }
 
-    function renderAdminCard(event) {
+    function renderAdminCard(event, snapshots = []) {
       const researchBusy = event.research_status === "running";
+      const eventScore = Math.max(0, Math.min(100, Math.round(Number(event.event_score ?? Number(event.confidence ?? 0) * 100))));
+      const researchPct = pct(event.fact_confidence);
+      const snapshotSuccess = snapshots.filter((snapshot) => snapshot.fetch_status === "success").length;
+      const snapshotFailed = snapshots.filter((snapshot) => snapshot.fetch_status === "failed").length;
       return `
         <section class="panel rounded-md p-4" id="admin-card">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h2 class="font-display text-lg font-bold">Admin</h2>
-              <p class="mt-1 text-sm text-muted">Kuratieren ohne Portal.</p>
+              <h2 class="font-display text-lg font-bold">Internes Admin-Dashboard</h2>
+              <p class="mt-1 text-sm text-muted">Nur mit lokal gespeichertem Token sichtbar.</p>
             </div>
             <button id="admin-logout" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted" type="button">Logout</button>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <div class="rounded-md border border-rule bg-surface2 p-2"><span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">Score</span><strong class="block">${eventScore}%</strong></div>
+            <div class="rounded-md border border-rule bg-surface2 p-2"><span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">Fact</span><strong class="block">${researchPct === null ? "-" : `${researchPct}%`}</strong></div>
+            <div class="rounded-md border border-rule bg-surface2 p-2"><span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">Research</span><strong class="block">${escapeHtml(event.research_status || "-")}</strong></div>
+            <div class="rounded-md border border-rule bg-surface2 p-2"><span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">Snapshots</span><strong class="block">${snapshotSuccess} ok / ${snapshotFailed} fail</strong></div>
           </div>
           <label class="mt-3 block font-mono text-[10px] uppercase tracking-[0.1em] text-muted" for="admin-note">Notiz</label>
           <textarea id="admin-note" class="mt-2 min-h-20 w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink" placeholder="Optionaler Admin-Kommentar"></textarea>

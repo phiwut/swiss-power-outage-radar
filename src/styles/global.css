@@ -39,6 +39,13 @@ body {
   color: var(--color-ink);
 }
 
+mark {
+  background: color-mix(in oklch, var(--color-warn-soft) 75%, white);
+  border-radius: 0.2rem;
+  color: var(--color-ink);
+  padding: 0 0.15rem;
+}
+
 a {
   text-decoration-thickness: var(--rule-thin);
   text-underline-offset: 0.18em;

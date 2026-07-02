@@ -296,6 +296,7 @@ export async function getPublicStatus(db: D1Database) {
     db
       .prepare(
         `SELECT id, title, status, event_type, location_text, first_seen_at, last_seen_at,
+                started_at_estimate, resolved_at_estimate,
                 confidence, source_count, primary_source_title, primary_source_url,
                 email_sent_at, update_email_sent_at, merged_into_event_id,
                 outage_nature, cause_category, cause_text, research_status,
