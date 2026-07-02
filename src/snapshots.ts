@@ -7,6 +7,13 @@ interface SnapshotTarget {
   alertItem?: Pick<StoredAlertItem, "id"> | null;
 }
 
+interface ParsedMarkdown {
+  markdown: string;
+  title: string | null;
+  httpStatus: number | null;
+  error: string | null;
+}
+
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -38,12 +45,7 @@ function unwrapGoogleAlertUrl(value: string): string {
   return value;
 }
 
-async function parseBrowserMarkdownResponse(response: Response): Promise<{
-  markdown: string;
-  title: string | null;
-  httpStatus: number | null;
-  error: string | null;
-}> {
+async function parseBrowserMarkdownResponse(response: Response): Promise<ParsedMarkdown> {
   const httpStatus = response.status;
   let payload: unknown;
   try {
@@ -75,6 +77,90 @@ async function parseBrowserMarkdownResponse(response: Response): Promise<{
   return { markdown: "", title: null, httpStatus, error: errors };
 }
 
+function titleFromMarkdown(markdown: string): string | null {
+  const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return heading || null;
+}
+
+function jinaReaderUrl(targetUrl: string): string {
+  return `https://r.jina.ai/${targetUrl}`;
+}
+
+async function fetchJinaMarkdown(targetUrl: string): Promise<ParsedMarkdown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(jinaReaderUrl(targetUrl), {
+      headers: {
+        "User-Agent": "swiss-power-outage-radar/0.2",
+        "Accept": "text/markdown,text/plain;q=0.9,*/*;q=0.1"
+      },
+      signal: controller.signal
+    });
+    const text = await response.text().catch(() => "");
+    if (!response.ok) {
+      return {
+        markdown: "",
+        title: null,
+        httpStatus: response.status,
+        error: text || `Jina HTTP ${response.status}`
+      };
+    }
+    if (!text.trim()) {
+      return {
+        markdown: "",
+        title: null,
+        httpStatus: response.status,
+        error: "Jina markdown response was empty"
+      };
+    }
+    return {
+      markdown: text,
+      title: titleFromMarkdown(text),
+      httpStatus: response.status,
+      error: null
+    };
+  } catch (error) {
+    return {
+      markdown: "",
+      title: null,
+      httpStatus: null,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchCloudflareMarkdown(
+  env: Pick<Env, "BROWSER" | "BROWSER_MOCK_MODE">,
+  fetchUrl: string,
+  sourceTitle: string,
+  sourceUrl: string
+): Promise<ParsedMarkdown> {
+  if (env.BROWSER_MOCK_MODE === "true") {
+    return {
+      markdown: `# ${sourceTitle}\n\nMock Markdown Snapshot for ${sourceUrl}`,
+      title: sourceTitle,
+      httpStatus: 200,
+      error: null
+    };
+  }
+
+  return await parseBrowserMarkdownResponse(
+    await env.BROWSER.quickAction("markdown", {
+      url: fetchUrl,
+      cacheTTL: 0,
+      bestAttempt: true,
+      gotoOptions: {
+        timeout: 30000,
+        waitUntil: "domcontentloaded"
+      },
+      userAgent: "swiss-power-outage-radar/0.2"
+    })
+  );
+}
+
 export async function createSourceSnapshot(
   env: Pick<Env, "DB" | "BROWSER" | "SNAPSHOTS" | "BROWSER_MOCK_MODE">,
   target: SnapshotTarget,
@@ -92,37 +178,32 @@ export async function createSourceSnapshot(
   };
 
   try {
-    const parsed =
-      env.BROWSER_MOCK_MODE === "true"
-        ? {
-            markdown: `# ${target.source.source_title}\n\nMock Markdown Snapshot for ${target.source.source_url}`,
-            title: target.source.source_title,
-            httpStatus: 200,
-            error: null
-          }
-        : await parseBrowserMarkdownResponse(
-            await env.BROWSER.quickAction("markdown", {
-              url: fetchUrl,
-              cacheTTL: 0,
-              bestAttempt: true,
-              gotoOptions: {
-                timeout: 30000,
-                waitUntil: "domcontentloaded"
-              },
-              userAgent: "swiss-power-outage-radar/0.2"
-            })
-          );
+    let parsed = await fetchCloudflareMarkdown(
+      env,
+      fetchUrl,
+      target.source.source_title,
+      target.source.source_url
+    );
+    let fetchMethod = base.fetchMethod;
+    let fallbackError: string | null = null;
+
+    if (parsed.error || !parsed.markdown.trim()) {
+      fallbackError = parsed.error || "Cloudflare markdown response was empty";
+      parsed = await fetchJinaMarkdown(fetchUrl);
+      fetchMethod = "jina_markdown_fallback";
+    }
 
     if (parsed.error || !parsed.markdown.trim()) {
       return await insertSourceSnapshot(env.DB, {
         ...base,
+        fetchMethod,
         fetchStatus: "failed",
         httpStatus: parsed.httpStatus,
         title: parsed.title,
         markdownR2Key: null,
         markdownExcerpt: null,
         contentHash: null,
-        error: parsed.error || "Markdown response was empty"
+        error: [fallbackError, parsed.error || "Markdown response was empty"].filter(Boolean).join("; ")
       });
     }
 
@@ -143,6 +224,7 @@ export async function createSourceSnapshot(
 
     return await insertSourceSnapshot(env.DB, {
       ...base,
+      fetchMethod,
       fetchStatus: "success",
       httpStatus: parsed.httpStatus,
       title: parsed.title,

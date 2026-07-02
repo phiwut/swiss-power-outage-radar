@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { isBearerAuthorized } from "../src/auth";
 import { normalizeUrl, scoreExaResultForEvent } from "../src/research";
 import { createSourceSnapshot } from "../src/snapshots";
@@ -58,6 +58,10 @@ const target = {
 };
 
 describe("source snapshots", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("stores markdown in R2 and D1 metadata only", async () => {
     const puts: Array<{ key: string; value: string }> = [];
     const snapshot = await createSourceSnapshot(
@@ -82,7 +86,47 @@ describe("source snapshots", () => {
     expect(puts).toHaveLength(1);
   });
 
-  it("persists failed markdown attempts without throwing", async () => {
+  it("falls back to Jina markdown when Cloudflare markdown fails", async () => {
+    const puts: Array<{ key: string; value: string }> = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      expect(url).toBe("https://r.jina.ai/https://example.com/story");
+      return new Response("# Jina Snapshot\n\nFallback markdown body.", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await createSourceSnapshot(
+      {
+        DB: fakeSnapshotDb(),
+        BROWSER: {
+          async quickAction() {
+            return Response.json({ success: false, errors: [{ message: "blocked" }] }, { status: 422 });
+          }
+        } as unknown as BrowserRun,
+        SNAPSHOTS: {
+          async put(key: string, value: string) {
+            puts.push({ key, value });
+            return null;
+          }
+        } as unknown as R2Bucket
+      },
+      target,
+      "2026-06-30T10:00:00.000Z"
+    );
+
+    expect(snapshot.fetch_status).toBe("success");
+    expect(snapshot.fetch_method).toBe("jina_markdown_fallback");
+    expect(snapshot.title).toBe("Jina Snapshot");
+    expect(snapshot.markdown_excerpt).toContain("Fallback markdown body");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(puts).toHaveLength(1);
+  });
+
+  it("persists failed markdown attempts without throwing when both providers fail", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("jina blocked", { status: 502 }))
+    );
+
     const snapshot = await createSourceSnapshot(
       {
         DB: fakeSnapshotDb(),
