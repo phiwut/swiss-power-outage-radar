@@ -23,11 +23,13 @@ body {
   margin: 0;
   overflow-x: clip;
   background:
+    radial-gradient(circle at 12% 0%, color-mix(in oklch, var(--color-accent-soft) 70%, transparent), transparent 30rem),
+    linear-gradient(180deg, color-mix(in oklch, white 58%, var(--color-bg)), var(--color-bg) 28rem),
     linear-gradient(var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
     linear-gradient(90deg, var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
     var(--color-bg);
-  background-size: 44px 44px;
-  background-position: -1px -1px;
+  background-size: auto, auto, 44px 44px, 44px 44px, auto;
+  background-position: center, center, -1px -1px, -1px -1px, center;
 }
 
 * {
@@ -81,6 +83,85 @@ textarea:focus-visible {
     0 8px 18px color-mix(in oklch, var(--color-ink) 5%, transparent);
 }
 
+.chrome {
+  border: var(--rule-thin) solid var(--color-rule);
+  background: color-mix(in oklch, var(--color-surface) 86%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 78%, transparent) inset,
+    0 18px 50px color-mix(in oklch, var(--color-ink) 8%, transparent);
+}
+
+.icon {
+  display: inline-block;
+  height: 1rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 1rem;
+}
+
+.icon-lg {
+  height: 1.25rem;
+  width: 1.25rem;
+}
+
+.control-button {
+  align-items: center;
+  border: var(--rule-thin) solid var(--color-rule);
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  gap: 0.45rem;
+  justify-content: center;
+  min-height: 2.55rem;
+}
+
+.control-button:hover {
+  border-color: var(--color-rule-strong);
+  transform: translateY(-1px);
+}
+
+.status-dot {
+  align-items: center;
+  border: var(--rule-thin) solid currentColor;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  height: 2.35rem;
+  justify-content: center;
+  width: 2.35rem;
+}
+
+.event-card {
+  border: var(--rule-thin) solid var(--color-rule);
+  background: color-mix(in oklch, var(--color-surface) 96%, white);
+  box-shadow: 0 10px 26px color-mix(in oklch, var(--color-ink) 5%, transparent);
+}
+
+.event-card:hover {
+  border-color: var(--color-rule-strong);
+  transform: translateY(-1px);
+}
+
+.event-timeline {
+  position: relative;
+}
+
+.event-timeline::before {
+  background: linear-gradient(var(--color-rule-strong), var(--color-rule));
+  content: "";
+  inset: 0 auto 0 1.16rem;
+  position: absolute;
+  width: 1px;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .hairline-grid {
   background-image:
     linear-gradient(var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
@@ -95,6 +176,10 @@ textarea:focus-visible {
 }
 
 .metric-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular {
   font-variant-numeric: tabular-nums;
 }
 

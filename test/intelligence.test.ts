@@ -48,6 +48,10 @@ function event(patch: Partial<OutageEvent> = {}): OutageEvent {
     fact_sheet_updated_at: null,
     auto_research_started_at: null,
     mail_decision_reason: null,
+    public_status: "hidden",
+    verification_level: "auto_analyzed",
+    location_granularity: "municipality",
+    event_quality_state: "candidate_only",
     created_at: "2026-07-01 09:00:00",
     updated_at: "2026-07-01 09:00:00",
     ...patch
@@ -151,6 +155,6 @@ describe("event intelligence", () => {
 
     expect(sheet.location).toBe("Belp");
     expect(sheet.source_count).toBe(2);
-    expect(sheet.confirmed_facts.join(" ")).toContain("2 Quelle");
+    expect(sheet.confirmed_facts.join(" ")).toContain("2 unabhängige Quellen");
   });
 });

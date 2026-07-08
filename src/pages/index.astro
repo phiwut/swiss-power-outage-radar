@@ -7,53 +7,57 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   description="Stromausfall Radar für die Schweiz: aktuelle öffentliche Hinweise zu Stromausfällen, Netzunterbrüchen, Status, Ursachen und Quellenlage."
 >
   <section class="py-4 sm:py-6">
-    <div class="panel rounded-md p-4 sm:p-6">
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+    <div class="chrome rounded-md p-4 sm:p-6">
+      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
         <div>
-          <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">outage.ch</p>
-          <h1 class="mt-2 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-5xl">Stromausfall Radar Schweiz</h1>
-          <p class="mt-3 max-w-2xl text-base leading-7 text-muted">
-            Öffentliche Hinweise zu Stromausfällen, Stromunterbrüchen und Netzstörungen in der Schweiz. Automatisch gesammelt, zusammengefasst und mit Quellenlage eingeordnet.
-          </p>
+          <p class="section-label text-accent">outage.ch / Lagebild Schweiz</p>
+          <h1 class="mt-3 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-5xl">Stromausfälle nach Ereigniszeit</h1>
+          <p class="mt-3 max-w-2xl text-base leading-7 text-muted">Nur Hinweise mit belegtem Ort, Quelle und relevanter Textstelle. Heute steht oben, geplante Unterbrüche folgen chronologisch.</p>
         </div>
         <div class="grid gap-2">
-          <label class="font-mono text-[10px] uppercase tracking-[0.12em] text-muted" for="event-search">Ort oder Quelle suchen</label>
+          <label class="section-label text-muted" for="event-search">Suchen</label>
           <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <input id="event-search" class="rounded-md border border-rule bg-surface px-3 py-3 text-sm text-ink placeholder:text-faint" placeholder="z.B. Belp, Freiamt, AEW" />
-            <button id="refresh-button" class="rounded-md border border-ink bg-ink px-4 py-3 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">Aktualisieren</button>
+            <div class="relative">
+              <svg class="icon absolute left-3 top-1/2 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg>
+              <input id="event-search" class="h-12 w-full rounded-md border border-rule bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-faint" placeholder="Ort, Betreiber, Quelle" />
+            </div>
+            <button id="refresh-button" class="control-button bg-ink px-4 py-3 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.3 6.4"/><path d="M3 12A9 9 0 0 1 18.3 5.6"/><path d="M21 4v6h-6"/><path d="M3 20v-6h6"/></svg>
+              Aktualisieren
+            </button>
           </div>
         </div>
       </div>
 
       <div id="public-metrics" class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {["Gemeldet", "Zu prüfen", "Gut belegt", "Behoben"].map((label) => (
-          <div class="loading-stripe h-20 rounded-md border border-rule bg-surface2 p-3">
-            <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">{label}</span>
+          <div class="loading-stripe h-20 rounded-md border border-rule bg-surface/70 p-3">
+            <span class="section-label text-muted">{label}</span>
           </div>
         ))}
       </div>
     </div>
   </section>
 
-  <section class="grid gap-4 pb-28 lg:grid-cols-[minmax(0,1fr)_320px] lg:pb-8">
-    <main class="panel rounded-md">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+  <section class="grid gap-4 pb-28 lg:grid-cols-[minmax(0,1fr)_300px] lg:pb-8">
+    <main class="panel rounded-md overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-4">
         <div>
-          <h2 class="font-display text-xl font-bold">Aktuelle Meldungen</h2>
-          <p class="mt-1 text-sm text-muted">Nach erster Erkennung sortiert. Archivierte Fehlalarme sind ausgeblendet.</p>
+          <p class="section-label text-muted">Timeline</p>
+          <h2 class="mt-1 font-display text-xl font-bold">Ereignisse</h2>
         </div>
         <div class="flex flex-wrap gap-2">
-          <select id="status-filter" class="rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink">
+          <select id="status-filter" class="h-10 rounded-md border border-rule bg-surface px-3 text-sm text-ink">
             <option value="public">Aktuelle Hinweise</option>
             <option value="all">Alle inkl. Archiv</option>
             <option value="needs_review">Zu prüfen</option>
             <option value="corroborated">Gut belegt</option>
             <option value="resolved">Behoben</option>
           </select>
-          <span id="event-count" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] text-muted">-</span>
+          <span id="event-count" class="grid h-10 place-items-center rounded-md border border-rule bg-surface2 px-3 font-mono text-[11px] text-muted">-</span>
         </div>
       </div>
-      <div id="events-list" class="grid gap-3 p-3 sm:p-4">
+      <div id="events-list" class="event-timeline grid gap-3 p-3 sm:p-4">
         <div class="loading-stripe h-48 rounded-md bg-surface2"></div>
         <div class="loading-stripe h-48 rounded-md bg-surface2"></div>
       </div>
@@ -61,16 +65,21 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     <aside class="grid h-fit gap-4">
       <section class="panel rounded-md p-4">
-        <h2 class="font-display text-lg font-bold">So lesen Sie die Hinweise</h2>
-        <div class="mt-3 grid gap-3 text-sm leading-6 text-muted">
-          <p><strong class="text-ink">Status</strong> zeigt, ob der Unterbruch als aktiv, behoben, unklar oder noch zu prüfen gilt.</p>
-          <p><strong class="text-ink">Quellenlage</strong> fasst die Belege als schwach, mittel oder stark zusammen.</p>
-          <p><strong class="text-ink">Sicherheit</strong> ist eine verständliche Einordnung, keine offizielle Bestätigung.</p>
+        <p class="section-label text-muted">Legende</p>
+        <div class="mt-3 grid gap-2 text-sm leading-6 text-muted">
+          <p><span class="font-semibold text-ink">Ereigniszeit</span> ist belegt oder aus der Quelle extrahiert.</p>
+          <p><span class="font-semibold text-ink">Automatisch analysiert</span> bedeutet: Quelle vorhanden, aber nicht manuell verifiziert.</p>
+          <p><span class="font-semibold text-ink">Geprüft</span> nur bei offizieller Quelle oder Admin-Prüfung.</p>
         </div>
       </section>
 
       <section class="panel rounded-md p-4">
-        <h2 class="font-display text-lg font-bold">Hinweis</h2>
+        <div class="flex items-center gap-2">
+          <span class="status-dot border-warn bg-warnsoft text-warn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          </span>
+          <h2 class="font-display text-lg font-bold">Hinweis</h2>
+        </div>
         <p class="mt-2 text-sm leading-6 text-muted">outage.ch ist ein Radar aus öffentlichen Quellen. Prüfen Sie bei kritischen Situationen immer Gemeinde, Netzbetreiber oder Behörden.</p>
       </section>
 
@@ -101,8 +110,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         <option value="corroborated">Belegt</option>
         <option value="resolved">Behoben</option>
       </select>
-      <button id="mobile-refresh" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase text-ink" type="button">Neu</button>
-      <button id="mobile-admin" class="rounded-md border border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase text-surface" type="button">Admin</button>
+      <button id="mobile-refresh" class="control-button bg-surface2 px-3 py-2 font-mono text-[11px] uppercase text-ink" type="button">Neu</button>
+      <button id="mobile-admin" class="control-button bg-ink px-3 py-2 font-mono text-[11px] uppercase text-surface" type="button">Admin</button>
     </div>
   </nav>
 
@@ -155,6 +164,22 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;");
     const label = (group, value) => labels[group]?.[value] ?? value ?? "-";
+    const icons = {
+      zap: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z"/></svg>`,
+      clock: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+      check: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
+      alert: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>`,
+      file: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>`,
+      arrow: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>`,
+      shield: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 4 7v6c0 5 3.4 7.7 8 8 4.6-.3 8-3 8-8V7l-8-4Z"/></svg>`
+    };
+
+    function statusIcon(status) {
+      if (status === "resolved") return icons.check;
+      if (status === "active") return icons.zap;
+      if (status === "needs_review") return icons.alert;
+      return icons.clock;
+    }
 
     function parseFactSheet(event) {
       if (!event.fact_sheet_json) return null;
@@ -216,6 +241,37 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       return `${formatDate(event.started_at_estimate)} bis ${formatDate(event.resolved_at_estimate)}`;
     }
 
+    function eventDate(event) {
+      return event.started_at_estimate || event.first_seen_at || event.last_seen_at;
+    }
+
+    function eventDateLabel(event) {
+      return event.started_at_estimate ? "Ereigniszeit" : "Erkannt";
+    }
+
+    function dayKey(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Zurich",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).format(date);
+    }
+
+    function publicSortValue(event) {
+      const value = eventDate(event);
+      const time = new Date(value).getTime();
+      if (!Number.isFinite(time)) return [3, 0];
+
+      const today = dayKey(new Date().toISOString());
+      const eventDay = dayKey(value);
+      if (eventDay === today) return [0, time];
+      if (eventDay > today) return [1, time];
+      return [2, -time];
+    }
+
     function summaryText(event) {
       const fact = parseFactSheet(event);
       return fact?.summary_de || event.research_summary_de || event.summary || event.primary_source_title || "Zu dieser Meldung liegt noch keine belastbare Kurzfassung vor.";
@@ -230,22 +286,29 @@ import RadarLayout from "../layouts/RadarLayout.astro";
           const haystack = `${event.location_text ?? ""} ${event.primary_source_title ?? ""} ${event.cause_category ?? ""} ${summaryText(event)}`.toLowerCase();
           return haystack.includes(query);
         })
-        .sort((a, b) => new Date(b.first_seen_at ?? b.last_seen_at).getTime() - new Date(a.first_seen_at ?? a.last_seen_at).getTime());
+        .sort((a, b) => {
+          const left = publicSortValue(a);
+          const right = publicSortValue(b);
+          return left[0] - right[0] || left[1] - right[1];
+        });
     }
 
     function renderMetrics(data) {
       const events = data.events ?? [];
       const publicEvents = events.filter((event) => event.status !== "dismissed");
       const metrics = [
-        ["Gemeldet", publicEvents.length, "aktuelle Hinweise"],
-        ["Zu prüfen", publicEvents.filter((event) => event.status === "needs_review").length, "brauchen Einordnung"],
-        ["Gut belegt", publicEvents.filter((event) => certaintyLabel(event) === "Gut belegt").length, "starke Quellenlage"],
-        ["Behoben", publicEvents.filter((event) => incidentStatus(event) === "resolved").length, "als behoben erkannt"]
+        ["Gemeldet", publicEvents.length, "sichtbare Ereignisse", icons.file],
+        ["Zu prüfen", publicEvents.filter((event) => event.status === "needs_review").length, "brauchen Einordnung", icons.alert],
+        ["Gut belegt", publicEvents.filter((event) => certaintyLabel(event) === "Gut belegt").length, "starke Quellenlage", icons.shield],
+        ["Behoben", publicEvents.filter((event) => incidentStatus(event) === "resolved").length, "als behoben erkannt", icons.check]
       ];
-      document.querySelector("#public-metrics").innerHTML = metrics.map(([name, value, hint]) => `
-        <div class="rounded-md border border-rule bg-surface/90 p-3">
-          <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">${escapeHtml(name)}</span>
-          <div class="mt-2 flex items-end justify-between gap-2">
+      document.querySelector("#public-metrics").innerHTML = metrics.map(([name, value, hint, icon]) => `
+        <div class="rounded-md border border-rule bg-surface/85 p-3">
+          <div class="flex items-center justify-between gap-3">
+            <span class="section-label text-muted">${escapeHtml(name)}</span>
+            <span class="text-accent">${icon}</span>
+          </div>
+          <div class="mt-3 flex items-end justify-between gap-2">
             <strong class="metric-value block font-display text-3xl font-bold leading-none">${escapeHtml(value)}</strong>
             <span class="pb-1 text-right text-xs text-muted">${escapeHtml(hint)}</span>
           </div>
@@ -263,36 +326,26 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         const certainty = certaintyLabel(event);
         const summary = summaryText(event);
         return `
-          <article class="rounded-md border border-rule bg-surface p-4 shadow-panel">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+          <article class="event-card relative z-10 rounded-md p-4 transition">
+            <div class="grid gap-3 sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:items-start">
+              <div class="status-dot ${badgeClass("status", status)}">${statusIcon(status)}</div>
               <div class="min-w-0">
-                <h3 class="clamp-title font-display text-2xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
-                <p class="mt-1 text-sm text-muted">Erstmals erkannt: ${escapeHtml(formatDate(event.first_seen_at))}</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="section-label text-muted">${escapeHtml(eventDateLabel(event))}</span>
+                  <span class="tabular text-sm font-semibold text-ink">${escapeHtml(formatDate(eventDate(event)))}</span>
+                </div>
+                <h3 class="clamp-title mt-1 font-display text-2xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
+                <p class="mt-2 line-clamp-2 text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
               </div>
-              <a href="/events/${event.id}" class="rounded-md border border-ink bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface">Details öffnen</a>
+              <a href="/events/${event.id}" class="control-button bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface">
+                Details ${icons.arrow}
+              </a>
             </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <span class="rounded-md border px-2 py-1 text-xs font-semibold ${badgeClass("status", status)}">${escapeHtml(label("status", status))}</span>
-              <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
-              <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
-              <span class="rounded-md border px-2 py-1 text-xs font-semibold ${badgeClass("source", source)}">${escapeHtml(source)}</span>
-              <span class="rounded-md border px-2 py-1 text-xs font-semibold ${badgeClass("quality", quality)}">Quellenlage: ${escapeHtml(quality)}</span>
-              <span class="rounded-md border px-2 py-1 text-xs font-semibold ${badgeClass("certainty", certainty)}">Sicherheit: ${escapeHtml(certainty)}</span>
-            </div>
-            <p class="mt-3 line-clamp-3 text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
-            <div class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-              <div class="rounded-md border border-rule bg-surface2 p-3">
-                <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Quellenlage</span>
-                <strong class="mt-1 block">${escapeHtml(quality)}</strong>
-              </div>
-              <div class="rounded-md border border-rule bg-surface2 p-3">
-                <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Belege</span>
-                <strong class="mt-1 block">${escapeHtml(source)}</strong>
-              </div>
-              <div class="rounded-md border border-rule bg-surface2 p-3">
-                <span class="font-mono text-[10px] uppercase tracking-[0.1em] text-muted">Dauer</span>
-                <strong class="mt-1 block">${escapeHtml(durationText(event))}</strong>
-              </div>
+            <div class="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Status</span><strong class="mt-1 block">${escapeHtml(label("status", status))}</strong></div>
+              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Art</span><strong class="mt-1 block">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</strong></div>
+              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Beleg</span><strong class="mt-1 block">${escapeHtml(source)}</strong></div>
+              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Sicherheit</span><strong class="mt-1 block">${escapeHtml(certainty)}</strong></div>
             </div>
           </article>
         `;

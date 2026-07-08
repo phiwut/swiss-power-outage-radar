@@ -1,4 +1,5 @@
 import { assessIncidentValidity, classifyItem } from "./ai";
+import { assessCandidateEvidence } from "./candidate-quality";
 import {
   attachSourceToEvent,
   createWorkflowRun,
@@ -10,7 +11,11 @@ import {
   getOutageEventSources,
   getPendingOutageEventEmails,
   getUnlinkedRelevantItems,
+  insertOutageCandidate,
+  insertOutageFacts,
   insertAlertItem,
+  linkCandidateToEvent,
+  markOutageEventPublishable,
   markAiError,
   markAlertLinkedToEvent,
   markOutageEventEmailSent,
@@ -29,9 +34,10 @@ import { sendEventEmail } from "./email";
 import { cheapFilterItem } from "./filter";
 import { itemHash, parseRssFeed } from "./rss";
 import { researchOutageEvent } from "./research";
-import { createSourceSnapshot } from "./snapshots";
+import { createAlertSnapshot, createSourceSnapshot } from "./snapshots";
 import type {
   AiClassification,
+  CandidateAssessment,
   Env,
   FeedLanguage,
   NormalizedRssItem,
@@ -164,8 +170,43 @@ async function classifyAndNotify(
     return { filtered: true, classified: true, emailSent: false };
   }
 
+  const candidateSnapshot = await createAlertSnapshot(env, freshItem);
+  const assessment = assessCandidateEvidence({
+    item: freshItem,
+    classification: classification.parsed,
+    snapshot: candidateSnapshot
+  });
+  const candidate = await insertOutageCandidate(env.DB, {
+    alertItemId: freshItem.id,
+    snapshotId: candidateSnapshot.id,
+    assessment
+  });
+  await insertOutageFacts(env.DB, {
+    candidateId: candidate.id,
+    eventId: null,
+    sourceId: null,
+    snapshotId: candidateSnapshot.id,
+    facts: assessment.facts
+  });
+
+  if (!assessment.publishable) {
+    if (!assessment.needs_admin) {
+      await markFiltered(
+        env.DB,
+        item.id,
+        `candidate_quality:${assessment.relevance_role}: ${assessment.rejection_reason ?? "not publishable"}`
+      );
+      return { filtered: true, classified: true, emailSent: false };
+    }
+    return { filtered: false, classified: true, emailSent: false };
+  }
+
   try {
-    const result = await linkAlertToOutageEvent(env, freshItem, classification.parsed);
+    const result = await linkAlertToOutageEvent(env, freshItem, classification.parsed, {
+      assessment,
+      candidateId: candidate.id,
+      candidateSnapshotId: candidateSnapshot.id
+    });
     return { filtered: false, classified: true, emailSent: result.emailSent };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -230,9 +271,16 @@ async function linkAlertToOutageEvent(
   env: Env,
   item: StoredAlertItem,
   classification: AiClassification,
-  options: { suppressNewEventEmail?: boolean } = {}
+  options: {
+    suppressNewEventEmail?: boolean;
+    assessment?: CandidateAssessment;
+    candidateId?: number;
+    candidateSnapshotId?: number;
+  } = {}
 ): Promise<{ event: OutageEvent; created: boolean; emailSent: boolean }> {
   const now = new Date().toISOString();
+  const startedAtEstimate =
+    options.assessment?.facts.find((fact) => fact.fact_type === "start_time")?.value_text ?? null;
   const geoLocation = await normalizeSwissLocation(classification.location_text);
   const normalizedLocation =
     geoLocation.normalizedLocation || normalizeLocation(classification.location_text);
@@ -243,6 +291,10 @@ async function linkAlertToOutageEvent(
   let relationScore = best?.score ?? 100;
 
   if (!event) {
+    const publicStatus =
+      options.assessment?.facts.some((fact) => fact.verified_by === "official_source")
+        ? "public_verified"
+        : "public_auto";
     event = await createOutageEvent(env.DB, {
       title: makeEventTitle(classification),
       eventType: classification.event_type,
@@ -255,9 +307,28 @@ async function linkAlertToOutageEvent(
       reason: classification.reason,
       confidence: classification.confidence,
       primarySourceUrl: item.url,
-      primarySourceTitle: item.title
+      primarySourceTitle: item.title,
+      startedAtEstimate,
+      publicStatus,
+      verificationLevel: publicStatus === "public_verified" ? "official_source" : "auto_analyzed",
+      locationGranularity: options.assessment?.location_granularity ?? "unknown",
+      eventQualityState: "publishable",
+      outageNature: options.assessment?.outage_nature ?? "unknown"
     });
     created = true;
+  } else if (options.assessment?.publishable) {
+    event = await markOutageEventPublishable(env.DB, event.id, {
+      publicStatus: options.assessment.facts.some((fact) => fact.verified_by === "official_source")
+        ? "public_verified"
+        : "public_auto",
+      verificationLevel: options.assessment.facts.some((fact) => fact.verified_by === "official_source")
+        ? "official_source"
+        : "auto_analyzed",
+      locationGranularity: options.assessment.location_granularity,
+      eventQualityState: "publishable",
+      outageNature: options.assessment.outage_nature,
+      startedAtEstimate
+    });
   }
 
   const source = await attachSourceToEvent(env.DB, {
@@ -267,6 +338,16 @@ async function linkAlertToOutageEvent(
     isPrimary: created
   });
   await markAlertLinkedToEvent(env.DB, item.id, event.id, now);
+  if (options.candidateId) {
+    await linkCandidateToEvent(env.DB, options.candidateId, event.id);
+    await insertOutageFacts(env.DB, {
+      candidateId: options.candidateId,
+      eventId: event.id,
+      sourceId: source.id,
+      snapshotId: options.candidateSnapshotId ?? null,
+      facts: options.assessment?.facts ?? []
+    });
+  }
   event = await refreshOutageEventAfterSource(env.DB, event.id, {
     lastSeenAt: item.published_at ?? item.fetched_at ?? now,
     confidence: classification.confidence,

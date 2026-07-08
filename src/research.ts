@@ -34,11 +34,12 @@ interface ScoredExaResult {
   reason: string;
 }
 
-const EXA_QUERY_LIMIT = 4;
-const EXA_RESULT_LIMIT = 6;
+const EXA_QUERY_LIMIT = 2;
+const EXA_RESULT_LIMIT = 3;
 const EXA_ACCEPT_SCORE = 64;
 const SNAPSHOT_LIMIT = 4;
 const SNAPSHOT_DELAY_MS = 8000;
+const EXA_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export function normalizeUrl(value: string): string {
   try {
@@ -57,6 +58,11 @@ function sleep(ms: number): Promise<void> {
 
 function normalizeText(value: string | null | undefined): string {
   return normalizeLocation(value ?? "");
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function containsAny(text: string, terms: string[]): boolean {
@@ -200,15 +206,76 @@ function researchQueries(event: OutageEvent): string[] {
   ];
 }
 
-async function searchExa(env: Pick<Env, "EXA_API_KEY" | "EXA_MOCK_MODE">, query: string, event: OutageEvent): Promise<ExaResult[]> {
+async function cachedExaResults(
+  env: Pick<Env, "DB">,
+  query: string,
+  event: OutageEvent
+): Promise<ExaResult[] | null> {
+  const queryHash = await sha256Hex(query);
+  const row = await env.DB.prepare(
+    `SELECT result_json, searched_at
+     FROM exa_search_cache
+     WHERE query_hash = ?`
+  )
+    .bind(queryHash)
+    .first<{ result_json: string; searched_at: string }>();
+  if (!row) return null;
+
+  const searchedAt = new Date(row.searched_at).getTime();
+  if (!Number.isFinite(searchedAt) || Date.now() - searchedAt > EXA_CACHE_TTL_MS) return null;
+
+  try {
+    const parsed = JSON.parse(row.result_json);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function storeExaResults(
+  env: Pick<Env, "DB">,
+  query: string,
+  event: OutageEvent,
+  results: ExaResult[]
+): Promise<void> {
+  const queryHash = await sha256Hex(query);
+  await env.DB.prepare(
+    `INSERT INTO exa_search_cache (
+       query_hash, query, event_location_key, result_json, searched_at
+     ) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(query_hash) DO UPDATE SET
+       result_json = excluded.result_json,
+       searched_at = excluded.searched_at,
+       updated_at = CURRENT_TIMESTAMP`
+  )
+    .bind(
+      queryHash,
+      query,
+      normalizeLocation(event.location_text),
+      JSON.stringify(results),
+      new Date().toISOString()
+    )
+    .run();
+}
+
+async function searchExa(
+  env: Pick<Env, "EXA_API_KEY" | "EXA_MOCK_MODE" | "DB">,
+  query: string,
+  event: OutageEvent
+): Promise<ExaResult[]> {
+  const cached = await cachedExaResults(env, query, event);
+  if (cached) return cached;
+
   if (env.EXA_MOCK_MODE === "true") {
-    return [
+    const results = [
       {
         title: `Mock Quelle: ${query}`,
         url: `https://example.com/research/${encodeURIComponent(query)}`,
         highlights: [`Zusätzlicher Hinweis zu ${query}.`]
       }
     ];
+    await storeExaResults(env, query, event, results);
+    return results;
   }
 
   if (!env.EXA_API_KEY) throw new Error("EXA_API_KEY missing");
@@ -257,10 +324,15 @@ async function searchExa(env: Pick<Env, "EXA_API_KEY" | "EXA_MOCK_MODE">, query:
   }
 
   const payload = (await response.json()) as { results?: ExaResult[] };
-  return payload.results ?? [];
+  const results = payload.results ?? [];
+  await storeExaResults(env, query, event, results);
+  return results;
 }
 
-async function collectExaResults(env: Pick<Env, "EXA_API_KEY" | "EXA_MOCK_MODE">, event: OutageEvent): Promise<ExaResult[]> {
+async function collectExaResults(
+  env: Pick<Env, "EXA_API_KEY" | "EXA_MOCK_MODE" | "DB">,
+  event: OutageEvent
+): Promise<ExaResult[]> {
   const byUrl = new Map<string, ScoredExaResult>();
   for (const query of researchQueries(event).slice(0, EXA_QUERY_LIMIT)) {
     const results = await searchExa(env, query, event);

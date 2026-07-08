@@ -83,6 +83,10 @@ const event = {
   fact_sheet_updated_at: null,
   auto_research_started_at: null,
   mail_decision_reason: null,
+  public_status: "hidden",
+  verification_level: "auto_analyzed",
+  location_granularity: "municipality",
+  event_quality_state: "candidate_only",
   created_at: "2026-06-30 07:35:00",
   updated_at: "2026-06-30 07:35:00"
 } satisfies OutageEvent;

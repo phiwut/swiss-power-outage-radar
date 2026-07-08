@@ -169,7 +169,7 @@ export function scoreEvent(event: OutageEvent, sources: OutageSource[]): EventSc
   const evidence_level: EvidenceLevel =
     hasOfficial && score >= 70
       ? "official"
-      : independentCount >= 2 && score >= 75
+      : independentCount >= 2 && score >= 70
         ? "corroborated"
         : score >= 65
           ? "plausible"
@@ -218,10 +218,9 @@ export function buildFactSheet(
     cause_text: assessment?.cause_text ?? event.cause_text ?? "",
     status: assessment?.status ?? (event.status === "resolved" ? "resolved" : "unknown"),
     confirmed_facts: [
-      sources.length > 0 ? `${sources.length} Quelle(n) gespeichert` : "Keine Quelle gespeichert",
       independentCount > 1 ? `${independentCount} unabhängige Quellen` : "",
       officialCount > 0 ? `${officialCount} offizielle/betreibernahe Quelle(n)` : "",
-      successfulSnapshots > 0 ? `${successfulSnapshots} Snapshot-Auszug/züge vorhanden` : ""
+      successfulSnapshots > 0 ? "Relevanter Quellenauszug vorhanden" : ""
     ].filter(Boolean),
     open_questions: [
       (assessment?.outage_nature ?? event.outage_nature) === "unknown" ? "Geplant oder ungeplant ist noch unklar." : "",

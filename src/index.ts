@@ -4,6 +4,7 @@ import {
   getDebugStatus,
   getMergeSuggestionsForEvent,
   getOutageEvent,
+  getOutageEventFacts,
   getOutageEventSources,
   getOutageEventSnapshots,
   getPublicStatus,
@@ -183,6 +184,13 @@ function renderStatusPage(status: Awaited<ReturnType<typeof getPublicStatus>>): 
 async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   const event = await getOutageEvent(env.DB, eventId);
   if (!event) return new Response("Event nicht gefunden", { status: 404 });
+  if (
+    event.status === "dismissed" ||
+    (event.public_status ?? "hidden") === "hidden" ||
+    (event.event_quality_state ?? "candidate_only") !== "publishable"
+  ) {
+    return new Response("Event nicht öffentlich", { status: 404 });
+  }
 
   const sources = await getOutageEventSources(env.DB, eventId);
   const sourceRows = sources
@@ -305,10 +313,18 @@ export default {
     if (publicEventMatch && request.method === "GET") {
       const event = await getOutageEvent(env.DB, Number(publicEventMatch[1]));
       if (!event) return json({ error: "Not found" }, { status: 404 });
+      if (
+        event.status === "dismissed" ||
+        (event.public_status ?? "hidden") === "hidden" ||
+        (event.event_quality_state ?? "candidate_only") !== "publishable"
+      ) {
+        return json({ error: "Not found" }, { status: 404 });
+      }
       return json({
         event,
         sources: await getOutageEventSources(env.DB, event.id),
         snapshots: await getOutageEventSnapshots(env.DB, event.id),
+        facts: await getOutageEventFacts(env.DB, event.id),
         merge_suggestions: await getMergeSuggestionsForEvent(env.DB, event.id)
       });
     }

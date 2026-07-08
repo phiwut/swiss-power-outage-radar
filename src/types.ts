@@ -101,6 +101,36 @@ export type OutageNature = "planned" | "unplanned" | "unknown";
 export type ResearchStatus = "not_started" | "running" | "completed" | "failed";
 export type EvidenceLevel = "weak" | "plausible" | "corroborated" | "official";
 export type SourceKind = "official" | "local_media" | "national_media" | "operator" | "aggregator" | "other";
+export type PublicStatus = "hidden" | "public_auto" | "public_verified";
+export type VerificationLevel = "auto_analyzed" | "official_source" | "admin_verified";
+export type EventQualityState = "candidate_only" | "publishable" | "needs_review" | "rejected";
+export type LocationGranularity =
+  | "address"
+  | "street"
+  | "municipality"
+  | "district"
+  | "region"
+  | "canton"
+  | "country"
+  | "unknown";
+export type RelevanceRole =
+  | "primary_report"
+  | "official_notice"
+  | "incident_update"
+  | "incidental_mention"
+  | "background"
+  | "foreign_event"
+  | "unknown";
+export type OutageFactType =
+  | "outage_happened"
+  | "planned_outage_notice"
+  | "location"
+  | "start_time"
+  | "end_time"
+  | "status"
+  | "planned_nature"
+  | "cause"
+  | "affected_area";
 export type CauseCategory =
   | "planned_maintenance"
   | "weather"
@@ -153,6 +183,10 @@ export interface OutageEvent {
   fact_sheet_updated_at: string | null;
   auto_research_started_at: string | null;
   mail_decision_reason: string | null;
+  public_status: PublicStatus | null;
+  verification_level: VerificationLevel | null;
+  location_granularity: LocationGranularity | null;
+  event_quality_state: EventQualityState | null;
   created_at: string;
   updated_at: string;
 }
@@ -192,6 +226,67 @@ export interface SourceSnapshot {
   error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface OutageCandidate {
+  id: number;
+  alert_item_id: number;
+  snapshot_id: number | null;
+  status: "new" | "extracted" | "rejected" | "event_linked" | "needs_admin";
+  location_text: string | null;
+  location_granularity: LocationGranularity | null;
+  is_ch_incident: number;
+  event_type: AiClassification["event_type"];
+  relevance_role: RelevanceRole | null;
+  quality_score: number;
+  quality_reasons_json: string | null;
+  rejection_reason: string | null;
+  outage_event_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutageFact {
+  id: number;
+  candidate_id: number | null;
+  outage_event_id: number | null;
+  outage_source_id: number | null;
+  snapshot_id: number | null;
+  fact_type: OutageFactType;
+  value_text: string;
+  value_json: string | null;
+  confidence: number;
+  evidence_excerpt: string;
+  source_role: string | null;
+  verified_by: VerificationLevel | "auto" | null;
+  created_at: string;
+}
+
+export interface CandidateFactInput {
+  fact_type: OutageFactType;
+  value_text: string;
+  value_json?: string | null;
+  confidence: number;
+  evidence_excerpt: string;
+  source_role?: string | null;
+  verified_by?: VerificationLevel | "auto" | null;
+}
+
+export interface CandidateAssessment {
+  publishable: boolean;
+  needs_admin: boolean;
+  is_ch_incident: boolean;
+  location_text: string;
+  location_granularity: LocationGranularity;
+  event_type: AiClassification["event_type"];
+  relevance_role: RelevanceRole;
+  quality_score: number;
+  quality_reasons: string[];
+  rejection_reason: string | null;
+  outage_nature: OutageNature;
+  status: "active" | "resolved" | "unknown";
+  summary_de: string;
+  facts: CandidateFactInput[];
 }
 
 export interface ResearchAssessment {

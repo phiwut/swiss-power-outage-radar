@@ -1,11 +1,15 @@
 import type {
   AiClassification,
+  CandidateAssessment,
+  CandidateFactInput,
   EventMergeSuggestion,
   EvidenceLevel,
   FactSheet,
   FeedLanguage,
   NormalizedRssItem,
+  OutageCandidate,
   OutageEvent,
+  OutageFact,
   OutageSource,
   ResearchAssessment,
   ResearchStatus,
@@ -302,9 +306,13 @@ export async function getPublicStatus(db: D1Database) {
                 outage_nature, cause_category, cause_text, research_status,
                 research_summary_de, fact_confidence, event_score, evidence_level,
                 fact_sheet_json, fact_sheet_updated_at, auto_research_started_at,
-                mail_decision_reason
+                mail_decision_reason, public_status, verification_level,
+                location_granularity, event_quality_state
          FROM outage_events
-         ORDER BY last_seen_at DESC
+         WHERE status != 'dismissed'
+           AND COALESCE(public_status, 'hidden') != 'hidden'
+           AND COALESCE(event_quality_state, 'candidate_only') = 'publishable'
+         ORDER BY COALESCE(started_at_estimate, first_seen_at, last_seen_at) DESC
          LIMIT 200`
       )
       .all()
@@ -453,7 +461,7 @@ export async function findCandidateEvents(
        FROM outage_events
        WHERE status != 'dismissed'
          AND last_seen_at >= ?
-       ORDER BY last_seen_at DESC
+       ORDER BY COALESCE(started_at_estimate, first_seen_at, last_seen_at) DESC
        LIMIT 50`
     )
     .bind(sinceIso)
@@ -476,15 +484,25 @@ export async function createOutageEvent(
     confidence: number;
     primarySourceUrl: string;
     primarySourceTitle: string;
+    startedAtEstimate?: string | null;
+    resolvedAtEstimate?: string | null;
+    publicStatus?: string;
+    verificationLevel?: string;
+    locationGranularity?: string;
+    eventQualityState?: string;
+    outageNature?: string;
   }
 ): Promise<OutageEvent> {
   const result = await db
     .prepare(
       `INSERT INTO outage_events (
          title, status, event_type, location_text, normalized_location, canton, country,
-         first_seen_at, last_seen_at, summary, reason, confidence,
-         source_count, primary_source_url, primary_source_title
-       ) VALUES (?, 'needs_review', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+         first_seen_at, last_seen_at, started_at_estimate, resolved_at_estimate,
+         summary, reason, confidence,
+         source_count, primary_source_url, primary_source_title,
+         public_status, verification_level, location_granularity, event_quality_state,
+         outage_nature
+       ) VALUES (?, 'needs_review', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       input.title,
@@ -495,11 +513,18 @@ export async function createOutageEvent(
       input.country,
       input.seenAt,
       input.seenAt,
+      input.startedAtEstimate ?? null,
+      input.resolvedAtEstimate ?? null,
       input.summary,
       input.reason,
       input.confidence,
       input.primarySourceUrl,
-      input.primarySourceTitle
+      input.primarySourceTitle,
+      input.publicStatus ?? "hidden",
+      input.verificationLevel ?? "auto_analyzed",
+      input.locationGranularity ?? "unknown",
+      input.eventQualityState ?? "candidate_only",
+      input.outageNature ?? "unknown"
     )
     .run();
 
@@ -510,6 +535,102 @@ export async function createOutageEvent(
   const event = await getOutageEvent(db, id);
   if (!event) throw new Error("Created outage event could not be loaded");
   return event;
+}
+
+export async function insertOutageCandidate(
+  db: D1Database,
+  input: {
+    alertItemId: number;
+    snapshotId: number | null;
+    assessment: CandidateAssessment;
+  }
+): Promise<OutageCandidate> {
+  const status = input.assessment.publishable
+    ? "extracted"
+    : input.assessment.needs_admin
+      ? "needs_admin"
+      : "rejected";
+  const result = await db
+    .prepare(
+      `INSERT INTO outage_candidates (
+         alert_item_id, snapshot_id, status, location_text, location_granularity,
+         is_ch_incident, event_type, relevance_role, quality_score,
+         quality_reasons_json, rejection_reason
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      input.alertItemId,
+      input.snapshotId,
+      status,
+      input.assessment.location_text,
+      input.assessment.location_granularity,
+      input.assessment.is_ch_incident ? 1 : 0,
+      input.assessment.event_type,
+      input.assessment.relevance_role,
+      input.assessment.quality_score,
+      JSON.stringify(input.assessment.quality_reasons),
+      input.assessment.rejection_reason
+    )
+    .run();
+
+  const id = (result.meta as { last_row_id?: number } | undefined)?.last_row_id;
+  if (typeof id !== "number") throw new Error("Could not create outage candidate");
+  const row = await db.prepare("SELECT * FROM outage_candidates WHERE id = ?").bind(id).first<OutageCandidate>();
+  if (!row) throw new Error("Created outage candidate could not be loaded");
+  return row;
+}
+
+export async function insertOutageFacts(
+  db: D1Database,
+  input: {
+    candidateId: number | null;
+    eventId: number | null;
+    sourceId: number | null;
+    snapshotId: number | null;
+    facts: CandidateFactInput[];
+  }
+): Promise<void> {
+  for (const fact of input.facts) {
+    await db
+      .prepare(
+        `INSERT INTO outage_facts (
+           candidate_id, outage_event_id, outage_source_id, snapshot_id,
+           fact_type, value_text, value_json, confidence, evidence_excerpt,
+           source_role, verified_by
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        input.candidateId,
+        input.eventId,
+        input.sourceId,
+        input.snapshotId,
+        fact.fact_type,
+        fact.value_text,
+        fact.value_json ?? null,
+        fact.confidence,
+        fact.evidence_excerpt,
+        fact.source_role ?? null,
+        fact.verified_by ?? "auto"
+      )
+      .run();
+  }
+}
+
+export async function linkCandidateToEvent(
+  db: D1Database,
+  candidateId: number,
+  eventId: number
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE outage_candidates
+       SET status = 'event_linked',
+           outage_event_id = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    )
+    .bind(eventId, candidateId)
+    .run();
 }
 
 export async function attachSourceToEvent(
@@ -884,6 +1005,22 @@ export async function updateEventResearchAssessment(
   return event;
 }
 
+export async function getOutageEventFacts(
+  db: D1Database,
+  eventId: number
+): Promise<OutageFact[]> {
+  const result = await db
+    .prepare(
+      `SELECT *
+       FROM outage_facts
+       WHERE outage_event_id = ?
+       ORDER BY confidence DESC, id ASC`
+    )
+    .bind(eventId)
+    .all<OutageFact>();
+  return result.results;
+}
+
 export async function updateEventIntelligence(
   db: D1Database,
   eventId: number,
@@ -917,6 +1054,49 @@ export async function updateEventIntelligence(
 
   const event = await getOutageEvent(db, eventId);
   if (!event) throw new Error("Event vanished after intelligence update");
+  return event;
+}
+
+export async function markOutageEventPublishable(
+  db: D1Database,
+  eventId: number,
+  input: {
+    publicStatus: string;
+    verificationLevel: string;
+    locationGranularity: string;
+    eventQualityState: string;
+    outageNature: string;
+    startedAtEstimate?: string | null;
+  }
+): Promise<OutageEvent> {
+  await db
+    .prepare(
+      `UPDATE outage_events
+       SET started_at_estimate = COALESCE(started_at_estimate, ?),
+           public_status = ?,
+           verification_level = ?,
+           location_granularity = ?,
+           event_quality_state = ?,
+           outage_nature = CASE
+             WHEN COALESCE(outage_nature, 'unknown') = 'unknown' THEN ?
+             ELSE outage_nature
+           END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    )
+    .bind(
+      input.startedAtEstimate ?? null,
+      input.publicStatus,
+      input.verificationLevel,
+      input.locationGranularity,
+      input.eventQualityState,
+      input.outageNature,
+      eventId
+    )
+    .run();
+
+  const event = await getOutageEvent(db, eventId);
+  if (!event) throw new Error("Event vanished after quality update");
   return event;
 }
 

@@ -31,6 +31,11 @@ function snapshotKey(eventId: number, sourceId: number, hash: string, fetchedAt:
   return `snapshots/${day}/event-${eventId}/source-${sourceId}-${hash.slice(0, 16)}.md`;
 }
 
+function alertSnapshotKey(alertItemId: number, hash: string, fetchedAt: string): string {
+  const day = fetchedAt.slice(0, 10);
+  return `snapshots/${day}/alert-${alertItemId}/${hash.slice(0, 16)}.md`;
+}
+
 function unwrapGoogleAlertUrl(value: string): string {
   try {
     const parsed = new URL(value);
@@ -218,6 +223,86 @@ export async function createSourceSnapshot(
         final_url: fetchUrl,
         outage_event_id: String(target.event.id),
         outage_source_id: String(target.source.id),
+        content_hash: contentHash
+      }
+    });
+
+    return await insertSourceSnapshot(env.DB, {
+      ...base,
+      fetchMethod,
+      fetchStatus: "success",
+      httpStatus: parsed.httpStatus,
+      title: parsed.title,
+      markdownR2Key: key,
+      markdownExcerpt: excerpt(parsed.markdown),
+      contentHash,
+      error: null
+    });
+  } catch (error) {
+    return await insertSourceSnapshot(env.DB, {
+      ...base,
+      fetchStatus: "failed",
+      httpStatus: null,
+      title: null,
+      markdownR2Key: null,
+      markdownExcerpt: null,
+      contentHash: null,
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+export async function createAlertSnapshot(
+  env: Pick<Env, "DB" | "BROWSER" | "SNAPSHOTS" | "BROWSER_MOCK_MODE">,
+  alertItem: Pick<StoredAlertItem, "id" | "url" | "title">,
+  fetchedAt = new Date().toISOString()
+): Promise<SourceSnapshot> {
+  const fetchUrl = unwrapGoogleAlertUrl(alertItem.url);
+  const base = {
+    alertItemId: alertItem.id,
+    outageEventId: null,
+    outageSourceId: null,
+    url: alertItem.url,
+    finalUrl: fetchUrl,
+    fetchMethod: "cloudflare_browser_markdown",
+    fetchedAt
+  };
+
+  try {
+    let parsed = await fetchCloudflareMarkdown(env, fetchUrl, alertItem.title, alertItem.url);
+    let fetchMethod = base.fetchMethod;
+    let fallbackError: string | null = null;
+
+    if (parsed.error || !parsed.markdown.trim()) {
+      fallbackError = parsed.error || "Cloudflare markdown response was empty";
+      parsed = await fetchJinaMarkdown(fetchUrl);
+      fetchMethod = "jina_markdown_fallback";
+    }
+
+    if (parsed.error || !parsed.markdown.trim()) {
+      return await insertSourceSnapshot(env.DB, {
+        ...base,
+        fetchMethod,
+        fetchStatus: "failed",
+        httpStatus: parsed.httpStatus,
+        title: parsed.title,
+        markdownR2Key: null,
+        markdownExcerpt: null,
+        contentHash: null,
+        error: [fallbackError, parsed.error || "Markdown response was empty"].filter(Boolean).join("; ")
+      });
+    }
+
+    const contentHash = await sha256Hex(parsed.markdown);
+    const key = alertSnapshotKey(alertItem.id, contentHash, fetchedAt);
+    await env.SNAPSHOTS.put(key, parsed.markdown, {
+      httpMetadata: {
+        contentType: "text/markdown; charset=utf-8"
+      },
+      customMetadata: {
+        source_url: alertItem.url,
+        final_url: fetchUrl,
+        alert_item_id: String(alertItem.id),
         content_hash: contentHash
       }
     });
