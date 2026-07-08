@@ -48,6 +48,16 @@ const OUTAGE_TERMS = [
   "guasto elettrico"
 ];
 
+const OUTAGE_TITLE_TERMS = [
+  ...OUTAGE_TERMS,
+  "ohne strom",
+  "sans courant",
+  "privées d'électricité",
+  "privees d'electricite",
+  "privati dell'elettricita",
+  "privati dell'elettricità"
+];
+
 const INCIDENTAL_TERMS = [
   "expertenkommission",
   "bericht vor",
@@ -251,6 +261,7 @@ export function assessCandidateEvidence(input: {
     sourceOfficial: sourceIntel.is_official === 1,
     foreign
   });
+  const titleOutageCentered = includesAny(input.item.title, OUTAGE_TITLE_TERMS);
   const nature = inferNature(input.classification, text);
   const status = inferStatus(text);
   const fallbackYear = new Date(input.item.published_at ?? Date.now()).getUTCFullYear();
@@ -346,7 +357,7 @@ export function assessCandidateEvidence(input: {
     candidate.fact_type === "outage_happened" || candidate.fact_type === "planned_outage_notice"
   );
   const hasPrimaryOrOfficial =
-    role === "primary_report" ||
+    (role === "primary_report" && titleOutageCentered) ||
     role === "official_notice" ||
     role === "incident_update" ||
     sourceIntel.is_official === 1;
@@ -355,6 +366,7 @@ export function assessCandidateEvidence(input: {
   if (hasConcreteLocation) qualityScore += 20;
   if (hasEvidence) qualityScore += 20;
   if (hasPrimaryOrOfficial) qualityScore += 10;
+  if (!titleOutageCentered && sourceIntel.is_official !== 1) qualityScore -= 25;
   if (sourceIntel.is_official === 1) qualityScore += 10;
   if (input.snapshot?.fetch_status === "success") qualityScore += 5;
   qualityScore = Math.max(0, Math.min(100, qualityScore));
@@ -363,7 +375,8 @@ export function assessCandidateEvidence(input: {
     qualityScore >= 70 &&
     hasConcreteLocation &&
     hasEvidence &&
-    hasPrimaryOrOfficial;
+    hasPrimaryOrOfficial &&
+    (titleOutageCentered || sourceIntel.is_official === 1);
 
   return {
     publishable,

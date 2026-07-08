@@ -120,6 +120,41 @@ describe("candidate quality gate", () => {
     expect(["foreign_event", "incidental_mention"]).toContain(assessment.relevance_role);
   });
 
+  it("does not publish non-official articles where the outage is only a side mention", () => {
+    const assessment = assessCandidateEvidence({
+      item: item({
+        title: "Grossbrand in Möhlin: das ist bekannt",
+        source: "Neue Fricktaler Zeitung",
+        snippet: "Für die betroffenen Personen werden nach dem Stromausfall Unterkünfte gesucht."
+      }),
+      classification: classification({
+        location_text: "Möhlin",
+        summary: "Ein Brandartikel erwähnt einen Stromausfall."
+      }),
+      snapshot: snapshot("Grossbrand in Möhlin: das ist bekannt. Für die betroffenen Personen werden nach dem Stromausfall Unterkünfte gesucht.")
+    });
+
+    expect(assessment.publishable).toBe(false);
+    expect(assessment.needs_admin).toBe(true);
+  });
+
+  it("keeps compact title-led outage reports publishable", () => {
+    const assessment = assessCandidateEvidence({
+      item: item({
+        title: "Zweieinhalb Stunden ohne Strom: Was ein Ausfall auslöst",
+        source: "Zofinger Tagblatt",
+        snippet: "Ein Stromausfall bringt im Quartier den Feierabend durcheinander."
+      }),
+      classification: classification({
+        location_text: "Zofingen",
+        summary: "Zweieinhalb Stunden ohne Strom in Zofingen."
+      }),
+      snapshot: snapshot("Zweieinhalb Stunden ohne Strom: Was ein Ausfall auslöst. Ein Stromausfall bringt im Quartier den Feierabend durcheinander.")
+    });
+
+    expect(assessment.publishable).toBe(true);
+  });
+
   it("does not publish a generic country-level location by accident", () => {
     const assessment = assessCandidateEvidence({
       item: item({ title: "Stromausfall legt Mega-Tunnel lahm", source: "Schweiz heute" }),

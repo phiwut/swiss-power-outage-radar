@@ -118,4 +118,28 @@ describe("event matching helpers", () => {
   it("scores exact-location candidates high enough to attach", () => {
     expect(scoreEventCandidate(event, item, classification, "wohlen")).toBeGreaterThanOrEqual(70);
   });
+
+  it("scores contained neighbourhood and multi-place variants high enough to attach", () => {
+    const schaffhausenEvent = {
+      ...event,
+      location_text: "Schaffhausen",
+      normalized_location: "schaffhausen",
+      title: "Möglicher Stromausfall / Netzunterbruch: Schaffhausen"
+    };
+    const breiteItem = {
+      ...item,
+      title: "Stromausfall im Breite-Quartier - Schaffhausen",
+      published_at: schaffhausenEvent.first_seen_at,
+      fetched_at: schaffhausenEvent.first_seen_at
+    };
+
+    expect(
+      scoreEventCandidate(
+        schaffhausenEvent,
+        breiteItem,
+        { ...classification, location_text: "Breite-Quartier, Schaffhausen" },
+        "breite quartier schaffhausen"
+      )
+    ).toBeGreaterThanOrEqual(70);
+  });
 });

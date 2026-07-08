@@ -8,6 +8,8 @@ import {
   finishWorkflowRun,
   getAlertItemById,
   getEventsNeedingIntelligence,
+  getLatestAlertSnapshot,
+  getLinkedRelevantItemsNeedingCandidate,
   getOutageEventSources,
   getPendingOutageEventEmails,
   getUnlinkedRelevantItems,
@@ -452,6 +454,71 @@ async function backfillUnlinkedEvents(env: Env): Promise<{ linked: number; error
   return { linked, errors };
 }
 
+async function backfillLinkedCandidateQuality(
+  env: Env
+): Promise<{ assessed: number; published: number; errors: string[] }> {
+  const items = await getLinkedRelevantItemsNeedingCandidate(env.DB, 20);
+  let assessed = 0;
+  let published = 0;
+  const errors: string[] = [];
+
+  for (const item of items) {
+    if (!item.outage_event_id) continue;
+
+    const classification = classificationFromStoredItem(item);
+    if (!classification || !canCreateEvent(classification)) continue;
+
+    try {
+      const snapshot = await getLatestAlertSnapshot(env.DB, item.id);
+      const assessment = assessCandidateEvidence({
+        item,
+        classification,
+        snapshot
+      });
+      const candidate = await insertOutageCandidate(env.DB, {
+        alertItemId: item.id,
+        snapshotId: snapshot?.id ?? null,
+        assessment
+      });
+      await insertOutageFacts(env.DB, {
+        candidateId: candidate.id,
+        eventId: assessment.publishable ? item.outage_event_id : null,
+        sourceId: null,
+        snapshotId: snapshot?.id ?? null,
+        facts: assessment.facts
+      });
+      assessed += 1;
+
+      if (!assessment.publishable) continue;
+
+      const startedAtEstimate =
+        assessment.facts.find((fact) => fact.fact_type === "start_time")?.value_text ?? null;
+      const publicStatus = assessment.facts.some((fact) => fact.verified_by === "official_source")
+        ? "public_verified"
+        : "public_auto";
+
+      await markOutageEventPublishable(env.DB, item.outage_event_id, {
+        publicStatus,
+        verificationLevel: publicStatus === "public_verified" ? "official_source" : "auto_analyzed",
+        locationGranularity: assessment.location_granularity,
+        eventQualityState: "publishable",
+        outageNature: assessment.outage_nature,
+        startedAtEstimate
+      });
+      await linkCandidateToEvent(env.DB, candidate.id, item.outage_event_id);
+      published += 1;
+    } catch (error) {
+      errors.push(
+        `candidate quality backfill item ${item.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
+  return { assessed, published, errors };
+}
+
 async function retryPendingEventEmails(
   env: Env
 ): Promise<{ emailsSent: number; errors: string[] }> {
@@ -561,6 +628,10 @@ export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
 
     const backfill = await backfillUnlinkedEvents(env);
     summary.errors.push(...backfill.errors);
+
+    const qualityBackfill = await backfillLinkedCandidateQuality(env);
+    summary.itemsClassified += qualityBackfill.assessed;
+    summary.errors.push(...qualityBackfill.errors);
 
     const intelligenceBackfill = await backfillEventIntelligence(env);
     summary.errors.push(...intelligenceBackfill.errors);

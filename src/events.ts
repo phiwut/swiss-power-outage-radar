@@ -126,7 +126,7 @@ export function scoreEventCandidate(
     itemLocation !== "unknown" &&
     (eventLocation.includes(itemLocation) || itemLocation.includes(eventLocation))
   ) {
-    score += 20;
+    score += 40;
   }
 
   if (compatibleEventType(event.event_type, classification.event_type)) score += 10;

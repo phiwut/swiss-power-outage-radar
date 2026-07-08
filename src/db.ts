@@ -452,6 +452,47 @@ export async function getUnlinkedRelevantItems(db: D1Database): Promise<StoredAl
   return result.results;
 }
 
+export async function getLinkedRelevantItemsNeedingCandidate(
+  db: D1Database,
+  limit = 20
+): Promise<StoredAlertItem[]> {
+  const result = await db
+    .prepare(
+      `SELECT ai.*
+       FROM alert_items ai
+       WHERE ai.outage_event_id IS NOT NULL
+         AND ai.is_relevant = 1
+         AND ai.confidence >= 0.65
+         AND ai.country IN ('CH', 'unknown')
+         AND NOT EXISTS (
+           SELECT 1 FROM outage_candidates candidate
+           WHERE candidate.alert_item_id = ai.id
+         )
+       ORDER BY COALESCE(ai.published_at, ai.fetched_at) DESC
+       LIMIT ?`
+    )
+    .bind(limit)
+    .all<StoredAlertItem>();
+  return result.results;
+}
+
+export async function getLatestAlertSnapshot(
+  db: D1Database,
+  alertItemId: number
+): Promise<SourceSnapshot | null> {
+  return await db
+    .prepare(
+      `SELECT *
+       FROM source_snapshots
+       WHERE alert_item_id = ?
+         AND fetch_status = 'success'
+       ORDER BY fetched_at DESC, id DESC
+       LIMIT 1`
+    )
+    .bind(alertItemId)
+    .first<SourceSnapshot>();
+}
+
 export async function findCandidateEvents(
   db: D1Database,
   sinceIso: string
