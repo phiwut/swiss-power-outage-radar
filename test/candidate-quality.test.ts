@@ -82,6 +82,26 @@ describe("candidate quality gate", () => {
     expect(assessment.relevance_role).toBe("foreign_event");
   });
 
+  it("rejects classifier-marked non-Swiss incidents", () => {
+    const assessment = assessCandidateEvidence({
+      item: item({
+        title: "Stromausfall in Como",
+        source: "Grenzgebiet News",
+        snippet: "In Como waren mehrere Haushalte ohne Strom."
+      }),
+      classification: classification({
+        country: "other",
+        location_text: "Como",
+        summary: "Stromausfall in Como."
+      }),
+      snapshot: snapshot("In Como kam es zu einem Stromausfall. Mehrere Haushalte waren betroffen.")
+    });
+
+    expect(assessment.publishable).toBe(false);
+    expect(assessment.is_ch_incident).toBe(false);
+    expect(assessment.relevance_role).toBe("foreign_event");
+  });
+
   it("keeps retrospective incidental mentions out of public events", () => {
     const assessment = assessCandidateEvidence({
       item: item({

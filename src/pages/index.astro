@@ -6,32 +6,32 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   title="Stromausfall Schweiz aktuell | outage.ch"
   description="Stromausfall Radar für die Schweiz: aktuelle öffentliche Hinweise zu Stromausfällen, Netzunterbrüchen, Status, Ursachen und Quellenlage."
 >
-  <section class="py-4 sm:py-6">
-    <div class="chrome rounded-md p-4 sm:p-6">
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
+  <section class="py-3 sm:py-4">
+    <div class="chrome rounded-md p-3 sm:p-4">
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-end">
         <div>
           <p class="section-label text-accent">outage.ch / Lagebild Schweiz</p>
-          <h1 class="mt-3 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-5xl">Stromausfälle nach Ereigniszeit</h1>
-          <p class="mt-3 max-w-2xl text-base leading-7 text-muted">Nur Hinweise mit belegtem Ort, Quelle und relevanter Textstelle. Heute steht oben, geplante Unterbrüche folgen chronologisch.</p>
+          <h1 class="mt-2 max-w-3xl font-display text-2xl font-bold leading-tight sm:text-4xl">Schweizer Stromausfälle</h1>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-muted">Nur Ereignisse in der Schweiz mit belegtem Ort, Quelle und relevanter Textstelle. Heute steht oben.</p>
         </div>
         <div class="grid gap-2">
           <label class="section-label text-muted" for="event-search">Suchen</label>
           <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <div class="relative">
               <svg class="icon absolute left-3 top-1/2 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg>
-              <input id="event-search" class="h-12 w-full rounded-md border border-rule bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-faint" placeholder="Ort, Betreiber, Quelle" />
+              <input id="event-search" class="h-10 w-full rounded-md border border-rule bg-surface pl-10 pr-3 text-sm text-ink placeholder:text-faint" placeholder="Ort, Betreiber, Quelle" />
             </div>
-            <button id="refresh-button" class="control-button bg-ink px-4 py-3 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">
+            <button id="refresh-button" class="control-button bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" type="button">
               <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.3 6.4"/><path d="M3 12A9 9 0 0 1 18.3 5.6"/><path d="M21 4v6h-6"/><path d="M3 20v-6h6"/></svg>
-              Aktualisieren
+              Neu laden
             </button>
           </div>
         </div>
       </div>
 
-      <div id="public-metrics" class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div id="public-metrics" class="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {["Gemeldet", "Zu prüfen", "Gut belegt", "Behoben"].map((label) => (
-          <div class="loading-stripe h-20 rounded-md border border-rule bg-surface/70 p-3">
+          <div class="loading-stripe h-12 rounded-md border border-rule bg-surface/70 p-3">
             <span class="section-label text-muted">{label}</span>
           </div>
         ))}
@@ -39,12 +39,12 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     </div>
   </section>
 
-  <section class="grid gap-4 pb-28 lg:grid-cols-[minmax(0,1fr)_300px] lg:pb-8">
+  <section class="grid gap-3 pb-28 lg:grid-cols-[minmax(0,1fr)_260px] lg:pb-8">
     <main class="panel rounded-md overflow-hidden">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-3 py-3">
         <div>
           <p class="section-label text-muted">Timeline</p>
-          <h2 class="mt-1 font-display text-xl font-bold">Ereignisse</h2>
+          <h2 class="mt-1 font-display text-lg font-bold">Ereignisse</h2>
         </div>
         <div class="flex flex-wrap gap-2">
           <select id="status-filter" class="h-10 rounded-md border border-rule bg-surface px-3 text-sm text-ink">
@@ -57,33 +57,33 @@ import RadarLayout from "../layouts/RadarLayout.astro";
           <span id="event-count" class="grid h-10 place-items-center rounded-md border border-rule bg-surface2 px-3 font-mono text-[11px] text-muted">-</span>
         </div>
       </div>
-      <div id="events-list" class="event-timeline grid gap-3 p-3 sm:p-4">
-        <div class="loading-stripe h-48 rounded-md bg-surface2"></div>
-        <div class="loading-stripe h-48 rounded-md bg-surface2"></div>
+      <div id="events-list" class="event-timeline grid gap-2 p-2 sm:p-3">
+        <div class="loading-stripe h-28 rounded-md bg-surface2"></div>
+        <div class="loading-stripe h-28 rounded-md bg-surface2"></div>
       </div>
     </main>
 
-    <aside class="grid h-fit gap-4">
-      <section class="panel rounded-md p-4">
-        <p class="section-label text-muted">Legende</p>
-        <div class="mt-3 grid gap-2 text-sm leading-6 text-muted">
-          <p><span class="font-semibold text-ink">Ereigniszeit</span> ist belegt oder aus der Quelle extrahiert.</p>
-          <p><span class="font-semibold text-ink">Automatisch analysiert</span> bedeutet: Quelle vorhanden, aber nicht manuell verifiziert.</p>
-          <p><span class="font-semibold text-ink">Geprüft</span> nur bei offizieller Quelle oder Admin-Prüfung.</p>
+    <aside class="grid h-fit gap-3">
+      <section class="panel rounded-md p-3">
+        <p class="section-label text-muted">Lesart</p>
+        <div class="mt-3 grid gap-2 text-sm leading-5 text-muted">
+          <p><span class="font-semibold text-ink">CH-only:</span> keine Auslandsmeldungen.</p>
+          <p><span class="font-semibold text-ink">Ereigniszeit:</span> passiert vor erkannt.</p>
+          <p><span class="font-semibold text-ink">Geprüft:</span> nur offiziell oder Admin.</p>
         </div>
       </section>
 
-      <section class="panel rounded-md p-4">
+      <section class="panel rounded-md p-3">
         <div class="flex items-center gap-2">
           <span class="status-dot border-warn bg-warnsoft text-warn">
             <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
           </span>
-          <h2 class="font-display text-lg font-bold">Hinweis</h2>
+          <h2 class="font-display text-base font-bold">Hinweis</h2>
         </div>
-        <p class="mt-2 text-sm leading-6 text-muted">outage.ch ist ein Radar aus öffentlichen Quellen. Prüfen Sie bei kritischen Situationen immer Gemeinde, Netzbetreiber oder Behörden.</p>
+        <p class="mt-2 text-sm leading-5 text-muted">Bei kritischen Situationen immer Gemeinde, Netzbetreiber oder Behörden prüfen.</p>
       </section>
 
-      <section id="admin-panel" class="hidden panel rounded-md p-4">
+      <section id="admin-panel" class="hidden panel rounded-md p-3">
         <div class="flex items-center justify-between gap-3">
           <h2 class="font-display text-lg font-bold">Admin Dashboard</h2>
           <button id="admin-logout" class="rounded-md border border-rule bg-surface2 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted" type="button">Logout</button>
@@ -91,9 +91,9 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         <div id="admin-dashboard" class="mt-3 grid gap-2"></div>
       </section>
 
-      <section id="admin-login-panel" class="panel rounded-md p-4">
-        <h2 class="font-display text-lg font-bold">Admin</h2>
-        <p class="mt-1 text-sm text-muted">Interne Daten werden erst nach Token-Login angezeigt.</p>
+      <section id="admin-login-panel" class="panel rounded-md p-3">
+        <h2 class="font-display text-base font-bold">Admin</h2>
+        <p class="mt-1 text-sm text-muted">Interne Daten nach Token-Login.</p>
         <input id="admin-token-input" class="mt-3 w-full rounded-md border border-rule bg-surface px-3 py-2 font-mono text-xs text-ink" type="password" placeholder="Admin Token" />
         <p id="admin-token-state" class="mt-2 font-mono text-[10px] text-muted">Nicht angemeldet</p>
       </section>
@@ -297,20 +297,20 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       const events = data.events ?? [];
       const publicEvents = events.filter((event) => event.status !== "dismissed");
       const metrics = [
-        ["Gemeldet", publicEvents.length, "sichtbare Ereignisse", icons.file],
-        ["Zu prüfen", publicEvents.filter((event) => event.status === "needs_review").length, "brauchen Einordnung", icons.alert],
-        ["Gut belegt", publicEvents.filter((event) => certaintyLabel(event) === "Gut belegt").length, "starke Quellenlage", icons.shield],
-        ["Behoben", publicEvents.filter((event) => incidentStatus(event) === "resolved").length, "als behoben erkannt", icons.check]
+        ["Sichtbar", publicEvents.length, "CH", icons.file],
+        ["Prüfung", publicEvents.filter((event) => event.status === "needs_review").length, "offen", icons.alert],
+        ["Belegt", publicEvents.filter((event) => certaintyLabel(event) === "Gut belegt").length, "stark", icons.shield],
+        ["Behoben", publicEvents.filter((event) => incidentStatus(event) === "resolved").length, "erkannt", icons.check]
       ];
       document.querySelector("#public-metrics").innerHTML = metrics.map(([name, value, hint, icon]) => `
-        <div class="rounded-md border border-rule bg-surface/85 p-3">
-          <div class="flex items-center justify-between gap-3">
+        <div class="rounded-md border border-rule bg-surface/85 px-3 py-2">
+          <div class="flex items-center justify-between gap-2">
             <span class="section-label text-muted">${escapeHtml(name)}</span>
             <span class="text-accent">${icon}</span>
           </div>
-          <div class="mt-3 flex items-end justify-between gap-2">
-            <strong class="metric-value block font-display text-3xl font-bold leading-none">${escapeHtml(value)}</strong>
-            <span class="pb-1 text-right text-xs text-muted">${escapeHtml(hint)}</span>
+          <div class="mt-1 flex items-end justify-between gap-2">
+            <strong class="metric-value block font-display text-2xl font-bold leading-none">${escapeHtml(value)}</strong>
+            <span class="pb-0.5 text-right text-xs text-muted">${escapeHtml(hint)}</span>
           </div>
         </div>
       `).join("");
@@ -326,26 +326,26 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         const certainty = certaintyLabel(event);
         const summary = summaryText(event);
         return `
-          <article class="event-card relative z-10 rounded-md p-4 transition">
-            <div class="grid gap-3 sm:grid-cols-[44px_minmax(0,1fr)_auto] sm:items-start">
+          <article class="event-card relative z-10 rounded-md p-3 transition">
+            <div class="grid gap-3 sm:grid-cols-[36px_minmax(0,1fr)_auto] sm:items-start">
               <div class="status-dot ${badgeClass("status", status)}">${statusIcon(status)}</div>
               <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                   <span class="section-label text-muted">${escapeHtml(eventDateLabel(event))}</span>
-                  <span class="tabular text-sm font-semibold text-ink">${escapeHtml(formatDate(eventDate(event)))}</span>
+                  <span class="tabular font-semibold text-ink">${escapeHtml(formatDate(eventDate(event)))}</span>
+                  <span class="rounded-md border px-2 py-0.5 ${badgeClass("status", status)}">${escapeHtml(label("status", status))}</span>
+                  <span class="rounded-md border px-2 py-0.5 ${badgeClass("quality", quality)}">${escapeHtml(source)}</span>
+                  <span class="rounded-md border px-2 py-0.5 ${badgeClass("certainty", certainty)}">${escapeHtml(certainty)}</span>
                 </div>
-                <h3 class="clamp-title mt-1 font-display text-2xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
-                <p class="mt-2 line-clamp-2 text-sm leading-6 text-muted">${escapeHtml(summary)}</p>
+                <div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h3 class="clamp-title font-display text-xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
+                  <span class="text-sm text-muted">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
+                </div>
+                <p class="mt-1 line-clamp-1 text-sm leading-5 text-muted">${escapeHtml(summary)}</p>
               </div>
-              <a href="/events/${event.id}" class="control-button bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface">
-                Details ${icons.arrow}
+              <a href="/events/${event.id}" class="control-button bg-ink px-2.5 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface" aria-label="Details öffnen">
+                ${icons.arrow}
               </a>
-            </div>
-            <div class="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Status</span><strong class="mt-1 block">${escapeHtml(label("status", status))}</strong></div>
-              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Art</span><strong class="mt-1 block">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</strong></div>
-              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Beleg</span><strong class="mt-1 block">${escapeHtml(source)}</strong></div>
-              <div class="rounded-md border border-rule bg-surface2 px-3 py-2"><span class="section-label text-muted">Sicherheit</span><strong class="mt-1 block">${escapeHtml(certainty)}</strong></div>
             </div>
           </article>
         `;

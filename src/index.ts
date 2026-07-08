@@ -186,6 +186,7 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   if (!event) return new Response("Event nicht gefunden", { status: 404 });
   if (
     event.status === "dismissed" ||
+    event.country !== "CH" ||
     (event.public_status ?? "hidden") === "hidden" ||
     (event.event_quality_state ?? "candidate_only") !== "publishable"
   ) {
@@ -315,6 +316,7 @@ export default {
       if (!event) return json({ error: "Not found" }, { status: 404 });
       if (
         event.status === "dismissed" ||
+        event.country !== "CH" ||
         (event.public_status ?? "hidden") === "hidden" ||
         (event.event_quality_state ?? "candidate_only") !== "publishable"
       ) {

@@ -301,7 +301,7 @@ async function linkAlertToOutageEvent(
       locationText: classification.location_text,
       normalizedLocation,
       canton: null,
-      country: classification.country,
+      country: options.assessment?.is_ch_incident ? "CH" : classification.country,
       seenAt: item.published_at ?? item.fetched_at ?? now,
       summary: classification.summary,
       reason: classification.reason,

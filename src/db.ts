@@ -307,9 +307,10 @@ export async function getPublicStatus(db: D1Database) {
                 research_summary_de, fact_confidence, event_score, evidence_level,
                 fact_sheet_json, fact_sheet_updated_at, auto_research_started_at,
                 mail_decision_reason, public_status, verification_level,
-                location_granularity, event_quality_state
+                location_granularity, event_quality_state, country
          FROM outage_events
          WHERE status != 'dismissed'
+           AND country = 'CH'
            AND COALESCE(public_status, 'hidden') != 'hidden'
            AND COALESCE(event_quality_state, 'candidate_only') = 'publishable'
          ORDER BY COALESCE(started_at_estimate, first_seen_at, last_seen_at) DESC
@@ -460,6 +461,7 @@ export async function findCandidateEvents(
       `SELECT *
        FROM outage_events
        WHERE status != 'dismissed'
+         AND country = 'CH'
          AND last_seen_at >= ?
        ORDER BY COALESCE(started_at_estimate, first_seen_at, last_seen_at) DESC
        LIMIT 50`
@@ -1077,6 +1079,7 @@ export async function markOutageEventPublishable(
            verification_level = ?,
            location_granularity = ?,
            event_quality_state = ?,
+           country = 'CH',
            outage_nature = CASE
              WHEN COALESCE(outage_nature, 'unknown') = 'unknown' THEN ?
              ELSE outage_nature
