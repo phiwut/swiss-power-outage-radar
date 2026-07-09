@@ -389,7 +389,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     }
 
     function renderEventPlaces(places) {
-      const rows = (places ?? []).filter((entry) => ["affected", "possibly_affected", "context"].includes(entry.role));
+      const rows = (places ?? []).filter((entry) => ["affected", "possibly_affected"].includes(entry.role));
       if (!rows.length) {
         return `
           <section class="panel rounded-md p-4">
