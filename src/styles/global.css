@@ -252,19 +252,61 @@ textarea:focus-visible {
   font-family: var(--font-display);
   font-weight: 700;
   line-height: 1.15;
-  margin: 1rem 0 0.5rem;
+  margin: 1.15rem 0 0.5rem;
+}
+
+.markdown-preview h1 {
+  font-size: 1.35rem;
+}
+
+.markdown-preview h2 {
+  font-size: 1.15rem;
+}
+
+.markdown-preview h3 {
+  font-size: 1rem;
 }
 
 .markdown-preview p,
 .markdown-preview li {
   color: var(--color-muted);
-  font-size: 0.875rem;
-  line-height: 1.65;
+  font-size: 0.925rem;
+  line-height: 1.75;
+}
+
+.markdown-preview p + p {
+  margin-top: 0.85rem;
 }
 
 .markdown-preview ul {
+  display: grid;
+  gap: 0.35rem;
   list-style: disc;
-  margin: 0.5rem 0 0.5rem 1.25rem;
+  margin: 0.75rem 0 0.75rem 1.25rem;
+}
+
+.markdown-preview blockquote {
+  background: color-mix(in oklch, var(--color-surface) 72%, white);
+  border-left: 3px solid var(--color-rule-strong);
+  color: var(--color-muted);
+  font-size: 0.925rem;
+  line-height: 1.7;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+}
+
+.markdown-preview a {
+  color: var(--color-accent);
+  text-decoration-line: underline;
+}
+
+.markdown-preview code {
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 0.25rem;
+  color: var(--color-ink);
+  font-size: 0.82em;
+  padding: 0.08rem 0.25rem;
 }
 
 .loading-stripe::after {

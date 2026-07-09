@@ -22,20 +22,24 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     </div>
   </section>
 
-  <dialog id="source-dialog" class="source-modal w-[min(760px,calc(100vw-24px))] rounded-md border border-rule bg-surface p-0 text-ink shadow-panel">
+  <dialog id="source-dialog" class="source-modal w-[min(860px,calc(100vw-24px))] rounded-md border border-rule bg-surface p-0 text-ink shadow-panel">
     <div class="border-b border-rule px-4 py-3">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Quellenauszug</p>
           <h2 id="source-dialog-title" class="clamp-title mt-1 font-display text-xl font-bold"></h2>
+          <p id="source-dialog-meta" class="mt-1 text-sm text-muted"></p>
         </div>
         <button id="source-dialog-close" class="rounded-md border border-rule bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted" type="button">Schliessen</button>
       </div>
     </div>
     <div class="grid gap-3 p-4">
-      <div class="rounded-md border border-warn bg-warnsoft p-3 text-sm leading-6">Es wird nur ein gespeicherter Auszug angezeigt, nicht der vollständige Artikel. Für Einordnung immer die Originalquelle öffnen.</div>
+      <div id="source-dialog-description" class="rounded-md border border-rule bg-surface2 p-3 text-sm leading-6 text-muted"></div>
       <div id="source-dialog-body" class="markdown-preview max-h-[55vh] overflow-auto rounded-md border border-rule bg-surface2 p-4"></div>
-      <a id="source-dialog-link" class="rounded-md border border-ink bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface" rel="noreferrer" target="_blank">Originalquelle öffnen</a>
+      <div class="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+        <p class="text-xs leading-5 text-muted">Es wird nur ein gespeicherter Auszug angezeigt, nicht der vollständige Artikel.</p>
+        <a id="source-dialog-link" class="control-button justify-center border-ink bg-ink px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.08em] text-surface" rel="noreferrer" target="_blank">Originalquelle öffnen</a>
+      </div>
     </div>
   </dialog>
 
@@ -240,22 +244,80 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       return `<div class="mt-2 h-2 rounded bg-surface"><div class="h-2 rounded ${color}" style="width:${width}%"></div></div>`;
     }
 
+    function hostFromUrl(value) {
+      try {
+        return new URL(value).hostname.replace(/^www\./, "");
+      } catch {
+        return value || "Quelle";
+      }
+    }
+
+    function stripMarkdown(value) {
+      return String(value ?? "")
+        .replace(/!\[[^\]]*]\([^)]+\)/g, "")
+        .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+        .replace(/[#>*_`~]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function sourceDescription(source, snapshot) {
+      const text = stripMarkdown(snapshot?.markdown_excerpt || "");
+      if (text) return text.slice(0, 260);
+      return source.source_name || "Für diese Quelle ist noch kein gespeicherter Auszug vorhanden.";
+    }
+
+    function sourceDate(source, snapshot) {
+      return source.published_at || snapshot?.fetched_at || source.created_at || null;
+    }
+
+    function markdownInline(value) {
+      const escaped = escapeHtml(value);
+      return escaped
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\[([^\]]+)]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+    }
+
     function renderMarkdownExcerpt(markdown) {
-      const lines = String(markdown ?? "").split(/\n+/).slice(0, 80);
-      return lines.map((line) => {
-        const clean = escapeHtml(line.trim());
-        if (!clean) return "";
-        if (clean.startsWith("### ")) return `<h3>${clean.slice(4)}</h3>`;
-        if (clean.startsWith("## ")) return `<h2>${clean.slice(3)}</h2>`;
-        if (clean.startsWith("# ")) return `<h1>${clean.slice(2)}</h1>`;
-        if (clean.startsWith("* ") || clean.startsWith("- ")) return `<ul><li>${clean.slice(2)}</li></ul>`;
-        return `<p>${clean}</p>`;
+      const blocks = String(markdown ?? "")
+        .split(/\n{2,}/)
+        .map((block) => block.trim())
+        .filter(Boolean)
+        .slice(0, 36);
+
+      return blocks.map((block) => {
+        if (/^#{1,3}\s+/.test(block)) {
+          const depth = block.match(/^#+/)?.[0].length ?? 2;
+          const text = block.replace(/^#{1,3}\s+/, "");
+          const tag = depth === 1 ? "h1" : depth === 2 ? "h2" : "h3";
+          return `<${tag}>${markdownInline(text)}</${tag}>`;
+        }
+        if (/^>\s?/.test(block)) {
+          return `<blockquote>${markdownInline(block.replace(/^>\s?/gm, ""))}</blockquote>`;
+        }
+        if (/^[-*]\s+/m.test(block)) {
+          const items = block
+            .split(/\n/)
+            .map((line) => line.replace(/^[-*]\s+/, "").trim())
+            .filter(Boolean)
+            .map((item) => `<li>${markdownInline(item)}</li>`)
+            .join("");
+          return `<ul>${items}</ul>`;
+        }
+        return `<p>${markdownInline(block.replace(/\n/g, " "))}</p>`;
       }).join("");
     }
 
     function openSourceDialog(source, snapshot) {
       const dialog = document.querySelector("#source-dialog");
       document.querySelector("#source-dialog-title").textContent = source.source_title || "Quelle";
+      document.querySelector("#source-dialog-meta").textContent = [
+        source.source_name || hostFromUrl(source.source_url),
+        sourceDate(source, snapshot) ? formatDate(sourceDate(source, snapshot)) : null,
+        hostFromUrl(snapshot?.final_url || source.source_url)
+      ].filter(Boolean).join(" · ");
+      document.querySelector("#source-dialog-description").textContent = sourceDescription(source, snapshot);
       document.querySelector("#source-dialog-link").href = source.source_url;
       document.querySelector("#source-dialog-body").innerHTML = snapshot?.markdown_excerpt
         ? renderMarkdownExcerpt(snapshot.markdown_excerpt)
@@ -284,11 +346,6 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       if (source.is_official === 1 || source.source_kind === "official" || source.source_kind === "operator") return "Hauptquelle";
       if (source.relation_score !== null && source.relation_score !== undefined && Number(source.relation_score) < 70) return "Unpassend";
       return "Nebenquelle";
-    }
-
-    function sourceExcerpt(snapshot) {
-      const text = snapshot?.markdown_excerpt || "";
-      return text.replace(/\s+/g, " ").trim().slice(0, 520);
     }
 
     function highlightExcerpt(text) {
@@ -458,21 +515,33 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
               <div class="grid gap-3 p-3">
                 ${sources.map((source) => {
                   const snapshot = snapshotsBySource.get(source.id);
-                  const excerpt = sourceExcerpt(snapshot);
                   const facts = sourceFacts(source, event);
                   return `
-                    <article class="rounded-md border border-rule bg-surface p-3">
-                      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px] md:items-start">
+                    <article class="rounded-md border border-rule bg-surface p-3 shadow-panel">
+                      <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_210px] md:items-start">
                         <div class="min-w-0">
                           <div class="flex flex-wrap items-center gap-2">
                             <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${escapeHtml(sourceRole(source))}</span>
-                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs text-muted">${escapeHtml(source.source_name || "Quelle")}</span>
+                            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs text-muted">${escapeHtml(source.source_name || hostFromUrl(source.source_url))}</span>
+                            ${snapshot?.fetch_status === "success" ? `<span class="rounded-md border border-ok bg-oksoft px-2 py-1 text-xs text-ok">Auszug vorhanden</span>` : ""}
                           </div>
                           <h3 class="clamp-title mt-2 font-display text-lg font-bold leading-snug">${escapeHtml(source.source_title)}</h3>
-                          <p class="mt-3 rounded-md border border-rule bg-surface2 p-3 text-sm leading-6 text-muted">${highlightExcerpt(excerpt)}</p>
-                          <a class="control-button mt-3 bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-ink" href="${escapeHtml(source.source_url)}" target="_blank" rel="noreferrer">Quelle öffnen ${icons.external}</a>
+                          <p class="mt-1 break-all font-mono text-[11px] text-muted">${escapeHtml(hostFromUrl(snapshot?.final_url || source.source_url))}</p>
+                          <p class="mt-3 rounded-md border border-rule bg-surface2 p-3 text-sm leading-6 text-muted">${highlightExcerpt(sourceDescription(source, snapshot))}</p>
+                          <div class="mt-3 flex flex-wrap gap-2">
+                            <button class="source-button control-button border-ink bg-ink px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-surface" data-source-id="${source.id}" type="button">Auszug lesen</button>
+                            <a class="control-button bg-surface2 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.08em] text-ink" href="${escapeHtml(source.source_url)}" target="_blank" rel="noreferrer">Website öffnen ${icons.external}</a>
+                          </div>
                         </div>
                         <div class="grid gap-2 text-sm">
+                          <div class="rounded-md border border-rule bg-surface2 p-2">
+                            <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">Datum</span>
+                            <strong class="mt-1 block text-ink">${escapeHtml(sourceDate(source, snapshot) ? formatDate(sourceDate(source, snapshot)) : "nicht erkannt")}</strong>
+                          </div>
+                          <div class="rounded-md border border-rule bg-surface2 p-2">
+                            <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">URL</span>
+                            <strong class="mt-1 block break-all text-ink">${escapeHtml(hostFromUrl(snapshot?.final_url || source.source_url))}</strong>
+                          </div>
                           ${facts.map(([name, value]) => `
                             <div class="rounded-md border border-rule bg-surface2 p-2">
                               <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">${escapeHtml(name)}</span>

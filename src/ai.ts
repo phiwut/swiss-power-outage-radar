@@ -10,7 +10,7 @@ import type {
 } from "./types";
 import { cheapFilterItem } from "./filter";
 
-const MODEL = "@cf/ibm-granite/granite-4.0-h-micro";
+const MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";
 
 function promptForItem(item: NormalizedRssItem): string {
   return `Du bist ein Schweizer Stromausfall-Monitoring-Assistent.
