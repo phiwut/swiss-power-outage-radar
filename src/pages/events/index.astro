@@ -367,6 +367,75 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       ];
     }
 
+    function placeRoleLabel(role) {
+      return {
+        affected: "Betroffen",
+        possibly_affected: "Möglicherweise betroffen",
+        context: "Kontext",
+        operator_area: "Netzgebiet",
+        dismissed: "Ausgeschlossen"
+      }[role] || role || "Unklar";
+    }
+
+    function placeTypeLabel(type) {
+      return {
+        canton: "Kanton",
+        district: "Bezirk",
+        municipality: "Gemeinde",
+        locality: "Ort / PLZ",
+        postcode: "PLZ",
+        street: "Strasse"
+      }[type] || type || "Ort";
+    }
+
+    function renderEventPlaces(places) {
+      const rows = (places ?? []).filter((entry) => ["affected", "possibly_affected", "context"].includes(entry.role));
+      if (!rows.length) {
+        return `
+          <section class="panel rounded-md p-4">
+            <p class="section-label text-muted">Orte</p>
+            <h2 class="mt-1 font-display text-xl font-bold">Betroffene Orte</h2>
+            <p class="mt-3 text-sm leading-6 text-muted">Noch keine standardisierten Orte erkannt. Die Ortsangabe stammt aktuell aus der Quellen-Zusammenfassung.</p>
+          </section>
+        `;
+      }
+
+      const affectedCount = rows.filter((entry) => entry.role === "affected" && Number(entry.confidence ?? 0) >= 0.65).length;
+      return `
+        <section class="panel rounded-md">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
+            <div>
+              <p class="section-label text-muted">Orte</p>
+              <h2 class="mt-1 font-display text-xl font-bold">Betroffene Orte</h2>
+            </div>
+            <span class="rounded-md border border-rule bg-surface2 px-2 py-1 text-xs font-semibold">${affectedCount} belegt</span>
+          </div>
+          <div class="grid gap-2 p-3 sm:grid-cols-2">
+            ${rows.map((entry) => {
+              const place = entry.place || {};
+              const name = place.canonical_name || place.locality_name || place.municipality_name || "Ort unklar";
+              const meta = [
+                placeTypeLabel(place.place_type),
+                place.postcode,
+                place.municipality_name && place.municipality_name !== name ? place.municipality_name : null,
+                place.canton_code
+              ].filter(Boolean).join(" · ");
+              return `
+                <div class="rounded-md border border-rule bg-surface2 p-3">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-md border border-rule bg-surface px-2 py-1 text-xs font-semibold">${escapeHtml(placeRoleLabel(entry.role))}</span>
+                    <span class="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">${escapeHtml(meta)}</span>
+                  </div>
+                  <strong class="mt-2 block text-ink">${escapeHtml(name)}</strong>
+                  <p class="mt-1 text-xs leading-5 text-muted">${escapeHtml(entry.reason || `${entry.source_count || 1} Quelle(n)`)}.</p>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </section>
+      `;
+    }
+
     function renderFactList(items, empty) {
       const rows = (items ?? []).filter(Boolean);
       if (!rows.length) return `<p class="text-sm leading-6 text-muted">${escapeHtml(empty)}</p>`;
@@ -491,6 +560,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
             </div>
 
             ${renderFactSheetCard(factSheet, event, data.facts ?? [])}
+            ${renderEventPlaces(data.places ?? [])}
 
             <section class="panel rounded-md p-4">
               <p class="section-label text-muted">Chronologie</p>

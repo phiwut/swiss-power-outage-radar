@@ -104,6 +104,8 @@ export type SourceKind = "official" | "local_media" | "national_media" | "operat
 export type PublicStatus = "hidden" | "public_auto" | "public_verified";
 export type VerificationLevel = "auto_analyzed" | "official_source" | "admin_verified";
 export type EventQualityState = "candidate_only" | "publishable" | "needs_review" | "rejected";
+export type GeoPlaceType = "canton" | "district" | "municipality" | "locality" | "postcode" | "street";
+export type EventPlaceRole = "affected" | "possibly_affected" | "context" | "operator_area" | "dismissed";
 export type LocationGranularity =
   | "address"
   | "street"
@@ -260,6 +262,77 @@ export interface OutageFact {
   source_role: string | null;
   verified_by: VerificationLevel | "auto" | null;
   created_at: string;
+}
+
+export interface GeoPlace {
+  id: number;
+  external_id: string;
+  country: string;
+  canton_key: string | null;
+  canton_code: string | null;
+  canton_name: string | null;
+  district_key: string | null;
+  district_name: string | null;
+  municipality_key: string | null;
+  municipality_name: string | null;
+  locality_key: string | null;
+  locality_name: string | null;
+  postcode: string | null;
+  street_name: string | null;
+  place_type: GeoPlaceType;
+  canonical_name: string;
+  normalized_name: string;
+  parent_external_id: string | null;
+  source: string;
+  source_updated_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GeoPlaceAlias {
+  id: number;
+  place_id: number;
+  alias: string;
+  normalized_alias: string;
+  language: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface GeoAliasCatalogRow extends GeoPlace {
+  alias: string;
+  normalized_alias: string;
+}
+
+export interface SourcePlaceMention {
+  id: number;
+  outage_source_id: number | null;
+  alert_item_id: number | null;
+  outage_event_id: number | null;
+  raw_text: string;
+  matched_text: string | null;
+  place_id: number | null;
+  place_type: GeoPlaceType | null;
+  role: EventPlaceRole;
+  confidence: number;
+  match_method: string;
+  evidence_quote: string | null;
+  created_at: string;
+}
+
+export interface EventPlace {
+  id: number;
+  outage_event_id: number;
+  place_id: number;
+  role: EventPlaceRole;
+  confidence: number;
+  source_count: number;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
+  place?: GeoPlace;
 }
 
 export interface CandidateFactInput {

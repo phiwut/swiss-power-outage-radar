@@ -1,6 +1,6 @@
 # Swiss Power Outage Radar
 
-Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft drei Google-Alerts-RSS-Feeds, dedupliziert neue Items in D1, filtert billige Nicht-Kandidaten, klassifiziert Kandidaten mit Workers AI und gruppiert relevante Treffer in vorsichtige `outage_events` mit Quellen. Orte werden opportunistisch über die offizielle geo.admin.ch-Location-Suche normalisiert, mit lokalem Fallback. Neue mögliche Ereignisse senden eine Mail über Cloudflare Email Sending an Philipp. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert nur Metadaten und kurze Auszüge.
+Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft drei Google-Alerts-RSS-Feeds, dedupliziert neue Items in D1, filtert billige Nicht-Kandidaten, klassifiziert Kandidaten mit Workers AI und gruppiert relevante Treffer in vorsichtige `outage_events` mit Quellen. Orte werden opportunistisch über geo.admin.ch normalisiert und zusätzlich über einen lokalen OpenPLZ-basierten D1-Ortskatalog als `event_places` strukturiert. Neue mögliche Ereignisse senden eine Mail über Cloudflare Email Sending an Philipp. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert nur Metadaten und kurze Auszüge.
 
 Kein Portal, keine Karte, kein Strommix, kein Firecrawl. Webrecherche läuft nicht im Cron, sondern nur manuell per Admin-Klick. Ein `outage_event` ist keine offizielle Verifikation, sondern eine automatische Ereignis-Akte aus Google Alerts und optionaler manueller Recherche.
 
@@ -138,6 +138,8 @@ Danach die Worker-URL öffnen und die Statusseite prüfen. Der Cron Trigger `*/1
 - `POST /admin/events/:id/dismiss` geschütztes Dismiss eines Events
 - `POST /admin/events/:id/corroborate` geschütztes Markieren als `corroborated`
 - `POST /admin/events/:id/research` geschützte manuelle Recherche via Exa, kleine Result-Sets, Snapshots in R2, vorsichtige AI-Anreicherung
+- `POST /admin/geo/sync-openplz` geschützter, limitierter OpenPLZ-Import für einen Kanton in den lokalen Geo-Katalog
+- `POST /admin/geo/backfill-places` geschützter, limitierter Backfill bestehender Quellen in `source_place_mentions` und `event_places`
 
 Geschützte Endpunkte verlangen:
 
@@ -167,7 +169,29 @@ curl -X POST https://outage.ch/admin/events/1/research \
   -H "Authorization: Bearer <ADMIN_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"admin_note":"Manuelle Zusatzrecherche"}'
+
+curl -X POST https://outage.ch/admin/geo/sync-openplz \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Belp","page_size":10}'
+
+curl -X POST https://outage.ch/admin/geo/sync-openplz \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"canton_key":"2","start_page":1,"max_pages":1,"page_size":5}'
+
+curl -X POST https://outage.ch/admin/geo/backfill-places \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":25}'
+
+curl -X POST https://outage.ch/admin/geo/backfill-places \
+  -H "Authorization: Bearer <ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"event_id":16,"limit":25}'
 ```
+
+Der OpenPLZ-Sync ist bewusst klein: `name` synchronisiert gezielt passende Lokalitäten; `canton_key` synchronisiert nur sehr kleine Seiten-Batches. Die normale Alert-Pipeline ruft OpenPLZ nicht live auf, sondern nutzt nur den lokalen D1-Katalog. So bleiben Cron-Läufe stabil und AI-/API-Kosten kontrolliert.
 
 ## Bekannte Limitierungen
 
@@ -175,6 +199,8 @@ curl -X POST https://outage.ch/admin/events/1/research \
 - KI-Ergebnis ist nur eine Vorprüfung.
 - Keine offizielle Verifikation.
 - geo.admin.ch-Ortsnormalisierung ist eine Datenhilfe, kein Pflichtpfad; bei Fehlern läuft der Radar mit lokalem Fallback weiter.
+- OpenPLZ-Ortserkennung greift nur, soweit der lokale D1-Ortskatalog bereits synchronisiert ist.
+- Kanton-/Bezirk-Treffer werden als Kontext behandelt und nicht als betroffene Orte gezählt.
 - Markdown-Snapshots werden intern in R2 gesichert, aber öffentlich nicht vollständig angezeigt.
 - Manuelle Exa-Recherche ist eine Vorprüfung, keine offizielle Bestätigung.
 - RSS-Parsing ist robust genug für RSS/Atom-Grundfelder, aber kein vollständiger XML-Validator.

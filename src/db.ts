@@ -2,10 +2,15 @@ import type {
   AiClassification,
   CandidateAssessment,
   CandidateFactInput,
+  EventPlace,
   EventMergeSuggestion,
   EvidenceLevel,
   FactSheet,
   FeedLanguage,
+  GeoAliasCatalogRow,
+  GeoPlace,
+  GeoPlaceType,
+  EventPlaceRole,
   NormalizedRssItem,
   OutageCandidate,
   OutageEvent,
@@ -853,6 +858,13 @@ export async function getOutageEventSources(
   });
 }
 
+export async function getOutageSourceById(
+  db: D1Database,
+  sourceId: number
+): Promise<OutageSource | null> {
+  return await db.prepare("SELECT * FROM outage_sources WHERE id = ?").bind(sourceId).first<OutageSource>();
+}
+
 export async function getOutageEventSnapshots(
   db: D1Database,
   eventId: number
@@ -866,6 +878,42 @@ export async function getOutageEventSnapshots(
     )
     .bind(eventId)
     .all<SourceSnapshot>();
+  return result.results;
+}
+
+export async function getLatestSourceSnapshot(
+  db: D1Database,
+  sourceId: number
+): Promise<SourceSnapshot | null> {
+  return await db
+    .prepare(
+      `SELECT *
+       FROM source_snapshots
+       WHERE outage_source_id = ?
+       ORDER BY fetched_at DESC, id DESC
+       LIMIT 1`
+    )
+    .bind(sourceId)
+    .first<SourceSnapshot>();
+}
+
+export async function getPlaceExtractionTargets(
+  db: D1Database,
+  limit = 20,
+  eventId?: number | null
+): Promise<Array<{ source_id: number; outage_event_id: number; alert_item_id: number | null }>> {
+  const result = await db
+    .prepare(
+      `SELECT s.id AS source_id, s.outage_event_id, s.alert_item_id
+       FROM outage_sources s
+       LEFT JOIN source_place_mentions m ON m.outage_source_id = s.id
+       WHERE m.id IS NULL
+         AND (? IS NULL OR s.outage_event_id = ?)
+       ORDER BY s.id DESC
+       LIMIT ?`
+    )
+    .bind(eventId ?? null, eventId ?? null, limit)
+    .all<{ source_id: number; outage_event_id: number; alert_item_id: number | null }>();
   return result.results;
 }
 
@@ -1062,6 +1110,316 @@ export async function getOutageEventFacts(
     .bind(eventId)
     .all<OutageFact>();
   return result.results;
+}
+
+export async function createGeoSyncRun(
+  db: D1Database,
+  input: { provider: string; scope: string; startedAt: string }
+): Promise<number> {
+  const result = await db
+    .prepare("INSERT INTO geo_sync_runs (provider, scope, started_at, status) VALUES (?, ?, ?, 'running')")
+    .bind(input.provider, input.scope, input.startedAt)
+    .run();
+  const id = (result.meta as { last_row_id?: number } | undefined)?.last_row_id;
+  if (typeof id !== "number") throw new Error("Could not create geo sync run");
+  return id;
+}
+
+export async function finishGeoSyncRun(
+  db: D1Database,
+  id: number,
+  input: { status: "success" | "failed"; itemsSeen: number; itemsUpserted: number; error?: string | null }
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE geo_sync_runs
+       SET finished_at = ?, status = ?, items_seen = ?, items_upserted = ?, error = ?
+       WHERE id = ?`
+    )
+    .bind(new Date().toISOString(), input.status, input.itemsSeen, input.itemsUpserted, input.error ?? null, id)
+    .run();
+}
+
+export async function upsertGeoPlace(
+  db: D1Database,
+  place: {
+    externalId: string;
+    country?: string;
+    cantonKey?: string | null;
+    cantonCode?: string | null;
+    cantonName?: string | null;
+    districtKey?: string | null;
+    districtName?: string | null;
+    municipalityKey?: string | null;
+    municipalityName?: string | null;
+    localityKey?: string | null;
+    localityName?: string | null;
+    postcode?: string | null;
+    streetName?: string | null;
+    placeType: GeoPlaceType;
+    canonicalName: string;
+    normalizedName: string;
+    parentExternalId?: string | null;
+    source: string;
+    sourceUpdatedAt?: string | null;
+  }
+): Promise<GeoPlace> {
+  await db
+    .prepare(
+      `INSERT INTO geo_places (
+         external_id, country, canton_key, canton_code, canton_name,
+         district_key, district_name, municipality_key, municipality_name,
+         locality_key, locality_name, postcode, street_name, place_type,
+         canonical_name, normalized_name, parent_external_id, source, source_updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(external_id) DO UPDATE SET
+         country = excluded.country,
+         canton_key = excluded.canton_key,
+         canton_code = excluded.canton_code,
+         canton_name = excluded.canton_name,
+         district_key = excluded.district_key,
+         district_name = excluded.district_name,
+         municipality_key = excluded.municipality_key,
+         municipality_name = excluded.municipality_name,
+         locality_key = excluded.locality_key,
+         locality_name = excluded.locality_name,
+         postcode = excluded.postcode,
+         street_name = excluded.street_name,
+         place_type = excluded.place_type,
+         canonical_name = excluded.canonical_name,
+         normalized_name = excluded.normalized_name,
+         parent_external_id = excluded.parent_external_id,
+         source = excluded.source,
+         source_updated_at = excluded.source_updated_at,
+         updated_at = CURRENT_TIMESTAMP`
+    )
+    .bind(
+      place.externalId,
+      place.country ?? "CH",
+      place.cantonKey ?? null,
+      place.cantonCode ?? null,
+      place.cantonName ?? null,
+      place.districtKey ?? null,
+      place.districtName ?? null,
+      place.municipalityKey ?? null,
+      place.municipalityName ?? null,
+      place.localityKey ?? null,
+      place.localityName ?? null,
+      place.postcode ?? null,
+      place.streetName ?? null,
+      place.placeType,
+      place.canonicalName,
+      place.normalizedName,
+      place.parentExternalId ?? null,
+      place.source,
+      place.sourceUpdatedAt ?? null
+    )
+    .run();
+
+  const row = await db.prepare("SELECT * FROM geo_places WHERE external_id = ?").bind(place.externalId).first<GeoPlace>();
+  if (!row) throw new Error("Geo place could not be loaded after upsert");
+  return row;
+}
+
+export async function upsertGeoPlaceAlias(
+  db: D1Database,
+  input: { placeId: number; alias: string; normalizedAlias: string; language?: string | null; source: string }
+): Promise<void> {
+  if (!input.normalizedAlias || input.normalizedAlias.length < 2) return;
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO geo_place_aliases
+       (place_id, alias, normalized_alias, language, source)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(input.placeId, input.alias, input.normalizedAlias, input.language ?? null, input.source)
+    .run();
+}
+
+export async function getGeoAliasCatalog(
+  db: D1Database,
+  limit = 8000
+): Promise<GeoAliasCatalogRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT p.*, a.alias, a.normalized_alias
+       FROM geo_place_aliases a
+       JOIN geo_places p ON p.id = a.place_id
+       WHERE p.country = 'CH'
+       ORDER BY LENGTH(a.normalized_alias) DESC, p.place_type ASC
+       LIMIT ?`
+    )
+    .bind(limit)
+    .all<GeoAliasCatalogRow>();
+  return result.results;
+}
+
+export async function replaceSourcePlaceMentions(
+  db: D1Database,
+  input: {
+    eventId: number;
+    sourceId: number;
+    alertItemId: number | null;
+    rawText: string;
+    mentions: Array<{
+      matchedText: string;
+      placeId: number;
+      placeType: GeoPlaceType;
+      role: EventPlaceRole;
+      confidence: number;
+      matchMethod: string;
+      evidenceQuote: string;
+    }>;
+  }
+): Promise<void> {
+  await db.prepare("DELETE FROM source_place_mentions WHERE outage_source_id = ?").bind(input.sourceId).run();
+  for (const mention of input.mentions) {
+    await db
+      .prepare(
+        `INSERT INTO source_place_mentions (
+           outage_source_id, alert_item_id, outage_event_id, raw_text, matched_text,
+           place_id, place_type, role, confidence, match_method, evidence_quote
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        input.sourceId,
+        input.alertItemId,
+        input.eventId,
+        input.rawText.slice(0, 4000),
+        mention.matchedText,
+        mention.placeId,
+        mention.placeType,
+        mention.role,
+        mention.confidence,
+        mention.matchMethod,
+        mention.evidenceQuote.slice(0, 800)
+      )
+      .run();
+  }
+}
+
+export async function refreshEventPlaces(db: D1Database, eventId: number): Promise<EventPlace[]> {
+  const mentions = await db
+    .prepare(
+      `SELECT place_id, role, COUNT(DISTINCT COALESCE(outage_source_id, alert_item_id)) AS source_count,
+              MAX(confidence) AS confidence,
+              MIN(created_at) AS first_seen_at,
+              MAX(created_at) AS last_seen_at
+       FROM source_place_mentions
+       WHERE outage_event_id = ? AND place_id IS NOT NULL
+       GROUP BY place_id, role`
+    )
+    .bind(eventId)
+    .all<{ place_id: number; role: EventPlaceRole; source_count: number; confidence: number; first_seen_at: string; last_seen_at: string }>();
+
+  for (const row of mentions.results) {
+    await db
+      .prepare(
+        `INSERT INTO event_places (
+           outage_event_id, place_id, role, confidence, source_count, first_seen_at, last_seen_at, reason
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(outage_event_id, place_id) DO UPDATE SET
+           role = CASE
+             WHEN event_places.role = 'affected' THEN event_places.role
+             WHEN excluded.role = 'affected' THEN excluded.role
+             WHEN event_places.role = 'possibly_affected' THEN event_places.role
+             ELSE excluded.role
+           END,
+           confidence = MAX(event_places.confidence, excluded.confidence),
+           source_count = excluded.source_count,
+           first_seen_at = COALESCE(event_places.first_seen_at, excluded.first_seen_at),
+           last_seen_at = excluded.last_seen_at,
+           reason = excluded.reason,
+           updated_at = CURRENT_TIMESTAMP`
+      )
+      .bind(
+        eventId,
+        row.place_id,
+        row.role,
+        row.confidence,
+        row.source_count,
+        row.first_seen_at,
+        row.last_seen_at,
+        `Deterministisch aus ${row.source_count} Quelle(n) erkannt`
+      )
+      .run();
+  }
+
+  return await getEventPlaces(db, eventId);
+}
+
+export async function getEventPlaces(db: D1Database, eventId: number): Promise<EventPlace[]> {
+  const result = await db
+    .prepare(
+      `SELECT ep.*, p.external_id, p.country, p.canton_key, p.canton_code, p.canton_name,
+              p.district_key, p.district_name, p.municipality_key, p.municipality_name,
+              p.locality_key, p.locality_name, p.postcode, p.street_name, p.place_type,
+              p.canonical_name, p.normalized_name, p.parent_external_id, p.source,
+              p.source_updated_at, p.created_at AS place_created_at, p.updated_at AS place_updated_at
+       FROM event_places ep
+       JOIN geo_places p ON p.id = ep.place_id
+       WHERE ep.outage_event_id = ?
+       ORDER BY
+         CASE ep.role WHEN 'affected' THEN 1 WHEN 'possibly_affected' THEN 2 WHEN 'context' THEN 3 ELSE 4 END,
+         ep.confidence DESC,
+         p.place_type DESC,
+         p.canonical_name ASC`
+    )
+    .bind(eventId)
+    .all<Record<string, unknown>>();
+
+  const rows = result.results.map((row) => ({
+    id: Number(row.id),
+    outage_event_id: Number(row.outage_event_id),
+    place_id: Number(row.place_id),
+    role: row.role as EventPlaceRole,
+    confidence: Number(row.confidence),
+    source_count: Number(row.source_count),
+    first_seen_at: row.first_seen_at as string | null,
+    last_seen_at: row.last_seen_at as string | null,
+    reason: row.reason as string | null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+    place: {
+      id: Number(row.place_id),
+      external_id: row.external_id as string,
+      country: row.country as string,
+      canton_key: row.canton_key as string | null,
+      canton_code: row.canton_code as string | null,
+      canton_name: row.canton_name as string | null,
+      district_key: row.district_key as string | null,
+      district_name: row.district_name as string | null,
+      municipality_key: row.municipality_key as string | null,
+      municipality_name: row.municipality_name as string | null,
+      locality_key: row.locality_key as string | null,
+      locality_name: row.locality_name as string | null,
+      postcode: row.postcode as string | null,
+      street_name: row.street_name as string | null,
+      place_type: row.place_type as GeoPlaceType,
+      canonical_name: row.canonical_name as string,
+      normalized_name: row.normalized_name as string,
+      parent_external_id: row.parent_external_id as string | null,
+      source: row.source as string,
+      source_updated_at: row.source_updated_at as string | null,
+      created_at: row.place_created_at as string,
+      updated_at: row.place_updated_at as string
+    }
+  }));
+
+  const deduped = new Map<string, EventPlace>();
+  for (const row of rows) {
+    const key = `${row.role}:${row.place?.place_type}:${row.place?.canonical_name}`;
+    const existing = deduped.get(key);
+    if (!existing) {
+      deduped.set(key, row);
+      continue;
+    }
+    existing.confidence = Math.max(existing.confidence, row.confidence);
+    existing.source_count = Math.max(existing.source_count, row.source_count);
+    existing.first_seen_at = [existing.first_seen_at, row.first_seen_at].filter(Boolean).sort()[0] ?? null;
+    existing.last_seen_at = [existing.last_seen_at, row.last_seen_at].filter(Boolean).sort().at(-1) ?? null;
+  }
+  return [...deduped.values()];
 }
 
 export async function updateEventIntelligence(

@@ -3,6 +3,7 @@ import {
   dismissOutageEvent,
   getDebugStatus,
   getMergeSuggestionsForEvent,
+  getEventPlaces,
   getOutageEvent,
   getOutageEventFacts,
   getOutageEventSources,
@@ -13,6 +14,7 @@ import {
   mergeOutageEvent
 } from "./db";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
+import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
 import { runAlertCheck } from "./runner";
 import { isBearerAuthorized } from "./auth";
@@ -327,6 +329,7 @@ export default {
         sources: await getOutageEventSources(env.DB, event.id),
         snapshots: await getOutageEventSnapshots(env.DB, event.id),
         facts: await getOutageEventFacts(env.DB, event.id),
+        places: await getEventPlaces(env.DB, event.id),
         merge_suggestions: await getMergeSuggestionsForEvent(env.DB, event.id)
       });
     }
@@ -420,6 +423,42 @@ export default {
           added_sources: result.addedSources,
           snapshots: result.snapshots
         });
+      } catch (error) {
+        return badRequest(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    if (url.pathname === "/admin/geo/sync-openplz" && request.method === "POST") {
+      if (!isAuthorized(request, env)) return unauthorized();
+      try {
+        const body = await readJsonBody(request);
+        const cantonKey = String(body.canton_key ?? body.cantonKey ?? "").trim();
+        const name = String(body.name ?? "").trim();
+        if (!name && !/^\d{1,2}$/.test(cantonKey)) return badRequest("canton_key or name is required");
+        const result = await syncOpenPlzLocalities(env, {
+          cantonKey: cantonKey || undefined,
+          name: name || undefined,
+          startPage: Number(body.start_page ?? body.startPage ?? 1),
+          maxPages: Number(body.max_pages ?? body.maxPages ?? 2),
+          pageSize: Number(body.page_size ?? body.pageSize ?? (name ? 10 : 5))
+        });
+        return json({ ok: true, ...result });
+      } catch (error) {
+        return badRequest(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    if (url.pathname === "/admin/geo/backfill-places" && request.method === "POST") {
+      if (!isAuthorized(request, env)) return unauthorized();
+      try {
+        const body = await readJsonBody(request);
+        const result = await backfillSourcePlaceMentions(env, {
+          limit: Number(body.limit ?? 20),
+          eventId: body.event_id === undefined && body.eventId === undefined
+            ? null
+            : Number(body.event_id ?? body.eventId)
+        });
+        return json({ ok: true, ...result });
       } catch (error) {
         return badRequest(error instanceof Error ? error.message : String(error));
       }

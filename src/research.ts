@@ -16,6 +16,7 @@ import { refreshEventIntelligence } from "./event-intelligence";
 import { normalizeLocation } from "./events";
 import { itemHash } from "./rss";
 import { createSourceSnapshot } from "./snapshots";
+import { extractAndStoreSourcePlaces } from "./places";
 import type { Env, NormalizedRssItem, OutageEvent, OutageSource } from "./types";
 
 interface ExaResult {
@@ -393,7 +394,12 @@ async function snapshotExistingSources(
     if (attempts >= SNAPSHOT_LIMIT) break;
     const alertItem = await getAlertItemById(env.DB, source.alert_item_id);
     if (attempts > 0) await sleep(SNAPSHOT_DELAY_MS);
-    await createSourceSnapshot(env, { event, source, alertItem });
+    const snapshot = await createSourceSnapshot(env, { event, source, alertItem });
+    try {
+      await extractAndStoreSourcePlaces(env, { event, source, alertItem, snapshot });
+    } catch (error) {
+      console.warn(`place extraction source ${source.id}: ${error instanceof Error ? error.message : String(error)}`);
+    }
     attempts += 1;
   }
 
@@ -486,7 +492,12 @@ export async function researchOutageEvent(
       });
       if (snapshotsAttempted < SNAPSHOT_LIMIT) {
         if (snapshotsAttempted > 0) await sleep(SNAPSHOT_DELAY_MS);
-        await createSourceSnapshot(env, { event, source, alertItem });
+        const snapshot = await createSourceSnapshot(env, { event, source, alertItem });
+        try {
+          await extractAndStoreSourcePlaces(env, { event, source, alertItem, snapshot });
+        } catch (error) {
+          console.warn(`place extraction source ${source.id}: ${error instanceof Error ? error.message : String(error)}`);
+        }
         snapshotsAttempted += 1;
         snapshotCount += 1;
       }

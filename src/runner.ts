@@ -37,6 +37,7 @@ import { cheapFilterItem } from "./filter";
 import { itemHash, parseRssFeed } from "./rss";
 import { researchOutageEvent } from "./research";
 import { createAlertSnapshot, createSourceSnapshot } from "./snapshots";
+import { extractAndStoreSourcePlaces } from "./places";
 import type {
   AiClassification,
   CandidateAssessment,
@@ -356,7 +357,12 @@ async function linkAlertToOutageEvent(
     summary: classification.summary,
     reason: classification.reason
   });
-  await createSourceSnapshot(env, { event, source, alertItem: item });
+  const snapshot = await createSourceSnapshot(env, { event, source, alertItem: item });
+  try {
+    await extractAndStoreSourcePlaces(env, { event, source, alertItem: item, snapshot });
+  } catch (error) {
+    console.warn(`place extraction event ${event.id}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   event = await refreshEventIntelligence(env, event.id);
   await generateMergeSuggestions(env, event.id);
