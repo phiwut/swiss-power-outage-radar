@@ -23,8 +23,8 @@ body {
   margin: 0;
   overflow-x: clip;
   background:
-    radial-gradient(circle at 12% 0%, color-mix(in oklch, var(--color-accent-soft) 70%, transparent), transparent 30rem),
-    linear-gradient(180deg, color-mix(in oklch, white 58%, var(--color-bg)), var(--color-bg) 28rem),
+    radial-gradient(circle at 12% 0%, color-mix(in oklch, var(--color-accent-soft) 42%, transparent), transparent 30rem),
+    linear-gradient(180deg, color-mix(in oklch, white 70%, var(--color-bg)), var(--color-bg) 26rem),
     linear-gradient(var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
     linear-gradient(90deg, var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
     var(--color-bg);
@@ -91,6 +91,16 @@ textarea:focus-visible {
     0 18px 50px color-mix(in oklch, var(--color-ink) 8%, transparent);
 }
 
+.hero-surface {
+  border: var(--rule-thin) solid var(--color-rule);
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--color-surface) 96%, white), color-mix(in oklch, var(--color-accent-soft) 22%, var(--color-surface))),
+    var(--color-surface);
+  box-shadow:
+    0 1px 0 color-mix(in oklch, white 80%, transparent) inset,
+    0 18px 48px color-mix(in oklch, var(--color-ink) 7%, transparent);
+}
+
 .icon {
   display: inline-block;
   height: 1rem;
@@ -114,6 +124,7 @@ textarea:focus-visible {
   gap: 0.45rem;
   justify-content: center;
   min-height: 2.55rem;
+  touch-action: manipulation;
 }
 
 .control-button:hover {
@@ -131,6 +142,43 @@ textarea:focus-visible {
   width: 2.35rem;
 }
 
+.pill {
+  align-items: center;
+  border: var(--rule-thin) solid currentColor;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.badge-muted {
+  background: var(--color-surface-2);
+  border-color: var(--color-rule);
+  color: var(--color-muted);
+}
+
+.badge-blue {
+  background: var(--color-accent-soft);
+  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-rule));
+  color: var(--color-accent);
+}
+
+.badge-ok {
+  background: var(--color-ok-soft);
+  border-color: color-mix(in oklch, var(--color-ok) 55%, var(--color-rule));
+  color: var(--color-ok);
+}
+
+.badge-warn {
+  background: var(--color-warn-soft);
+  border-color: color-mix(in oklch, var(--color-warn) 55%, var(--color-rule));
+  color: var(--color-warn);
+}
+
 .event-card {
   border: var(--rule-thin) solid var(--color-rule);
   background: color-mix(in oklch, var(--color-surface) 96%, white);
@@ -140,6 +188,19 @@ textarea:focus-visible {
 .event-card:hover {
   border-color: var(--color-rule-strong);
   transform: translateY(-1px);
+}
+
+.result-card {
+  position: relative;
+}
+
+.result-card::before {
+  background: var(--color-accent);
+  border-radius: 999px;
+  content: "";
+  inset: 1rem auto 1rem 0;
+  position: absolute;
+  width: 3px;
 }
 
 .event-timeline {
@@ -152,6 +213,61 @@ textarea:focus-visible {
   inset: 0 auto 0 1.16rem;
   position: absolute;
   width: 1px;
+}
+
+.grid-cols-14 {
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+}
+
+.activity-cell {
+  align-items: center;
+  aspect-ratio: 1;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-xs);
+  color: transparent;
+  display: inline-flex;
+  font-size: 0;
+  justify-content: center;
+  min-height: 1.25rem;
+}
+
+.activity-cell.level-0 {
+  background: var(--color-surface-2);
+}
+
+.activity-cell.level-1 {
+  background: color-mix(in oklch, var(--color-accent-soft) 78%, var(--color-surface));
+}
+
+.activity-cell.level-2 {
+  background: color-mix(in oklch, var(--color-accent-soft) 70%, var(--color-accent));
+}
+
+.activity-cell.level-3 {
+  background: color-mix(in oklch, var(--color-accent) 62%, var(--color-accent-soft));
+}
+
+.activity-cell.level-4 {
+  background: var(--color-accent);
+}
+
+.source-card {
+  box-shadow: 0 8px 20px color-mix(in oklch, var(--color-ink) 4%, transparent);
+}
+
+.timeline-step {
+  position: relative;
+}
+
+.timeline-step::before {
+  background: var(--color-accent);
+  border-radius: 999px;
+  content: "";
+  height: 0.65rem;
+  left: -0.25rem;
+  position: absolute;
+  top: 1.15rem;
+  width: 0.65rem;
 }
 
 .section-label {

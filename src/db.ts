@@ -18,6 +18,7 @@ import type {
   OutageSource,
   ResearchAssessment,
   ResearchStatus,
+  SourcePublicDigest,
   SourceSnapshot,
   StoredAlertItem
 } from "./types";
@@ -897,6 +898,62 @@ export async function getLatestSourceSnapshot(
     .first<SourceSnapshot>();
 }
 
+export async function getSnapshotsNeedingPublicDigest(
+  db: D1Database,
+  limit = 20,
+  eventId?: number | null
+): Promise<Array<{
+  snapshot_id: number;
+  outage_event_id: number | null;
+  outage_source_id: number | null;
+  markdown_excerpt: string;
+  source_title: string | null;
+  source_url: string;
+  event_title: string | null;
+  event_summary: string | null;
+  research_summary_de: string | null;
+  location_text: string | null;
+}>> {
+  const result = await db
+    .prepare(
+      `SELECT
+         ss.id AS snapshot_id,
+         ss.outage_event_id,
+         ss.outage_source_id,
+         ss.markdown_excerpt,
+         COALESCE(os.source_title, ss.title) AS source_title,
+         COALESCE(os.source_url, ss.final_url, ss.url) AS source_url,
+         oe.title AS event_title,
+         oe.summary AS event_summary,
+         oe.research_summary_de,
+         oe.location_text
+       FROM source_snapshots ss
+       LEFT JOIN outage_sources os ON os.id = ss.outage_source_id
+       LEFT JOIN outage_events oe ON oe.id = ss.outage_event_id
+       WHERE ss.fetch_status = 'success'
+         AND ss.markdown_excerpt IS NOT NULL
+         AND trim(ss.markdown_excerpt) != ''
+         AND ss.digest_generated_at IS NULL
+         AND (? IS NULL OR ss.outage_event_id = ?)
+       ORDER BY ss.fetched_at DESC, ss.id DESC
+       LIMIT ?`
+    )
+    .bind(eventId ?? null, eventId ?? null, Math.max(1, Math.min(50, limit)))
+    .all<{
+      snapshot_id: number;
+      outage_event_id: number | null;
+      outage_source_id: number | null;
+      markdown_excerpt: string;
+      source_title: string | null;
+      source_url: string;
+      event_title: string | null;
+      event_summary: string | null;
+      research_summary_de: string | null;
+      location_text: string | null;
+    }>();
+  return result.results;
+}
+
 export async function getPlaceExtractionTargets(
   db: D1Database,
   limit = 20,
@@ -983,6 +1040,37 @@ export async function insertSourceSnapshot(
     .first<SourceSnapshot>();
   if (!row) throw new Error("Source snapshot could not be loaded after insert");
   return row;
+}
+
+export async function updateSourceSnapshotDigest(
+  db: D1Database,
+  snapshotId: number,
+  digest: SourcePublicDigest | null,
+  generatedAt: string,
+  error: string | null = null
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE source_snapshots
+       SET public_summary_de = ?,
+           public_key_points_json = ?,
+           public_relevance_label = ?,
+           public_facts_json = ?,
+           digest_generated_at = ?,
+           digest_error = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    )
+    .bind(
+      digest?.summary_de ?? null,
+      digest ? JSON.stringify(digest.key_points.slice(0, 5)) : null,
+      digest?.relevance_label ?? null,
+      digest ? JSON.stringify(digest.facts ?? {}) : null,
+      generatedAt,
+      error,
+      snapshotId
+    )
+    .run();
 }
 
 export async function getKnownSourceUrlsForEvent(

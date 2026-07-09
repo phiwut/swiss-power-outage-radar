@@ -226,6 +226,12 @@ export interface SourceSnapshot {
   content_hash: string | null;
   fetched_at: string;
   error: string | null;
+  public_summary_de: string | null;
+  public_key_points_json: string | null;
+  public_relevance_label: "main" | "supporting" | "context" | "unclear" | null;
+  public_facts_json: string | null;
+  digest_generated_at: string | null;
+  digest_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -390,6 +396,19 @@ export interface FactSheet {
   independent_source_count: number;
   official_source_count: number;
   generated_at: string;
+}
+
+export interface SourcePublicDigest {
+  summary_de: string;
+  key_points: string[];
+  relevance_label: "main" | "supporting" | "context" | "unclear";
+  facts: {
+    location?: string;
+    time?: string;
+    cause?: string;
+    status?: string;
+    affected_area?: string;
+  };
 }
 
 export interface MergeAssessment {

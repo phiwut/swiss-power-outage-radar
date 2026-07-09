@@ -6,7 +6,8 @@ import type {
   MergeAssessment,
   NormalizedRssItem,
   OutageEvent,
-  ResearchAssessment
+  ResearchAssessment,
+  SourcePublicDigest
 } from "./types";
 import { cheapFilterItem } from "./filter";
 
@@ -209,6 +210,78 @@ function validateIncidentValidity(value: unknown): IncidentValidity {
     false_positive_type: falsePositiveType as IncidentValidity["false_positive_type"],
     reason: String(record.reason ?? "")
   };
+}
+
+function validateSourcePublicDigest(value: unknown): SourcePublicDigest {
+  if (!value || typeof value !== "object") {
+    throw new Error("Source digest JSON is not an object");
+  }
+  const record = value as Record<string, unknown>;
+  const relevance = String(record.relevance_label ?? "unclear");
+  if (!["main", "supporting", "context", "unclear"].includes(relevance)) {
+    throw new Error("relevance_label invalid");
+  }
+  const points = Array.isArray(record.key_points)
+    ? record.key_points.map((point) => String(point)).filter(Boolean).slice(0, 5)
+    : [];
+  const factsRecord = (record.facts && typeof record.facts === "object" ? record.facts : {}) as Record<string, unknown>;
+
+  return {
+    summary_de: String(record.summary_de ?? "").slice(0, 700),
+    key_points: points,
+    relevance_label: relevance as SourcePublicDigest["relevance_label"],
+    facts: {
+      location: factsRecord.location ? String(factsRecord.location).slice(0, 160) : undefined,
+      time: factsRecord.time ? String(factsRecord.time).slice(0, 160) : undefined,
+      cause: factsRecord.cause ? String(factsRecord.cause).slice(0, 160) : undefined,
+      status: factsRecord.status ? String(factsRecord.status).slice(0, 160) : undefined,
+      affected_area: factsRecord.affected_area ? String(factsRecord.affected_area).slice(0, 180) : undefined
+    }
+  };
+}
+
+function promptForSourcePublicDigest(input: {
+  eventTitle: string;
+  eventSummary: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  excerpt: string;
+}): string {
+  return `Du verdichtest eine Quelle für eine öffentliche Schweizer Stromausfall-Radar-Seite.
+
+Ziel: Ein normaler Nutzer soll schnell verstehen, was diese Quelle zum Ereignis belegt. Keine internen Scores, keine Pipeline-Wörter.
+Erfinde nichts. Wenn ein Feld nicht im Auszug steht, lass es leer oder schreibe "nicht belegt".
+
+Event:
+${input.eventTitle}
+
+Bisherige Event-Zusammenfassung:
+${input.eventSummary}
+
+Quelle:
+${input.sourceTitle}
+${input.sourceUrl}
+
+Markdown-Auszug:
+${input.excerpt.slice(0, 2200)}
+
+Antworte ausschliesslich als valides JSON:
+
+{
+  "summary_de": "2-3 kurze Sätze, nur was diese Quelle beiträgt.",
+  "key_points": ["belegter Punkt 1", "belegter Punkt 2"],
+  "relevance_label": "main",
+  "facts": {
+    "location": "",
+    "time": "",
+    "cause": "",
+    "status": "",
+    "affected_area": ""
+  }
+}
+
+Zulässige Werte:
+relevance_label: "main", "supporting", "context", "unclear"`;
 }
 
 function promptForIncidentValidity(item: NormalizedRssItem, classification: AiClassification): string {
@@ -513,6 +586,52 @@ export async function assessResearch(
     });
     const raw = extractResponseText(response);
     return { parsed: validateResearchAssessment(extractJson(raw)), raw };
+  } catch (error) {
+    return {
+      parsed: null,
+      raw: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+export async function summarizeSourceForPublic(
+  env: Pick<Env, "AI" | "AI_MOCK_MODE">,
+  input: {
+    eventTitle: string;
+    eventSummary: string;
+    sourceTitle: string;
+    sourceUrl: string;
+    excerpt: string;
+  }
+): Promise<{ parsed: SourcePublicDigest | null; raw: string; error?: string }> {
+  if (env.AI_MOCK_MODE === "true") {
+    const parsed: SourcePublicDigest = {
+      summary_de: `${input.sourceTitle} wird als Quelle zum möglichen Stromausfall ausgewertet. Der gespeicherte Auszug nennt den Vorfall, reicht aber nicht für eine offizielle Bestätigung.`,
+      key_points: [input.excerpt.slice(0, 140) || "Quelle wurde gespeichert."],
+      relevance_label: "supporting",
+      facts: {
+        location: "",
+        time: "",
+        cause: "nicht belegt",
+        status: "nicht belegt",
+        affected_area: ""
+      }
+    };
+    return { parsed, raw: JSON.stringify(parsed) };
+  }
+
+  try {
+    const response = await env.AI.run(MODEL, {
+      messages: [
+        {
+          role: "user",
+          content: promptForSourcePublicDigest(input)
+        }
+      ]
+    });
+    const raw = extractResponseText(response);
+    return { parsed: validateSourcePublicDigest(extractJson(raw)), raw };
   } catch (error) {
     return {
       parsed: null,

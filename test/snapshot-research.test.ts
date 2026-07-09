@@ -15,6 +15,20 @@ function fakeSnapshotDb() {
           return this;
         },
         async run() {
+          if (sql.includes("UPDATE source_snapshots")) {
+            if (row) {
+              row = {
+                ...row,
+                public_summary_de: bound[0] as string | null,
+                public_key_points_json: bound[1] as string | null,
+                public_relevance_label: bound[2] as SourceSnapshot["public_relevance_label"],
+                public_facts_json: bound[3] as string | null,
+                digest_generated_at: bound[4] as string | null,
+                digest_error: bound[5] as string | null
+              };
+            }
+            return { meta: { changes: row ? 1 : 0 } };
+          }
           if (!sql.includes("INSERT INTO source_snapshots")) {
             throw new Error(`Unexpected run SQL: ${sql}`);
           }
@@ -34,6 +48,12 @@ function fakeSnapshotDb() {
             content_hash: bound[11] as string | null,
             fetched_at: bound[12] as string,
             error: bound[13] as string | null,
+            public_summary_de: null,
+            public_key_points_json: null,
+            public_relevance_label: null,
+            public_facts_json: null,
+            digest_generated_at: null,
+            digest_error: null,
             created_at: "2026-06-30 00:00:00",
             updated_at: "2026-06-30 00:00:00"
           };
@@ -84,6 +104,34 @@ describe("source snapshots", () => {
     expect(snapshot.markdown_r2_key).toMatch(/^snapshots\/2026-06-30\/event-10\/source-20-/);
     expect(snapshot.markdown_excerpt).toContain("Mock Markdown Snapshot");
     expect(puts).toHaveLength(1);
+  });
+
+  it("creates a compact public source digest when AI is available", async () => {
+    const db = fakeSnapshotDb();
+    const snapshot = await createSourceSnapshot(
+      {
+        DB: db,
+        BROWSER_MOCK_MODE: "true",
+        AI_MOCK_MODE: "true",
+        BROWSER: {} as BrowserRun,
+        AI: {} as Ai,
+        SNAPSHOTS: {
+          async put() {
+            return null;
+          }
+        } as unknown as R2Bucket
+      },
+      {
+        ...target,
+        event: { id: 10, title: "Stromausfall in Wohlen", summary: "Möglicher Stromausfall." }
+      },
+      "2026-06-30T10:00:00.000Z"
+    );
+
+    const stored = await db.prepare("SELECT * FROM source_snapshots WHERE id = ?").first<SourceSnapshot>();
+    expect(stored?.fetch_status).toBe("success");
+    expect(stored?.public_summary_de).toContain("Stromausfall in Wohlen");
+    expect(stored?.public_key_points_json).toContain("Mock Markdown Snapshot");
   });
 
   it("falls back to Jina markdown when Cloudflare markdown fails", async () => {

@@ -44,6 +44,12 @@ function snapshot(markdownExcerpt: string): SourceSnapshot {
     content_hash: "abc",
     fetched_at: "2026-07-01T10:00:00.000Z",
     error: null,
+    public_summary_de: null,
+    public_key_points_json: null,
+    public_relevance_label: null,
+    public_facts_json: null,
+    digest_generated_at: null,
+    digest_error: null,
     created_at: "2026-07-01 10:00:00",
     updated_at: "2026-07-01 10:00:00"
   };

@@ -30,7 +30,7 @@ const {
   <body class="text-ink">
     <main class="page-enter mx-auto min-h-screen w-full max-w-7xl px-3 py-3 sm:px-5 lg:px-6">
       <header class="chrome sticky top-3 z-30 grid gap-3 rounded-md px-3 py-3 backdrop-blur sm:px-4 md:grid-cols-[1fr_auto] md:items-center">
-        <a href="/" class="group inline-flex min-w-0 items-center gap-3" aria-label="Zur Aktenübersicht">
+        <a href="/" class="group inline-flex min-w-0 items-center gap-3" aria-label="Zur Ereignisübersicht">
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-rulestrong bg-ink text-surface">
             <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z"/></svg>
           </span>
@@ -42,20 +42,11 @@ const {
         <nav class="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted">
           <a class="control-button bg-surface2 px-3 py-2 hover:text-ink" href="/">
             <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
-            Akten
+            Übersicht
           </a>
-          <button id="global-admin-button" class="control-button bg-surface2 px-3 py-2 hover:text-ink" type="button">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 4 7v6c0 5 3.4 7.7 8 8 4.6-.3 8-3 8-8V7l-8-4Z"/><path d="M9 12l2 2 4-5"/></svg>
-            Admin
-          </button>
         </nav>
       </header>
       <slot />
     </main>
-    <script>
-      document.querySelector("#global-admin-button")?.addEventListener("click", () => {
-        window.dispatchEvent(new CustomEvent("outage:admin-login"));
-      });
-    </script>
   </body>
 </html>

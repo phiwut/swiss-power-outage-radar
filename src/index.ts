@@ -10,9 +10,12 @@ import {
   getOutageEventSnapshots,
   getPublicStatus,
   getRecentItems,
+  getSnapshotsNeedingPublicDigest,
   markOutageEventCorroborated,
-  mergeOutageEvent
+  mergeOutageEvent,
+  updateSourceSnapshotDigest
 } from "./db";
+import { summarizeSourceForPublic } from "./ai";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
@@ -459,6 +462,42 @@ export default {
             : Number(body.event_id ?? body.eventId)
         });
         return json({ ok: true, ...result });
+      } catch (error) {
+        return badRequest(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    if (url.pathname === "/admin/snapshots/digest" && request.method === "POST") {
+      if (!isAuthorized(request, env)) return unauthorized();
+      try {
+        const body = await readJsonBody(request);
+        const limit = Math.max(1, Math.min(3, Number(body.limit ?? 2)));
+        const targets = await getSnapshotsNeedingPublicDigest(
+          env.DB,
+          limit,
+          body.event_id === undefined && body.eventId === undefined ? null : Number(body.event_id ?? body.eventId)
+        );
+        let digested = 0;
+        const errors: string[] = [];
+        for (const target of targets) {
+          const result = await summarizeSourceForPublic(env, {
+            eventTitle: target.event_title || target.location_text || target.source_title || "Stromausfall",
+            eventSummary: target.research_summary_de || target.event_summary || "",
+            sourceTitle: target.source_title || "Quelle",
+            sourceUrl: target.source_url,
+            excerpt: target.markdown_excerpt
+          });
+          await updateSourceSnapshotDigest(
+            env.DB,
+            target.snapshot_id,
+            result.parsed,
+            new Date().toISOString(),
+            result.error ?? null
+          );
+          if (result.parsed) digested += 1;
+          else errors.push(`#${target.snapshot_id}: ${result.error ?? "digest failed"}`);
+        }
+        return json({ ok: true, scanned: targets.length, digested, errors });
       } catch (error) {
         return badRequest(error instanceof Error ? error.message : String(error));
       }

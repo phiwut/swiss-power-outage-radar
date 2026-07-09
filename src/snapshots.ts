@@ -1,8 +1,9 @@
-import { insertSourceSnapshot } from "./db";
+import { summarizeSourceForPublic } from "./ai";
+import { insertSourceSnapshot, updateSourceSnapshotDigest } from "./db";
 import type { Env, OutageEvent, OutageSource, SourceSnapshot, StoredAlertItem } from "./types";
 
 interface SnapshotTarget {
-  event: Pick<OutageEvent, "id">;
+  event: Pick<OutageEvent, "id"> & Partial<Pick<OutageEvent, "title" | "summary" | "research_summary_de" | "location_text">>;
   source: Pick<OutageSource, "id" | "source_url" | "source_title">;
   alertItem?: Pick<StoredAlertItem, "id"> | null;
 }
@@ -167,7 +168,7 @@ async function fetchCloudflareMarkdown(
 }
 
 export async function createSourceSnapshot(
-  env: Pick<Env, "DB" | "BROWSER" | "SNAPSHOTS" | "BROWSER_MOCK_MODE">,
+  env: Pick<Env, "DB" | "BROWSER" | "SNAPSHOTS" | "BROWSER_MOCK_MODE"> & Partial<Pick<Env, "AI" | "AI_MOCK_MODE">>,
   target: SnapshotTarget,
   fetchedAt = new Date().toISOString()
 ): Promise<SourceSnapshot> {
@@ -227,7 +228,7 @@ export async function createSourceSnapshot(
       }
     });
 
-    return await insertSourceSnapshot(env.DB, {
+    const snapshot = await insertSourceSnapshot(env.DB, {
       ...base,
       fetchMethod,
       fetchStatus: "success",
@@ -238,6 +239,8 @@ export async function createSourceSnapshot(
       contentHash,
       error: null
     });
+    await maybeDigestSnapshot(env, target, snapshot, parsed.markdown);
+    return snapshot;
   } catch (error) {
     return await insertSourceSnapshot(env.DB, {
       ...base,
@@ -250,6 +253,33 @@ export async function createSourceSnapshot(
       error: error instanceof Error ? error.message : String(error)
     });
   }
+}
+
+async function maybeDigestSnapshot(
+  env: Pick<Env, "DB"> & Partial<Pick<Env, "AI" | "AI_MOCK_MODE">>,
+  target: SnapshotTarget,
+  snapshot: SourceSnapshot,
+  markdown: string
+): Promise<void> {
+  if (!env.AI && env.AI_MOCK_MODE !== "true") return;
+  const excerptText = excerpt(markdown);
+  if (!excerptText) return;
+
+  const result = await summarizeSourceForPublic(env as Pick<Env, "AI" | "AI_MOCK_MODE">, {
+    eventTitle: target.event.title || target.event.location_text || target.source.source_title,
+    eventSummary: target.event.research_summary_de || target.event.summary || "",
+    sourceTitle: target.source.source_title,
+    sourceUrl: target.source.source_url,
+    excerpt: excerptText
+  });
+
+  await updateSourceSnapshotDigest(
+    env.DB,
+    snapshot.id,
+    result.parsed,
+    new Date().toISOString(),
+    result.error ?? null
+  );
 }
 
 export async function createAlertSnapshot(
