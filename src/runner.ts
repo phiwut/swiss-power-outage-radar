@@ -734,7 +734,7 @@ async function collectRegistrySources(env: Env): Promise<{
   errors: string[];
 }> {
   const now = new Date().toISOString();
-  const sources = await getDueSourceRegistryEntries(env.DB, now, 50);
+  const sources = await getDueSourceRegistryEntries(env.DB, now, 20);
   const summary = {
     sourcesChecked: 0,
     observationsSeen: 0,
@@ -753,7 +753,6 @@ async function collectRegistrySources(env: Env): Promise<{
     const fetched = await fetchSourceObservations(env, source, checkedAt);
     if (fetched.usedFirecrawl) summary.firecrawlCreditsEstimated += 1;
     if (fetched.error) {
-      summary.errors.push(`${source.source_key}: ${fetched.error}`);
       const needsItemAdapter = fetched.error.startsWith("parser_needs_adapter:");
       await updateSourceRegistryHealth(env.DB, source.id, {
         checkedAt,

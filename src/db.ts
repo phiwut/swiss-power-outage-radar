@@ -1103,7 +1103,7 @@ export async function getDueSourceRegistryEntries(
            last_checked_at IS NULL
            OR datetime(last_checked_at, '+' || check_interval_minutes || ' minutes') <= datetime(?)
          )
-       ORDER BY priority DESC, COALESCE(last_checked_at, '1970-01-01') ASC
+       ORDER BY COALESCE(last_checked_at, '1970-01-01') ASC, priority DESC
        LIMIT ?`
     )
     .bind(nowIso, Math.max(1, Math.min(50, limit)))
