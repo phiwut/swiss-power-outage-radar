@@ -1,0 +1,14 @@
+{
+  "source_key": "ewz-stoerungen",
+  "operator_name": "ewz",
+  "source_category": "live_status",
+  "url": "https://www.ewz.ch/de/services/stoerungen.html",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ewz.ch/de/services/stoerungen.html",
+  "elapsed_ms": 226,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 1882678,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

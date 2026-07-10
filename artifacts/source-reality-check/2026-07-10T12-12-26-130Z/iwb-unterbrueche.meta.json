@@ -1,0 +1,14 @@
+{
+  "source_key": "iwb-unterbrueche",
+  "operator_name": "IWB",
+  "source_category": "live_status",
+  "url": "https://www.iwb.ch/servicecenter/unterbrueche-stoerungen/unterbrueche",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.iwb.ch/servicecenter/unterbrueche-stoerungen/unterbrueche",
+  "elapsed_ms": 335,
+  "content_type": "text/html;charset=UTF-8",
+  "bytes": 56393,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

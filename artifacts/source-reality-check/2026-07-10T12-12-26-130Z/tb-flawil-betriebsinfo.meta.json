@@ -1,0 +1,14 @@
+{
+  "source_key": "tb-flawil-betriebsinfo",
+  "operator_name": "TB Flawil",
+  "source_category": "live_status",
+  "url": "https://www.tbflawil.ch/betriebsinfo",
+  "ok": false,
+  "http_status": 0,
+  "final_url": "https://www.tbflawil.ch/betriebsinfo",
+  "elapsed_ms": 33,
+  "content_type": null,
+  "bytes": 0,
+  "error": "fetch failed",
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

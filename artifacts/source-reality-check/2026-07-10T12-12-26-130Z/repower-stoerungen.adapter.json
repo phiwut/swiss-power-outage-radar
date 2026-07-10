@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 10,
+        "sourceKey": "repower-stoerungen",
+        "sourceType": "html",
+        "operatorName": "Repower",
+        "observationHash": "8be5c661b4d252cbf84d73c351da17c9f33413fabfe755de68e3fffdebf5542b",
+        "canonicalStatus": "irrelevant",
+        "eventType": "unclear",
+        "title": "Repower: keine aktuelle Stromstörung",
+        "url": "https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle",
+        "locationText": "Echtzeit den Überblick über Ihren Stromfluss",
+        "areaText": "Repower Netzgebiet in Graubünden und angrenzenden Regionen",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Aktuelle Störungsmeldungen und Netzinfos Jobs Über uns Wissen Login Strom Solar Infrastruktur Kundencenter Strom Unsere Stromprodukte Für Privatkunden Für Marktkunden Anschluss Netzanschluss Smart Meter Spannungserhöhung Flexibilitätsnutzung Energiehandel Herkunftsnachweise Vollversorgung Zur Stromübersicht Inside Repower Das Stromnetz von morgen bis in die hintersten Täler Wir zeigen, wie Repower in der Surselva und im Lugnez am Stromnetz von morgen arbeitet. Solar Solaranlage bauen Solar Contracting Fördergelder Für alle Energieproduzenten Allgemeine Informationen Eigenverbrauch und Einspeisung Rückliefervergütung Zur Solar-Übersicht Solar Manager: Energie optimal steuern Behalten Sie in Echtzeit den Überblick über Ihren Stromfluss. Der Solar Manager hilft Ihnen, Energie dann zu nutzen, wenn Ihre Solaranlage sie produziert. Login Infrastruktur Produktions- und Netzanlagen Planung Realisierung Betrieb Instandhaltung Beleuchtung & Ladeinfrastruktur Öffentliche Beleuchtung E-Mobilität Partnerschaften Repartner Produktions AG Zur Infrastruktur-Übersicht Digitale Planauskunft Fordern Sie Leitungsdaten für Ihr Bauvorhaben einfach online an. Schnell und direkt als PDF oder DXF. Mehr erf",
+        "rawPayloadJson": "{\"excerpt\":\"Aktuelle Störungsmeldungen und Netzinfos Jobs Über uns Wissen Login Strom Solar Infrastruktur Kundencenter Strom Unsere Stromprodukte Für Privatkunden Für Marktkunden Anschluss Netzanschluss Smart Meter Spannungserhöhung Flexibilitätsnutzung Energiehandel Herkunftsnachweise Vollversorgung Zur Stromübersicht Inside Repower Das Stromnetz von morgen bis in die hintersten Täler Wir zeigen, wie Repower in der Surselva und im Lugnez am Stromnetz von morgen arbeitet. Solar Solaranlage bauen Solar Contracting Fördergelder Für alle Energieproduzenten Allgemeine Informationen Eigenverbrauch und Einspeisung Rückliefervergütung Zur Solar-Übersicht Solar Manager: Energie optimal steuern Behalten Sie in Echtzeit den Überblick über Ihren Stromfluss. Der Solar Manager hilft Ihnen, Energie dann zu nutzen, wenn Ihre Solaranlage sie produziert. Login Infrastruktur Produktions- und Netzanlagen Planung Realisierung Betrieb Instandhaltung Beleuchtung & Ladeinfrastruktur Öffentliche Beleuchtung E-Mobilität Partnerschaften Repartner Produktions AG Zur Infrastruktur-Übersicht Digitale Planauskunft Fordern Sie Leitungsdaten für Ihr Bauvorhaben einfach online an. Schnell und direkt als PDF oder DXF. Mehr erfahren Kundencenter Umzug Rechnung & Zahlung Störungen & Stromausfälle Hilfe für Energieproduzenten MIAENERGIA Dokumente Zur Kundencenter-Übersicht MIAENERGIA Im Kundenportal MIAENERGIA finden Sie Informationen zu Ihrer Rechnung, Ihren Stromkosten und Ihrem Stromverbrauch. Zum Login Mehr erfahren Jobs Deine Repower Offene Stellen Quereinstieg Lehre Offene Lehrstellen Bewerbungsprozess Onboarding Zur Jobs-Übersicht Durchstarten als Netzelektriker:in bei Repower! Du bist Netzelektriker:in oder in einem verwandten Beruf tätig? Komm zu uns nach Bever oder Ilanz/Disentis. Die Bewerbungsmappe kannst du dir schenken. Mehr erfahren Über Uns Was wir machen Organisation Standorte Geschichte Versorgungsgebiet Unsere Kraftwerke Unsere Projekte Nachhaltigkeit Medienstelle Sponsoring & Events Investoren \",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0,
+        "independenceKey": "repower.com"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": false,
+        "is_ch_incident": false,
+        "location_text": "Echtzeit den Überblick über Ihren Stromfluss",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "background",
+        "quality_score": 0,
+        "quality_reasons": [
+          "source_registry:repower-stoerungen",
+          "status:irrelevant"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: irrelevant",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Repower: keine aktuelle Stromstörung",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Echtzeit den Überblick über Ihren Stromfluss",
+            "confidence": 0.9,
+            "evidence_excerpt": "Aktuelle Störungsmeldungen und Netzinfos Jobs Über uns Wissen Login Strom Solar Infrastruktur Kundencenter Strom Unsere Stromprodukte Für Privatkunden Für Marktkunden Anschluss Netzanschluss Smart Meter Spannungserhöhung Flexibilitätsnutzung Energiehandel Herkunftsnachweise Vollversorgung Zur Stromübersicht Inside Repower Das Stromnetz von morgen bis in die hintersten Täler Wir zeigen, wie Repower in der Surselva und im Lugnez am Stromnetz von morgen arbeitet. Solar Solaranlage bauen Solar Contracting Fördergelder Für alle Energieproduzenten Allgemeine Informationen Eigenverbrauch und Einspeisung Rückliefervergütung Zur Solar-Übersicht Solar Manager: Energie optimal steuern Behalten Sie in Echtzeit den Überblick über Ihren Stromfluss. Der Solar Manager hilft Ihnen, Energie dann zu nutzen, wenn Ihre Solaranlage sie produziert. Login Infrastruktur Produktions- und Netzanlagen Planung Realisierung Betrieb Instandhaltung Beleuchtung & Ladeinfrastruktur Öffentliche Beleuchtung E-Mobilität Partnerschaften Repartner Produktions AG Zur Infrastruktur-Übersicht Digitale Planauskunft Fordern Sie Leitungsdaten für Ihr Bauvorhaben einfach online an. Schnell und direkt als PDF oder DXF. Mehr erf",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Aktuelle Störungsmeldungen und Netzinfos Jobs Über uns Wissen Login Strom Solar Infrastruktur Kundencenter Strom Unsere Stromprodukte Für Privatkunden Für Marktkunden Anschluss Netzanschluss Smart Meter Spannungserhöhung Flexibilitätsnutzung Energiehandel Herkunftsnachweise Vollversorgung Zur Stromübersicht Inside Repower Das Stromnetz von morgen bis in die hintersten Täler Wir zeigen, wie Repower in der Surselva und im Lugnez am Stromnetz von morgen arbeitet. Solar Solaranlage bauen Solar Contracting Fördergelder Für alle Energieproduzenten Allgemeine Informationen Eigenverbrauch und Einspeisung Rückliefervergütung Zur Solar-Übersicht Solar Manager: Energie optimal steuern Behalten Sie in Echtzeit den Überblick über Ihren Stromfluss. Der Solar Manager hilft Ihnen, Energie dann zu nutzen, wenn Ihre Solaranlage sie produziert. Login Infrastruktur Produktions- und Netzanlagen Planung Realisierung Betrieb Instandhaltung Beleuchtung & Ladeinfrastruktur Öffentliche Beleuchtung E-Mobilität Partnerschaften Repartner Produktions AG Zur Infrastruktur-Übersicht Digitale Planauskunft Fordern Sie Leitungsdaten für Ihr Bauvorhaben einfach online an. Schnell und direkt als PDF oder DXF. Mehr erf",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

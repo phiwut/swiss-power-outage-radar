@@ -1,0 +1,14 @@
+{
+  "source_key": "ewn-neuenhof-stoerungsmeldungen",
+  "operator_name": "EW Neuenhof",
+  "source_category": "news_feed",
+  "url": "https://www.ewn-neuenhof.ch/stoerungsmeldungen/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ewn-neuenhof.ch/stoerungsmeldungen/",
+  "elapsed_ms": 83,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 16395,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

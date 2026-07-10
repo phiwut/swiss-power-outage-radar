@@ -1,0 +1,14 @@
+{
+  "source_key": "ebl-stoerungen",
+  "operator_name": "EBL",
+  "source_category": "live_status",
+  "url": "https://www.ebl.ch/de/kundencenter/stoerungen-unterbrueche",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ebl.ch/de/kundencenter/stoerungen-unterbrueche",
+  "elapsed_ms": 110,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 281236,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

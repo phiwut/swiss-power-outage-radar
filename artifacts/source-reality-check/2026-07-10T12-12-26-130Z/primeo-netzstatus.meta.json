@@ -1,0 +1,14 @@
+{
+  "source_key": "primeo-netzstatus",
+  "operator_name": "Primeo Energie",
+  "source_category": "outage_map",
+  "url": "https://www.primeo-energie.ch/en/netzstatus.html",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.primeo-energie.ch/en/netzstatus.html",
+  "elapsed_ms": 113,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 126754,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

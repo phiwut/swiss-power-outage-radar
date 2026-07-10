@@ -19,7 +19,7 @@ import { summarizeSourceForPublic } from "./ai";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
-import { runAlertCheck } from "./runner";
+import { ingestFirecrawlWebhook, runAlertCheck } from "./runner";
 import { isBearerAuthorized } from "./auth";
 import type { CheckAlertFeedsParams, Env } from "./types";
 
@@ -360,6 +360,20 @@ export default {
     if (url.pathname === "/recent" && request.method === "GET") {
       if (!isAuthorized(request, env)) return unauthorized();
       return json({ items: await getRecentItems(env.DB) });
+    }
+
+    if (url.pathname === "/api/firecrawl/webhook" && request.method === "POST") {
+      const webhookSecret = request.headers.get("x-firecrawl-webhook-secret");
+      const webhookAuthorized =
+        Boolean(env.FIRECRAWL_WEBHOOK_SECRET) && webhookSecret === env.FIRECRAWL_WEBHOOK_SECRET;
+      if (!webhookAuthorized && !isAuthorized(request, env)) return unauthorized();
+      try {
+        const body = await readJsonBody(request);
+        const result = await ingestFirecrawlWebhook(env, body);
+        return json({ ok: result.accepted, ...result }, { status: result.accepted ? 200 : 202 });
+      } catch (error) {
+        return badRequest(error instanceof Error ? error.message : String(error));
+      }
     }
 
     const adminMergeMatch = url.pathname.match(/^\/admin\/events\/(\d+)\/merge$/);

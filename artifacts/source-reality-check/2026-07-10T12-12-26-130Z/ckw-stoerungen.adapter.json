@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 5,
+        "sourceKey": "ckw-stoerungen",
+        "sourceType": "html",
+        "operatorName": "CKW",
+        "observationHash": "95a92c01129e27c13932df920bedc79fd2ed88b6af5a316fbdb3ef4c8eb049c6",
+        "canonicalStatus": "irrelevant",
+        "eventType": "unclear",
+        "title": "CKW: keine aktuelle Stromstörung",
+        "url": "https://www.ckw.ch/kontakt/stoerungen",
+        "locationText": null,
+        "areaText": "Zentralschweiz, insbesondere Kanton Luzern und angrenzende CKW-Netzgebiete",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Störungen | CKW Zur Hauptnavigation Zum Hauptinhalt Zur Suche CKW Logo Energie Strom Solar ZEV, vZEV und LEG Wärmeverbunde Netz und Infrastruktur Batteriespeicher Energiehandel Gebäudetechnik Wärmepumpen Gebäudeautomation E-Mobilität Alarm- und Sicherheitssysteme Elektroinstallationen ICT-Lösungen Modern Workplace IT-Security Datacenter Services Connectivity Services Offene Stellen Support und Kontakt Über CKW MyCKW ... Support und Kontakt Störungen und Unterbrüche Aktuelle Störungen bei der CKW CKW Stromnetz Momentan sind keine Netzstörungen bekannt. CKW Glasfasernetz Momentan sind keine Netzstörungen bekannt. Wenn plötzlich der Strom ausfällt Wie kann ich mich vorbereiten? 24-h-Hotline der CKW speichern: 0800 55 06 07 Telefonnummer des Elektroinstallateurs speichern. Taschenlampe und Ersatzbatterien bereithalten. Wie reagiere ich richtig? Ruhig bleiben. Sicherungen und FI-Schutz prüfen. Alle Geräte manuell ausschalten (Herdplatte, Fernseher, Staubsauger etc.). Kühlschrank und Tiefkühler nicht öffnen. Was ist wichtig, wenn der Strom wieder da ist? Kontrollieren, ob elektrische Geräte wieder funktionieren (Lampen, Kühlschrank, Alarmanlage, Heizung etc.). Störungen und Defekte melde",
+        "rawPayloadJson": "{\"excerpt\":\"Störungen | CKW Zur Hauptnavigation Zum Hauptinhalt Zur Suche CKW Logo Energie Strom Solar ZEV, vZEV und LEG Wärmeverbunde Netz und Infrastruktur Batteriespeicher Energiehandel Gebäudetechnik Wärmepumpen Gebäudeautomation E-Mobilität Alarm- und Sicherheitssysteme Elektroinstallationen ICT-Lösungen Modern Workplace IT-Security Datacenter Services Connectivity Services Offene Stellen Support und Kontakt Über CKW MyCKW ... Support und Kontakt Störungen und Unterbrüche Aktuelle Störungen bei der CKW CKW Stromnetz Momentan sind keine Netzstörungen bekannt. CKW Glasfasernetz Momentan sind keine Netzstörungen bekannt. Wenn plötzlich der Strom ausfällt Wie kann ich mich vorbereiten? 24-h-Hotline der CKW speichern: 0800 55 06 07 Telefonnummer des Elektroinstallateurs speichern. Taschenlampe und Ersatzbatterien bereithalten. Wie reagiere ich richtig? Ruhig bleiben. Sicherungen und FI-Schutz prüfen. Alle Geräte manuell ausschalten (Herdplatte, Fernseher, Staubsauger etc.). Kühlschrank und Tiefkühler nicht öffnen. Was ist wichtig, wenn der Strom wieder da ist? Kontrollieren, ob elektrische Geräte wieder funktionieren (Lampen, Kühlschrank, Alarmanlage, Heizung etc.). Störungen und Defekte melden Ob Stromausfall, defekte Strassenlampe oder Security Support. Hier finden Sie Hilfe. Jetzt Störung melden Kundensupport Kontakt Umzug Störungen Rechnung und Zahlen Online-Portale Unternehmen Über CKW Karriere Standorte Medienstelle CKW-Storys Entdecken Energiewelt Schulservice Auszeichnungen Bleiben Sie mit unserem Newsletter auf dem Laufenden. Footer Navigation AGB Datenschutz Impressum Nutzungsbedingungen Gesetzliche Vorgaben Kontakt Cookie Einstellungen Folgen Sie uns auf Facebook Folgen Sie uns auf Instagram Folgen Sie uns auf Youtube Folgen Sie uns auf Linkedin Kontaktieren Wie können wir Ihnen helfen? E-Mail Schreiben Sie uns Telefon Mo-Fr: 8-12 Uhr und 13-17 Uhr 0800 88 77 66 Umzug Melden Sie uns Ihren Umzug. Kontakt Anliegen Bitte wählen Abrechnung und Stromtarife Fragen zu Solar\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0,
+        "independenceKey": "ckw.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": false,
+        "is_ch_incident": false,
+        "location_text": "Zentralschweiz, insbesondere Kanton Luzern und angrenzende CKW-Netzgebiete",
+        "location_granularity": "canton",
+        "event_type": "unclear",
+        "relevance_role": "background",
+        "quality_score": 0,
+        "quality_reasons": [
+          "source_registry:ckw-stoerungen",
+          "status:irrelevant"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: irrelevant",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "CKW: keine aktuelle Stromstörung",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Zentralschweiz, insbesondere Kanton Luzern und angrenzende CKW-Netzgebiete",
+            "confidence": 0.9,
+            "evidence_excerpt": "Störungen | CKW Zur Hauptnavigation Zum Hauptinhalt Zur Suche CKW Logo Energie Strom Solar ZEV, vZEV und LEG Wärmeverbunde Netz und Infrastruktur Batteriespeicher Energiehandel Gebäudetechnik Wärmepumpen Gebäudeautomation E-Mobilität Alarm- und Sicherheitssysteme Elektroinstallationen ICT-Lösungen Modern Workplace IT-Security Datacenter Services Connectivity Services Offene Stellen Support und Kontakt Über CKW MyCKW ... Support und Kontakt Störungen und Unterbrüche Aktuelle Störungen bei der CKW CKW Stromnetz Momentan sind keine Netzstörungen bekannt. CKW Glasfasernetz Momentan sind keine Netzstörungen bekannt. Wenn plötzlich der Strom ausfällt Wie kann ich mich vorbereiten? 24-h-Hotline der CKW speichern: 0800 55 06 07 Telefonnummer des Elektroinstallateurs speichern. Taschenlampe und Ersatzbatterien bereithalten. Wie reagiere ich richtig? Ruhig bleiben. Sicherungen und FI-Schutz prüfen. Alle Geräte manuell ausschalten (Herdplatte, Fernseher, Staubsauger etc.). Kühlschrank und Tiefkühler nicht öffnen. Was ist wichtig, wenn der Strom wieder da ist? Kontrollieren, ob elektrische Geräte wieder funktionieren (Lampen, Kühlschrank, Alarmanlage, Heizung etc.). Störungen und Defekte melde",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Störungen | CKW Zur Hauptnavigation Zum Hauptinhalt Zur Suche CKW Logo Energie Strom Solar ZEV, vZEV und LEG Wärmeverbunde Netz und Infrastruktur Batteriespeicher Energiehandel Gebäudetechnik Wärmepumpen Gebäudeautomation E-Mobilität Alarm- und Sicherheitssysteme Elektroinstallationen ICT-Lösungen Modern Workplace IT-Security Datacenter Services Connectivity Services Offene Stellen Support und Kontakt Über CKW MyCKW ... Support und Kontakt Störungen und Unterbrüche Aktuelle Störungen bei der CKW CKW Stromnetz Momentan sind keine Netzstörungen bekannt. CKW Glasfasernetz Momentan sind keine Netzstörungen bekannt. Wenn plötzlich der Strom ausfällt Wie kann ich mich vorbereiten? 24-h-Hotline der CKW speichern: 0800 55 06 07 Telefonnummer des Elektroinstallateurs speichern. Taschenlampe und Ersatzbatterien bereithalten. Wie reagiere ich richtig? Ruhig bleiben. Sicherungen und FI-Schutz prüfen. Alle Geräte manuell ausschalten (Herdplatte, Fernseher, Staubsauger etc.). Kühlschrank und Tiefkühler nicht öffnen. Was ist wichtig, wenn der Strom wieder da ist? Kontrollieren, ob elektrische Geräte wieder funktionieren (Lampen, Kühlschrank, Alarmanlage, Heizung etc.). Störungen und Defekte melde",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

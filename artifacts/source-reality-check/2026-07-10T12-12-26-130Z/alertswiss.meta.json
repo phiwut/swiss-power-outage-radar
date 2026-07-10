@@ -1,0 +1,14 @@
+{
+  "source_key": "alertswiss",
+  "operator_name": "Alertswiss",
+  "source_category": "discovery_only",
+  "url": "https://www.alert.swiss/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.alert.swiss/",
+  "elapsed_ms": 93,
+  "content_type": "text/html;charset=utf-8",
+  "bytes": 47139,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

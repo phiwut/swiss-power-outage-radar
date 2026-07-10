@@ -1,0 +1,14 @@
+{
+  "source_key": "elektra-fislisbach",
+  "operator_name": "Elektra Fislisbach",
+  "source_category": "discovery_only",
+  "url": "https://www.elektra-fislisbach.ch/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.elektra-fislisbach.ch/",
+  "elapsed_ms": 142,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 536601,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

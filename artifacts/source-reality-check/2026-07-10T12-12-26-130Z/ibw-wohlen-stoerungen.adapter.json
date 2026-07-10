@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 21,
+        "sourceKey": "ibw-wohlen-stoerungen",
+        "sourceType": "html",
+        "operatorName": "ibw Wohlen",
+        "observationHash": "dcbde75ff5520e3f4a7f31ead795e181f59c7f57355e1261afb9046ce265ecf3",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "ibw – Energie persönlich!",
+        "url": "https://www.ibw.ag/stoerungen",
+        "locationText": "Mangellagen Installationskontrolle Wasser Werkvorschriften Wa",
+        "areaText": "Wohlen und ibw Versorgungsgebiet",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "ibw – Energie persönlich! Strom, Gas, Wasser, Elektroinstallationen, Energieberatung, Elektroplanung, Geoinformationen, Heizungsservice, Haushaltsgeräte – und vieles mehr! Aktuelles News Störungen Baustellen Medienmitteilungen Newsletter Über uns Energie persönlich Organisation Unser Team ibw-Video Standort ibw Standort ibw-Shop Raumvermietung Sponsoring Prix ibw Kochevents Zertifizierungen Partner Impressum Datenschutzerklärung Rechtliche Hinweise Jobs offene Stellen Lehrstellen Schnupperlehren Kundenservice Kontaktformular Umzug Zählerstände defekte Strassenlampe Rechnungsvarianten eBill Bankverbindung melden Häufige Fragen / FAQ Quadro Was ist Quadro? Ökobilanzen Umweltbelastungspunkte (UBP) Kundenportal Home Aktuelles Über uns Jobs Kundenservice Quadro Kundenportal Strom Preise cleverStrom Ökostrom Stromeffizienz Bewirtschaftungszeiten Eigenverbrauch – (v)ZEV/LEG cleverStore Home Öffentliche Beleuchtung Stromkennzeichnung Installationskontrolle Strom Werkvorschriften Strom Netzanschluss Gas Preise Biogas CO₂-neutral bis 2050 Heizen / Heizungsersatz Vergleich Heizsysteme Fahren mit Gas Mobilität im Vergleich Heizungswartung Installationskontrolle Gas Werkvorschriften Gas Netzans",
+        "rawPayloadJson": "{\"excerpt\":\"ibw – Energie persönlich! Strom, Gas, Wasser, Elektroinstallationen, Energieberatung, Elektroplanung, Geoinformationen, Heizungsservice, Haushaltsgeräte – und vieles mehr! Aktuelles News Störungen Baustellen Medienmitteilungen Newsletter Über uns Energie persönlich Organisation Unser Team ibw-Video Standort ibw Standort ibw-Shop Raumvermietung Sponsoring Prix ibw Kochevents Zertifizierungen Partner Impressum Datenschutzerklärung Rechtliche Hinweise Jobs offene Stellen Lehrstellen Schnupperlehren Kundenservice Kontaktformular Umzug Zählerstände defekte Strassenlampe Rechnungsvarianten eBill Bankverbindung melden Häufige Fragen / FAQ Quadro Was ist Quadro? Ökobilanzen Umweltbelastungspunkte (UBP) Kundenportal Home Aktuelles Über uns Jobs Kundenservice Quadro Kundenportal Strom Preise cleverStrom Ökostrom Stromeffizienz Bewirtschaftungszeiten Eigenverbrauch – (v)ZEV/LEG cleverStore Home Öffentliche Beleuchtung Stromkennzeichnung Installationskontrolle Strom Werkvorschriften Strom Netzanschluss Gas Preise Biogas CO₂-neutral bis 2050 Heizen / Heizungsersatz Vergleich Heizsysteme Fahren mit Gas Mobilität im Vergleich Heizungswartung Installationskontrolle Gas Werkvorschriften Gas Netzanschluss Aufhebung Gasanschluss Wasser Preise Herkunft und Qualität Chlorothalonil PFAS TFA S-Metolachlor Verbrauch Versorgung in Mangellagen Installationskontrolle Wasser Werkvorschriften Wasser Netzanschluss Druckdispositiv Umweltrechner Dienstleistungen Energieberatung Spartipps App «my ibw» Wärme-Contracting Geo-Informationen Neophyten Wasserleckortung Solarkataster Hebebühne Dienstleistungen für Gemeinden und Werke Installationen PV-Anlagen clever4all PV-Anlagen-Service Smart Home E-Mobilität Erlebnistag 2026 Ihr Elektriker für alle Fälle Beleuchtung Plug-&-Play-PV-Anlagen ibw-Shop Derzeit liegen keine Störungen vor. Allfällige Meldungen nehmen wir gern unter 056 619 19 19 entgegen. 24-h-Pikettdienst Im Notfall sind wir 365 Tage rund um die Uhr für Sie da. Pikett-/Servicedienst 056 619 \",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "ibw.ag"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "Mangellagen Installationskontrolle Wasser Werkvorschriften Wa",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:ibw-wohlen-stoerungen",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "ibw – Energie persönlich!",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Mangellagen Installationskontrolle Wasser Werkvorschriften Wa",
+            "confidence": 0.9,
+            "evidence_excerpt": "ibw – Energie persönlich! Strom, Gas, Wasser, Elektroinstallationen, Energieberatung, Elektroplanung, Geoinformationen, Heizungsservice, Haushaltsgeräte – und vieles mehr! Aktuelles News Störungen Baustellen Medienmitteilungen Newsletter Über uns Energie persönlich Organisation Unser Team ibw-Video Standort ibw Standort ibw-Shop Raumvermietung Sponsoring Prix ibw Kochevents Zertifizierungen Partner Impressum Datenschutzerklärung Rechtliche Hinweise Jobs offene Stellen Lehrstellen Schnupperlehren Kundenservice Kontaktformular Umzug Zählerstände defekte Strassenlampe Rechnungsvarianten eBill Bankverbindung melden Häufige Fragen / FAQ Quadro Was ist Quadro? Ökobilanzen Umweltbelastungspunkte (UBP) Kundenportal Home Aktuelles Über uns Jobs Kundenservice Quadro Kundenportal Strom Preise cleverStrom Ökostrom Stromeffizienz Bewirtschaftungszeiten Eigenverbrauch – (v)ZEV/LEG cleverStore Home Öffentliche Beleuchtung Stromkennzeichnung Installationskontrolle Strom Werkvorschriften Strom Netzanschluss Gas Preise Biogas CO₂-neutral bis 2050 Heizen / Heizungsersatz Vergleich Heizsysteme Fahren mit Gas Mobilität im Vergleich Heizungswartung Installationskontrolle Gas Werkvorschriften Gas Netzans",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "ibw – Energie persönlich! Strom, Gas, Wasser, Elektroinstallationen, Energieberatung, Elektroplanung, Geoinformationen, Heizungsservice, Haushaltsgeräte – und vieles mehr! Aktuelles News Störungen Baustellen Medienmitteilungen Newsletter Über uns Energie persönlich Organisation Unser Team ibw-Video Standort ibw Standort ibw-Shop Raumvermietung Sponsoring Prix ibw Kochevents Zertifizierungen Partner Impressum Datenschutzerklärung Rechtliche Hinweise Jobs offene Stellen Lehrstellen Schnupperlehren Kundenservice Kontaktformular Umzug Zählerstände defekte Strassenlampe Rechnungsvarianten eBill Bankverbindung melden Häufige Fragen / FAQ Quadro Was ist Quadro? Ökobilanzen Umweltbelastungspunkte (UBP) Kundenportal Home Aktuelles Über uns Jobs Kundenservice Quadro Kundenportal Strom Preise cleverStrom Ökostrom Stromeffizienz Bewirtschaftungszeiten Eigenverbrauch – (v)ZEV/LEG cleverStore Home Öffentliche Beleuchtung Stromkennzeichnung Installationskontrolle Strom Werkvorschriften Strom Netzanschluss Gas Preise Biogas CO₂-neutral bis 2050 Heizen / Heizungsersatz Vergleich Heizsysteme Fahren mit Gas Mobilität im Vergleich Heizungswartung Installationskontrolle Gas Werkvorschriften Gas Netzans",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

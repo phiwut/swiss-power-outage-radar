@@ -1,0 +1,14 @@
+{
+  "source_key": "thurplus-presse",
+  "operator_name": "Thurplus",
+  "source_category": "news_feed",
+  "url": "https://www.thurplus.ch/ueber-thurplus/presse/",
+  "ok": false,
+  "http_status": 404,
+  "final_url": "https://www.thurplus.ch/ueber-thurplus/presse/",
+  "elapsed_ms": 132,
+  "content_type": "text/html;charset=UTF-8",
+  "bytes": 19138,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

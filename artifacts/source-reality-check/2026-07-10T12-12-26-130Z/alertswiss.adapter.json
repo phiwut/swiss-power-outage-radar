@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 35,
+        "sourceKey": "alertswiss",
+        "sourceType": "html",
+        "operatorName": "Alertswiss",
+        "observationHash": "80bfdf028466253e2f767457ab1e5dfdf6f4b38d8e0071d3562aa4627cb31f06",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "Home - ALERTSWISS Sind Sie sicher?",
+        "url": "https://www.alert.swiss/",
+        "locationText": "Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbeg",
+        "areaText": "Schweizweit",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Home - ALERTSWISS Sind Sie sicher? Hauptnavigation Inhaltsbereich Sitemap Suche Sind Sie sicher? Sprachauswahl DE selected FR IT EN Service Navigation Infos in Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbegriff Suchbegriff Clear Suchbegriff Navigation Vorsorge Zurück zu Übersicht Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog FAQ Kontakt Alertswiss-App herunterladen Suchbegriff Suchbegriff DE FR IT EN Vorsorge current page Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog current page FAQ current page Kontakt current page Alertswiss-App herunterladen current page Verbindung unterbrochen Die Verbindung zum Server ist unterbrochen. Im Moment können keine Meldungen angezeigt werden. Zuletzt aktualisiert: Neu laden Alarme Warnungen Informationen Entwarnt BABS/swisstopo Nationale Meldungen + Automatisch aktualisieren Sind Sie sicher? Auf Alertswiss fliessen die relevanten Informationen rund um die Vorsorge und das Verhalten bei Katastrophen und Notlagen in der Schweiz zusammen: Eine Informationsdrehscheibe, die Leben schützen und retten kann. GEFAHREN KENNEN Von grossen Katastrophen ist die Schweiz eher selten betroffen, ",
+        "rawPayloadJson": "{\"excerpt\":\"Home - ALERTSWISS Sind Sie sicher? Hauptnavigation Inhaltsbereich Sitemap Suche Sind Sie sicher? Sprachauswahl DE selected FR IT EN Service Navigation Infos in Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbegriff Suchbegriff Clear Suchbegriff Navigation Vorsorge Zurück zu Übersicht Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog FAQ Kontakt Alertswiss-App herunterladen Suchbegriff Suchbegriff DE FR IT EN Vorsorge current page Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog current page FAQ current page Kontakt current page Alertswiss-App herunterladen current page Verbindung unterbrochen Die Verbindung zum Server ist unterbrochen. Im Moment können keine Meldungen angezeigt werden. Zuletzt aktualisiert: Neu laden Alarme Warnungen Informationen Entwarnt BABS/swisstopo Nationale Meldungen + Automatisch aktualisieren Sind Sie sicher? Auf Alertswiss fliessen die relevanten Informationen rund um die Vorsorge und das Verhalten bei Katastrophen und Notlagen in der Schweiz zusammen: Eine Informationsdrehscheibe, die Leben schützen und retten kann. GEFAHREN KENNEN Von grossen Katastrophen ist die Schweiz eher selten betroffen, trotzdem hilft es zu wissen, welche Gefahren bestehen und welches Verhalten uns schützen kann. ALERTSWISS-APP Dank der Alertswiss-App erhalten Sie Alarme, Warnungen und Informationen zu Ihrem aktuellen Standort direkt und laufend via Smartphone. NOTFALLPLAN Fünfzehn Minuten Vorbereitung können Ihr Leben retten! Erstellen Sie Ihren persönlichen Notfallplan. Aktuelle Blogbeiträge Uns folgen X YouTube Blog Bundesamt für Bevölkerungsschutz BABS Rechtliches Impressum ‹ › × &times; Previous Next dropdown dropdown /content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json 34 Verhaltensanweisungen Verhaltensempfehlungen Verhaltensempfehlungen Keine Meldungen Aktuell gibt es keine Meldungen {publishdate} , {publisher} 11 Nationale Meldungen: 10 modal #modal-<%- nation\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "alert.swiss"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbeg",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:alertswiss",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Home - ALERTSWISS Sind Sie sicher?",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbeg",
+            "confidence": 0.9,
+            "evidence_excerpt": "Home - ALERTSWISS Sind Sie sicher? Hauptnavigation Inhaltsbereich Sitemap Suche Sind Sie sicher? Sprachauswahl DE selected FR IT EN Service Navigation Infos in Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbegriff Suchbegriff Clear Suchbegriff Navigation Vorsorge Zurück zu Übersicht Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog FAQ Kontakt Alertswiss-App herunterladen Suchbegriff Suchbegriff DE FR IT EN Vorsorge current page Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog current page FAQ current page Kontakt current page Alertswiss-App herunterladen current page Verbindung unterbrochen Die Verbindung zum Server ist unterbrochen. Im Moment können keine Meldungen angezeigt werden. Zuletzt aktualisiert: Neu laden Alarme Warnungen Informationen Entwarnt BABS/swisstopo Nationale Meldungen + Automatisch aktualisieren Sind Sie sicher? Auf Alertswiss fliessen die relevanten Informationen rund um die Vorsorge und das Verhalten bei Katastrophen und Notlagen in der Schweiz zusammen: Eine Informationsdrehscheibe, die Leben schützen und retten kann. GEFAHREN KENNEN Von grossen Katastrophen ist die Schweiz eher selten betroffen, ",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Home - ALERTSWISS Sind Sie sicher? Hauptnavigation Inhaltsbereich Sitemap Suche Sind Sie sicher? Sprachauswahl DE selected FR IT EN Service Navigation Infos in Gebärdensprache Bundesamt für Bevölkerungsschutz BABS Suchbegriff Suchbegriff Clear Suchbegriff Navigation Vorsorge Zurück zu Übersicht Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog FAQ Kontakt Alertswiss-App herunterladen Suchbegriff Suchbegriff DE FR IT EN Vorsorge current page Gefahren kennen Bei Gefahr richtig reagieren Sirenentest Notfallplan Blog current page FAQ current page Kontakt current page Alertswiss-App herunterladen current page Verbindung unterbrochen Die Verbindung zum Server ist unterbrochen. Im Moment können keine Meldungen angezeigt werden. Zuletzt aktualisiert: Neu laden Alarme Warnungen Informationen Entwarnt BABS/swisstopo Nationale Meldungen + Automatisch aktualisieren Sind Sie sicher? Auf Alertswiss fliessen die relevanten Informationen rund um die Vorsorge und das Verhalten bei Katastrophen und Notlagen in der Schweiz zusammen: Eine Informationsdrehscheibe, die Leben schützen und retten kann. GEFAHREN KENNEN Von grossen Katastrophen ist die Schweiz eher selten betroffen, ",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

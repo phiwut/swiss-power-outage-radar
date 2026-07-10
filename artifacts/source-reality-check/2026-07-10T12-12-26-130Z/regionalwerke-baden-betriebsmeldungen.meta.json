@@ -1,0 +1,14 @@
+{
+  "source_key": "regionalwerke-baden-betriebsmeldungen",
+  "operator_name": "Regionalwerke Baden",
+  "source_category": "live_status",
+  "url": "https://www.regionalwerke.ch/privat-geschaeftskunden/online-schalter/betriebsmeldungen",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.regionalwerke.ch/privat-geschaeftskunden/online-schalter/betriebsmeldungen",
+  "elapsed_ms": 241,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 70081,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

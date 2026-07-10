@@ -1,0 +1,14 @@
+{
+  "source_key": "aew-stromausfall",
+  "operator_name": "AEW",
+  "source_category": "live_status",
+  "url": "https://www.aew.ch/privatkunden/kundenservice/stoerungen/stromausfall",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.aew.ch/privatkunden/kundenservice/stoerungen/stromausfall",
+  "elapsed_ms": 158,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 110257,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

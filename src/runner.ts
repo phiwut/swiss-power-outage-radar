@@ -10,12 +10,17 @@ import {
   getEventsNeedingIntelligence,
   getLatestAlertSnapshot,
   getLinkedRelevantItemsNeedingCandidate,
+  getDueSourceRegistryEntries,
+  getSourceRegistryEntryByUrl,
   getOutageEventSources,
   getPendingOutageEventEmails,
   getUnlinkedRelevantItems,
   insertOutageCandidate,
   insertOutageFacts,
   insertAlertItem,
+  insertSourceObservation,
+  linkSourceObservationToAlert,
+  linkSourceObservationToEvent,
   linkCandidateToEvent,
   markOutageEventPublishable,
   markAiError,
@@ -23,19 +28,29 @@ import {
   markOutageEventEmailSent,
   markOutageEventUpdateEmailSent,
   markFiltered,
+  recordEventVersion,
   refreshOutageEventAfterSource,
+  updateSourceRegistryHealth,
+  updateOutageEventPublicationGate,
   updateOutageEventMailDecision,
   updateClassification,
+  upsertQaMetric,
   upsertFeedHealth
 } from "./db";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { canAutoMergeLocation, canCreateEvent, makeEventTitle, normalizeLocation, scoreEventCandidate } from "./events";
 import { normalizeSwissLocation } from "./geo";
-import { decideNewEventMail, decideUpdateMail } from "./intelligence";
+import { decideNewEventMail, decideUpdateMail, independentSourceCount, officialSourceCount } from "./intelligence";
 import { sendEventEmail } from "./email";
 import { cheapFilterItem } from "./filter";
 import { itemHash, parseRssFeed } from "./rss";
 import { researchOutageEvent } from "./research";
+import {
+  fetchSourceObservations,
+  makeSourceObservationFromText,
+  observationHashForAlert
+} from "./source-adapters";
+import { assessSourceObservation, observationToClassification } from "./source-quality";
 import { createAlertSnapshot, createSourceSnapshot } from "./snapshots";
 import { extractAndStoreSourcePlaces } from "./places";
 import type {
@@ -45,6 +60,7 @@ import type {
   FeedLanguage,
   NormalizedRssItem,
   OutageEvent,
+  SourceObservation,
   StoredAlertItem,
   WorkflowRunSummary
 } from "./types";
@@ -270,6 +286,33 @@ async function maybeAutoResearchHighConfidenceEvent(
   }
 }
 
+async function applyPublicationGate(env: Env, event: OutageEvent): Promise<OutageEvent> {
+  const sources = await getOutageEventSources(env.DB, event.id);
+  const officialCount = officialSourceCount(sources);
+  const independentCount = independentSourceCount(sources);
+  const score = Number(event.event_score ?? 0);
+  const official = officialCount > 0;
+  const corroborated = independentCount >= 2 && score >= 70;
+
+  if (official || corroborated) {
+    return await updateOutageEventPublicationGate(env.DB, event.id, {
+      publicStatus: official ? "public_verified" : "public_auto",
+      verificationLevel: official ? "official_source" : "auto_analyzed",
+      eventQualityState: "publishable",
+      mailDecisionReason: official
+        ? `publish: official operator/source evidence (${officialCount})`
+        : `publish: ${independentCount} independent credible sources`
+    });
+  }
+
+  return await updateOutageEventPublicationGate(env.DB, event.id, {
+    publicStatus: "hidden",
+    verificationLevel: event.verification_level ?? "auto_analyzed",
+    eventQualityState: "candidate_only",
+    mailDecisionReason: `hold public: official_sources ${officialCount}, independent_sources ${independentCount}, score ${score}`
+  });
+}
+
 async function linkAlertToOutageEvent(
   env: Env,
   item: StoredAlertItem,
@@ -279,6 +322,7 @@ async function linkAlertToOutageEvent(
     assessment?: CandidateAssessment;
     candidateId?: number;
     candidateSnapshotId?: number;
+    sourceObservation?: SourceObservation;
   } = {}
 ): Promise<{ event: OutageEvent; created: boolean; emailSent: boolean }> {
   const now = new Date().toISOString();
@@ -340,6 +384,9 @@ async function linkAlertToOutageEvent(
     relationScore,
     isPrimary: created
   });
+  if (options.sourceObservation) {
+    await linkSourceObservationToEvent(env.DB, options.sourceObservation.id, event.id, source.id);
+  }
   await markAlertLinkedToEvent(env.DB, item.id, event.id, now);
   if (options.candidateId) {
     await linkCandidateToEvent(env.DB, options.candidateId, event.id);
@@ -355,7 +402,10 @@ async function linkAlertToOutageEvent(
     lastSeenAt: item.published_at ?? item.fetched_at ?? now,
     confidence: classification.confidence,
     summary: classification.summary,
-    reason: classification.reason
+    reason: classification.reason,
+    candidateStatus: options.assessment?.status ?? "unknown",
+    resolvedAtEstimate:
+      options.assessment?.facts.find((fact) => fact.fact_type === "end_time")?.value_text ?? null
   });
   const snapshot = await createSourceSnapshot(env, { event, source, alertItem: item });
   try {
@@ -365,6 +415,15 @@ async function linkAlertToOutageEvent(
   }
 
   event = await refreshEventIntelligence(env, event.id);
+  event = await applyPublicationGate(env, event);
+  await recordEventVersion(env.DB, {
+    event,
+    changeType: created ? "created" : "updated",
+    sourceObservationId: options.sourceObservation?.id ?? null,
+    snapshotId: snapshot.id,
+    evidenceExcerpt: options.assessment?.facts[0]?.evidence_excerpt ?? null,
+    extractorVersion: options.assessment?.facts[0]?.extractor_version ?? null
+  });
   await generateMergeSuggestions(env, event.id);
 
   const sources = await getOutageEventSources(env.DB, event.id);
@@ -575,6 +634,221 @@ async function backfillEventIntelligence(env: Env): Promise<{ updated: number; e
   return { updated, errors };
 }
 
+async function processSourceObservation(
+  env: Env,
+  observation: SourceObservation
+): Promise<{ itemNew: boolean; classified: boolean; emailSent: boolean; filtered: boolean }> {
+  const hash = await observationHashForAlert({
+    sourceRegistryId: observation.source_registry_id,
+    sourceKey: observation.source_key,
+    sourceType: observation.source_type,
+    operatorName: observation.operator_name,
+    observationHash: observation.observation_hash,
+    canonicalStatus: observation.canonical_status,
+    eventType: observation.event_type,
+    title: observation.title,
+    url: observation.url,
+    locationText: observation.location_text,
+    areaText: observation.area_text,
+    startedAt: observation.started_at,
+    resolvedAt: observation.resolved_at,
+    observedAt: observation.observed_at,
+    publishedAt: observation.published_at,
+    evidenceExcerpt: observation.evidence_excerpt,
+    rawPayloadJson: observation.raw_payload_json,
+    extractorVersion: observation.extractor_version,
+    confidence: observation.confidence,
+    independenceKey: observation.independence_key
+  });
+  const stored = await insertAlertItem(
+    env.DB,
+    {
+      feed_language: "de",
+      title: observation.title,
+      url: observation.url,
+      source: observation.operator_name,
+      snippet: observation.evidence_excerpt,
+      published_at: observation.published_at ?? observation.observed_at
+    },
+    hash,
+    observation.observed_at
+  );
+  await linkSourceObservationToAlert(env.DB, observation.id, stored.item.id);
+
+  const assessment = assessSourceObservation(observation);
+  if (observation.canonical_status === "irrelevant") {
+    await markFiltered(env.DB, stored.item.id, assessment.rejection_reason ?? "irrelevant source observation");
+    return { itemNew: stored.inserted, classified: false, emailSent: false, filtered: true };
+  }
+
+  const snapshot = await createAlertSnapshot(env, stored.item, observation.observed_at);
+  const candidate = await insertOutageCandidate(env.DB, {
+    alertItemId: stored.item.id,
+    snapshotId: snapshot.id,
+    assessment
+  });
+  await insertOutageFacts(env.DB, {
+    candidateId: candidate.id,
+    eventId: null,
+    sourceId: null,
+    snapshotId: snapshot.id,
+    facts: assessment.facts
+  });
+
+  if (!assessment.publishable) {
+    if (!assessment.needs_admin) {
+      await markFiltered(env.DB, stored.item.id, assessment.rejection_reason ?? "not publishable");
+    }
+    return {
+      itemNew: stored.inserted,
+      classified: true,
+      emailSent: false,
+      filtered: !assessment.needs_admin
+    };
+  }
+
+  const result = await linkAlertToOutageEvent(env, stored.item, observationToClassification(observation), {
+    assessment,
+    candidateId: candidate.id,
+    candidateSnapshotId: snapshot.id,
+    sourceObservation: observation
+  });
+
+  return {
+    itemNew: stored.inserted,
+    classified: true,
+    emailSent: result.emailSent,
+    filtered: false
+  };
+}
+
+async function collectRegistrySources(env: Env): Promise<{
+  sourcesChecked: number;
+  observationsSeen: number;
+  observationsNew: number;
+  itemsNew: number;
+  itemsFiltered: number;
+  itemsClassified: number;
+  emailsSent: number;
+  firecrawlCreditsEstimated: number;
+  errors: string[];
+}> {
+  const now = new Date().toISOString();
+  const sources = await getDueSourceRegistryEntries(env.DB, now, 50);
+  const summary = {
+    sourcesChecked: 0,
+    observationsSeen: 0,
+    observationsNew: 0,
+    itemsNew: 0,
+    itemsFiltered: 0,
+    itemsClassified: 0,
+    emailsSent: 0,
+    firecrawlCreditsEstimated: 0,
+    errors: [] as string[]
+  };
+
+  for (const source of sources) {
+    summary.sourcesChecked += 1;
+    const checkedAt = new Date().toISOString();
+    const fetched = await fetchSourceObservations(env, source, checkedAt);
+    if (fetched.usedFirecrawl) summary.firecrawlCreditsEstimated += 1;
+    if (fetched.error) {
+      summary.errors.push(`${source.source_key}: ${fetched.error}`);
+      const needsItemAdapter = fetched.error.startsWith("parser_needs_adapter:");
+      await updateSourceRegistryHealth(env.DB, source.id, {
+        checkedAt,
+        success: needsItemAdapter,
+        error: fetched.error,
+        healthStatus: needsItemAdapter ? "healthy" : "degraded"
+      });
+      continue;
+    }
+
+    summary.observationsSeen += fetched.observations.length;
+    await updateSourceRegistryHealth(env.DB, source.id, {
+      checkedAt,
+      success: true,
+      error: null,
+      healthStatus: "healthy"
+    });
+
+    for (const input of fetched.observations) {
+      try {
+        const stored = await insertSourceObservation(env.DB, input);
+        if (!stored.inserted) continue;
+        summary.observationsNew += 1;
+        const result = await processSourceObservation(env, stored.observation);
+        if (result.itemNew) summary.itemsNew += 1;
+        if (result.filtered) summary.itemsFiltered += 1;
+        if (result.classified) summary.itemsClassified += 1;
+        if (result.emailSent) summary.emailsSent += 1;
+      } catch (error) {
+        summary.errors.push(
+          `${source.source_key} observation: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  }
+
+  return summary;
+}
+
+export async function ingestFirecrawlWebhook(
+  env: Env,
+  payload: Record<string, unknown>
+): Promise<{ accepted: boolean; observationId?: number; eventId?: number | null; reason?: string }> {
+  const data = (payload.data && typeof payload.data === "object"
+    ? payload.data
+    : payload) as Record<string, unknown>;
+  const url = String(data.url ?? data.sourceUrl ?? data.finalUrl ?? "");
+  if (!url) return { accepted: false, reason: "missing url" };
+
+  const source = await getSourceRegistryEntryByUrl(env.DB, url);
+  if (!source) return { accepted: false, reason: "no matching source registry entry" };
+  if (source.firecrawl_enabled !== 1) {
+    return { accepted: false, reason: "source is not Firecrawl-enabled" };
+  }
+
+  const markdown = String(data.markdown ?? data.content ?? data.text ?? "");
+  const title = String(data.title ?? `${source.operator_name}: Firecrawl update`);
+  const observedAt = new Date().toISOString();
+  const synthesized = await makeSourceObservationFromText(
+    {
+      ...source,
+      source_type: "html",
+      url
+    },
+    {
+      title,
+      url,
+      text: markdown || title,
+      locationText: null,
+      publishedAt: typeof data.publishedAt === "string" ? data.publishedAt : null,
+      raw: payload,
+      observedAt
+    }
+  );
+  synthesized.rawPayloadJson = JSON.stringify(payload).slice(0, 5000);
+
+  const stored = await insertSourceObservation(env.DB, synthesized);
+  if (!stored.inserted) {
+    return {
+      accepted: true,
+      observationId: stored.observation.id,
+      eventId: stored.observation.outage_event_id,
+      reason: "duplicate observation"
+    };
+  }
+
+  const result = await processSourceObservation(env, stored.observation);
+  return {
+    accepted: true,
+    observationId: stored.observation.id,
+    eventId: stored.observation.outage_event_id,
+    reason: result.classified ? "processed" : "stored"
+  };
+}
+
 export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
   const startedAt = new Date().toISOString();
   const runId = await createWorkflowRun(env.DB, startedAt);
@@ -585,10 +859,26 @@ export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
     itemsFiltered: 0,
     itemsClassified: 0,
     emailsSent: 0,
+    sourcesChecked: 0,
+    observationsSeen: 0,
+    observationsNew: 0,
+    firecrawlCreditsEstimated: 0,
     errors: []
   };
 
   try {
+    const registry = await collectRegistrySources(env);
+    summary.sourcesChecked = registry.sourcesChecked;
+    summary.observationsSeen = registry.observationsSeen;
+    summary.observationsNew = registry.observationsNew;
+    summary.firecrawlCreditsEstimated = registry.firecrawlCreditsEstimated;
+    summary.itemsSeen += registry.observationsSeen;
+    summary.itemsNew += registry.itemsNew;
+    summary.itemsFiltered += registry.itemsFiltered;
+    summary.itemsClassified += registry.itemsClassified;
+    summary.emailsSent += registry.emailsSent;
+    summary.errors.push(...registry.errors);
+
     for (const feed of feedsFromEnv(env)) {
       const checkedAt = new Date().toISOString();
       const fetched = await fetchFeed(feed);
@@ -647,6 +937,42 @@ export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
     for (const error of eventRetry.errors) {
       console.warn(`pending email retry failed: ${error}`);
     }
+
+    const calculatedAt = new Date().toISOString();
+    const metricDate = calculatedAt.slice(0, 10);
+    await upsertQaMetric(env.DB, {
+      metricDate,
+      metricName: "source_coverage_checked",
+      metricValue: summary.sourcesChecked ?? 0,
+      numerator: summary.sourcesChecked ?? 0,
+      denominator: null,
+      dimensionKey: "registry",
+      notes: "Registry sources checked in this workflow run",
+      calculatedAt
+    });
+    await upsertQaMetric(env.DB, {
+      metricDate,
+      metricName: "adapter_freshness_success_rate",
+      metricValue:
+        (summary.sourcesChecked ?? 0) > 0
+          ? ((summary.sourcesChecked ?? 0) - registry.errors.length) / (summary.sourcesChecked ?? 1)
+          : 1,
+      numerator: (summary.sourcesChecked ?? 0) - registry.errors.length,
+      denominator: summary.sourcesChecked ?? 0,
+      dimensionKey: "registry",
+      notes: "Share of configured operator adapters that fetched successfully",
+      calculatedAt
+    });
+    await upsertQaMetric(env.DB, {
+      metricDate,
+      metricName: "firecrawl_credits_estimated",
+      metricValue: summary.firecrawlCreditsEstimated ?? 0,
+      numerator: summary.firecrawlCreditsEstimated ?? 0,
+      denominator: 1000,
+      dimensionKey: "monthly_free_limit",
+      notes: "Estimated scrape calls; keep far below the 1000 credits/month free limit",
+      calculatedAt
+    });
 
     await finishWorkflowRun(
       env.DB,

@@ -1,4 +1,20 @@
 export type FeedLanguage = "de" | "fr" | "it";
+export type SourceRegistryType = "json_api" | "rss" | "html" | "google_alert";
+export type SourceRegistryCategory =
+  | "live_status"
+  | "outage_map"
+  | "news_feed"
+  | "discovery_only"
+  | "needs_adapter";
+export type SourceTrustLevel = "official" | "credible" | "aggregator" | "unknown";
+export type SourceHealthStatus = "unknown" | "healthy" | "degraded" | "failing" | "paused";
+export type CanonicalObservationStatus =
+  | "planned"
+  | "unplanned"
+  | "historical"
+  | "resolved"
+  | "irrelevant"
+  | "unverified";
 
 export interface Env {
   DB: D1Database;
@@ -19,6 +35,8 @@ export interface Env {
   EMAIL_MOCK_MODE?: string;
   BROWSER_MOCK_MODE?: string;
   EXA_MOCK_MODE?: string;
+  FIRECRAWL_API_KEY?: string;
+  FIRECRAWL_WEBHOOK_SECRET?: string;
 }
 
 export interface NormalizedRssItem {
@@ -93,6 +111,10 @@ export interface WorkflowRunSummary {
   itemsFiltered: number;
   itemsClassified: number;
   emailsSent: number;
+  sourcesChecked?: number;
+  observationsSeen?: number;
+  observationsNew?: number;
+  firecrawlCreditsEstimated?: number;
   errors: string[];
 }
 
@@ -236,6 +258,80 @@ export interface SourceSnapshot {
   updated_at: string;
 }
 
+export interface SourceRegistryEntry {
+  id: number;
+  source_key: string;
+  operator_name: string;
+  source_type: SourceRegistryType;
+  source_category: SourceRegistryCategory;
+  url: string;
+  area_text: string;
+  trust_level: SourceTrustLevel;
+  check_interval_minutes: number;
+  priority: number;
+  adapter_config_json: string | null;
+  firecrawl_enabled: number;
+  firecrawl_monitor_id: string | null;
+  last_checked_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  health_status: SourceHealthStatus;
+  consecutive_failures: number;
+  enabled: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SourceObservation {
+  id: number;
+  source_registry_id: number | null;
+  source_key: string;
+  source_type: SourceRegistryType;
+  operator_name: string | null;
+  observation_hash: string;
+  canonical_status: CanonicalObservationStatus;
+  event_type: AiClassification["event_type"];
+  title: string;
+  url: string;
+  location_text: string | null;
+  area_text: string | null;
+  started_at: string | null;
+  resolved_at: string | null;
+  observed_at: string;
+  published_at: string | null;
+  evidence_excerpt: string;
+  raw_payload_json: string | null;
+  extractor_version: string;
+  confidence: number;
+  independence_key: string | null;
+  alert_item_id: number | null;
+  outage_event_id: number | null;
+  created_at: string;
+}
+
+export interface SourceObservationInput {
+  sourceRegistryId: number | null;
+  sourceKey: string;
+  sourceType: SourceRegistryType;
+  operatorName: string | null;
+  observationHash: string;
+  canonicalStatus: CanonicalObservationStatus;
+  eventType: AiClassification["event_type"];
+  title: string;
+  url: string;
+  locationText: string | null;
+  areaText: string | null;
+  startedAt: string | null;
+  resolvedAt: string | null;
+  observedAt: string;
+  publishedAt: string | null;
+  evidenceExcerpt: string;
+  rawPayloadJson: string | null;
+  extractorVersion: string;
+  confidence: number;
+  independenceKey: string | null;
+}
+
 export interface OutageCandidate {
   id: number;
   alert_item_id: number;
@@ -349,6 +445,9 @@ export interface CandidateFactInput {
   evidence_excerpt: string;
   source_role?: string | null;
   verified_by?: VerificationLevel | "auto" | null;
+  source_observation_id?: number | null;
+  observed_at?: string | null;
+  extractor_version?: string | null;
 }
 
 export interface CandidateAssessment {

@@ -1,0 +1,14 @@
+{
+  "source_key": "ewb-stoerungsmeldungen",
+  "operator_name": "Energie Wasser Bern",
+  "source_category": "live_status",
+  "url": "https://www.ewb.ch/stoerungsmeldungen/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ewb.ch/stoerungsmeldungen/",
+  "elapsed_ms": 199,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 194302,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

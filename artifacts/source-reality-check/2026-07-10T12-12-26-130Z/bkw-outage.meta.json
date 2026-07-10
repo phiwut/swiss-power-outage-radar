@@ -1,0 +1,14 @@
+{
+  "source_key": "bkw-outage",
+  "operator_name": "BKW",
+  "source_category": "needs_adapter",
+  "url": "https://outage.bkw.ch/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://outage.bkw.ch/",
+  "elapsed_ms": 162,
+  "content_type": "text/html",
+  "bytes": 3979,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

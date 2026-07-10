@@ -1,0 +1,14 @@
+{
+  "source_key": "tbgs-news",
+  "operator_name": "TBGS",
+  "source_category": "news_feed",
+  "url": "https://tbgs.ch/news",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://tbgs.ch/news",
+  "elapsed_ms": 93,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 33381,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

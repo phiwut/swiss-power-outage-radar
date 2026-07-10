@@ -1,0 +1,494 @@
+import type { SourceRegistryCategory, SourceRegistryType } from "./types";
+
+export interface SourceRegistrySeed {
+  source_key: string;
+  operator_name: string;
+  source_type: SourceRegistryType;
+  source_category: SourceRegistryCategory;
+  url: string;
+  area_text: string;
+  trust_level: "official" | "credible" | "aggregator" | "unknown";
+  check_interval_minutes: number;
+  priority: number;
+  firecrawl_enabled: 0 | 1;
+  adapter_config: {
+    language?: "de" | "fr" | "it";
+    status_mode?: string;
+    allow_generic_positive?: boolean;
+    utility_filter?: "electricity_only";
+    no_outage_terms?: string[];
+    historical_terms?: string[];
+    planned_terms?: string[];
+  };
+}
+
+const commonNoOutageTerms = [
+  "aktuell sind keine störungen bekannt",
+  "aktuell sind keine stoerungen bekannt",
+  "keine störungsmeldungen",
+  "keine stoerungsmeldungen",
+  "keine einträge vorhanden",
+  "keine eintraege vorhanden",
+  "aktuell liegen keine störungsmeldungen vor",
+  "aktuell liegen keine stoerungsmeldungen vor",
+  "momentan sind keine netzstörungen bekannt",
+  "momentan sind keine netzstoerungen bekannt"
+];
+
+export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
+  {
+    source_key: "bkw-outage",
+    operator_name: "BKW",
+    source_type: "html",
+    source_category: "needs_adapter",
+    url: "https://outage.bkw.ch/",
+    area_text: "BKW Versorgungsgebiet in Bern, Jura, Solothurn, Neuenburg und angrenzenden Gebieten",
+    trust_level: "official",
+    check_interval_minutes: 10,
+    priority: 100,
+    firecrawl_enabled: 1,
+    adapter_config: { language: "de", status_mode: "js_outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "romande-energie-pannes",
+    operator_name: "Romande Energie",
+    source_type: "html",
+    source_category: "outage_map",
+    url: "https://www.romande-energie.ch/infos-pannes",
+    area_text: "Romande Energie Netzgebiet in der Westschweiz",
+    trust_level: "official",
+    check_interval_minutes: 10,
+    priority: 98,
+    firecrawl_enabled: 1,
+    adapter_config: { language: "fr", status_mode: "outage_map", utility_filter: "electricity_only", no_outage_terms: ["aucune panne", "pas de panne", ...commonNoOutageTerms] }
+  },
+  {
+    source_key: "ewz-stoerungen",
+    operator_name: "ewz",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ewz.ch/de/services/stoerungen.html",
+    area_text: "Stadt Zürich, Mittelbünden und Bergell",
+    trust_level: "official",
+    check_interval_minutes: 10,
+    priority: 96,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "current_page", allow_generic_positive: true, utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "sak-netzstatus",
+    operator_name: "SAK",
+    source_type: "html",
+    source_category: "outage_map",
+    url: "https://netzstatus.sak.ch/",
+    area_text: "SAK Netzgebiet in der Ostschweiz",
+    trust_level: "official",
+    check_interval_minutes: 10,
+    priority: 94,
+    firecrawl_enabled: 1,
+    adapter_config: { language: "de", status_mode: "js_outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ckw-stoerungen",
+    operator_name: "CKW",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ckw.ch/kontakt/stoerungen",
+    area_text: "Zentralschweiz, insbesondere Kanton Luzern und angrenzende CKW-Netzgebiete",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 92,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "current_page", allow_generic_positive: true, utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "aew-stromausfall",
+    operator_name: "AEW",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.aew.ch/privatkunden/kundenservice/stoerungen/stromausfall",
+    area_text: "AEW Netzgebiet im Kanton Aargau",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 90,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "current_page", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "iwb-unterbrueche",
+    operator_name: "IWB",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.iwb.ch/servicecenter/unterbrueche-stoerungen/unterbrueche",
+    area_text: "IWB Versorgungsgebiet Basel",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 88,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "planned_and_current", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "primeo-netzstatus",
+    operator_name: "Primeo Energie",
+    source_type: "html",
+    source_category: "outage_map",
+    url: "https://www.primeo-energie.ch/en/netzstatus.html",
+    area_text: "Primeo Netzgebiet Nordwestschweiz",
+    trust_level: "official",
+    check_interval_minutes: 10,
+    priority: 86,
+    firecrawl_enabled: 1,
+    adapter_config: { language: "de", status_mode: "outage_map", utility_filter: "electricity_only", no_outage_terms: ["no disruptions", "no outages", ...commonNoOutageTerms] }
+  },
+  {
+    source_key: "ebl-stoerungen",
+    operator_name: "EBL",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ebl.ch/de/kundencenter/stoerungen-unterbrueche",
+    area_text: "EBL Netzgebiet in Basel-Landschaft und angrenzenden Regionen",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 84,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "planned_and_current", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "repower-stoerungen",
+    operator_name: "Repower",
+    source_type: "html",
+    source_category: "outage_map",
+    url: "https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle",
+    area_text: "Repower Netzgebiet in Graubünden und angrenzenden Regionen",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 82,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms, historical_terms: ["vergangene störungen"] }
+  },
+  {
+    source_key: "ewb-stoerungsmeldungen",
+    operator_name: "Energie Wasser Bern",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ewb.ch/stoerungsmeldungen/",
+    area_text: "Stadt Bern und ewb Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 80,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "planned_and_current", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms, historical_terms: ["archiv"] }
+  },
+  {
+    source_key: "wwz-stoerungen",
+    operator_name: "WWZ",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.wwz.ch/de/stoerungen",
+    area_text: "WWZ Versorgungsgebiet Zug und Umgebung",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 78,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "multi_utility", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ewl-luzern-stoerungen",
+    operator_name: "ewl Luzern",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ewl-luzern.ch/kundencenter/stoerungen",
+    area_text: "Stadt Luzern und ewl Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 76,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "multi_utility", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "esb-biel-stoerungen",
+    operator_name: "ESB Biel",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.esb.ch/de/stoerungen-unterbrueche",
+    area_text: "Biel/Bienne und ESB Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 74,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "planned_and_current", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "evolon-stoerungen",
+    operator_name: "Evolon",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.evolon.ch/stoerungen",
+    area_text: "Evolon Netzgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 70,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "regional_status", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ews-status",
+    operator_name: "EWS",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://ews.ch/status",
+    area_text: "EWS Netzgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 68,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "regional_status", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ebs-stoerungen",
+    operator_name: "ebs",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ebs.swiss/stoerungen/",
+    area_text: "ebs Netzgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 66,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "regional_status", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "energie-uster-unterbrueche",
+    operator_name: "Energie Uster",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://energieuster.ch/service-center/unterbrueche-stoerungen/",
+    area_text: "Uster und Energie Uster Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 64,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "planned_and_current", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ibb-brugg-aktuelles",
+    operator_name: "IBB Brugg",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://www.ibbrugg.ch/ueber-ibb/aktuelles",
+    area_text: "Brugg und IBB Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 62,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "regionalwerke-baden-betriebsmeldungen",
+    operator_name: "Regionalwerke Baden",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.regionalwerke.ch/privat-geschaeftskunden/online-schalter/betriebsmeldungen",
+    area_text: "Baden und Regionalwerke Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 60,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "multi_utility", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ibw-wohlen-stoerungen",
+    operator_name: "ibw Wohlen",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.ibw.ag/stoerungen",
+    area_text: "Wohlen und ibw Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 58,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "regional_status", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "elektra-stoerungen",
+    operator_name: "Genossenschaft Elektra",
+    source_type: "html",
+    source_category: "outage_map",
+    url: "https://stoerungen.elektra.ch/",
+    area_text: "Genossenschaft Elektra Netzgebiet",
+    trust_level: "official",
+    check_interval_minutes: 10,
+    priority: 56,
+    firecrawl_enabled: 1,
+    adapter_config: { language: "de", status_mode: "js_outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "werke-zuerichsee-stoerungsmeldung",
+    operator_name: "Werke am Zürichsee",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://werkezuerichsee.ch/category/newsticker-stoerungsmeldung/",
+    area_text: "Zürichsee-Gemeinden im Versorgungsgebiet der Werke am Zürichsee",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 54,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "energie-kreuzlingen-stoerungen",
+    operator_name: "Energie Kreuzlingen",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://energiekreuzlingen.ch/services/stoerungen",
+    area_text: "Kreuzlingen und Energie Kreuzlingen Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 52,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "regional_status", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ewn-neuenhof-stoerungsmeldungen",
+    operator_name: "EW Neuenhof",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://www.ewn-neuenhof.ch/stoerungsmeldungen/",
+    area_text: "Neuenhof",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 48,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "ew-urnaesch-stoerungen",
+    operator_name: "EW Urnäsch",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://ewurnaesch.ch/kundenservice/aktuelle-stoerungen/",
+    area_text: "Urnäsch",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 46,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "elektra-fislisbach",
+    operator_name: "Elektra Fislisbach",
+    source_type: "html",
+    source_category: "discovery_only",
+    url: "https://www.elektra-fislisbach.ch/",
+    area_text: "Fislisbach",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 44,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "homepage_discovery", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "tb-flawil-betriebsinfo",
+    operator_name: "TB Flawil",
+    source_type: "html",
+    source_category: "live_status",
+    url: "https://www.tbflawil.ch/betriebsinfo",
+    area_text: "Flawil",
+    trust_level: "official",
+    check_interval_minutes: 15,
+    priority: 42,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "local_status", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "tbgn-news",
+    operator_name: "TBGN",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://www.tbgn.ch/news",
+    area_text: "TBGN Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 40,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "tbgs-news",
+    operator_name: "TBGS",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://tbgs.ch/news",
+    area_text: "TBGS Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 38,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "sw-gossau-stoerungsmeldung",
+    operator_name: "Stadtwerke Gossau",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://sw-gossau.ch/newsroom/aktuelle-stoerungsmeldung/",
+    area_text: "Gossau SG",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 36,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "tb-wil-news",
+    operator_name: "Technische Betriebe Wil",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://www.tb-wil.ch/ueber-uns/news/",
+    area_text: "Wil SG",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 34,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "thurplus-presse",
+    operator_name: "Thurplus",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://www.thurplus.ch/ueber-thurplus/presse/",
+    area_text: "Frauenfeld und Thurplus Versorgungsgebiet",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 32,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  },
+  {
+    source_key: "viteos-actualites",
+    operator_name: "Viteos",
+    source_type: "html",
+    source_category: "news_feed",
+    url: "https://www.viteos.ch/actualites/",
+    area_text: "Viteos Versorgungsgebiet Neuenburg/Jura",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 30,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "fr", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: ["aucune panne", "pas de panne", ...commonNoOutageTerms] }
+  },
+  {
+    source_key: "alertswiss",
+    operator_name: "Alertswiss",
+    source_type: "html",
+    source_category: "discovery_only",
+    url: "https://www.alert.swiss/",
+    area_text: "Schweizweit",
+    trust_level: "official",
+    check_interval_minutes: 30,
+    priority: 50,
+    firecrawl_enabled: 0,
+    adapter_config: { language: "de", status_mode: "national_alerts_discovery", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+  }
+];

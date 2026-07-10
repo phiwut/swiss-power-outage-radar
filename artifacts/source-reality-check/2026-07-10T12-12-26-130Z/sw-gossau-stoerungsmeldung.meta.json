@@ -1,0 +1,14 @@
+{
+  "source_key": "sw-gossau-stoerungsmeldung",
+  "operator_name": "Stadtwerke Gossau",
+  "source_category": "news_feed",
+  "url": "https://sw-gossau.ch/newsroom/aktuelle-stoerungsmeldung/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://sw-gossau.ch/newsroom/aktuelle-stoerungsmeldung/",
+  "elapsed_ms": 248,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 64126,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

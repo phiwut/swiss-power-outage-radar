@@ -1,0 +1,14 @@
+{
+  "source_key": "tb-wil-news",
+  "operator_name": "Technische Betriebe Wil",
+  "source_category": "news_feed",
+  "url": "https://www.tb-wil.ch/ueber-uns/news/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.tb-wil.ch/ueber-uns/news/",
+  "elapsed_ms": 605,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 213356,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

@@ -1,0 +1,14 @@
+{
+  "source_key": "energie-kreuzlingen-stoerungen",
+  "operator_name": "Energie Kreuzlingen",
+  "source_category": "live_status",
+  "url": "https://energiekreuzlingen.ch/services/stoerungen",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://energiekreuzlingen.ch/services/stoerungen",
+  "elapsed_ms": 573,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 106469,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

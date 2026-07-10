@@ -1,0 +1,14 @@
+{
+  "source_key": "elektra-stoerungen",
+  "operator_name": "Genossenschaft Elektra",
+  "source_category": "outage_map",
+  "url": "https://stoerungen.elektra.ch/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://stoerungen.elektra.ch/",
+  "elapsed_ms": 42,
+  "content_type": "text/html",
+  "bytes": 3024,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

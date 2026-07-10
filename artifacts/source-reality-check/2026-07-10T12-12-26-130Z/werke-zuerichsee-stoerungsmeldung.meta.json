@@ -1,0 +1,14 @@
+{
+  "source_key": "werke-zuerichsee-stoerungsmeldung",
+  "operator_name": "Werke am Zürichsee",
+  "source_category": "news_feed",
+  "url": "https://werkezuerichsee.ch/category/newsticker-stoerungsmeldung/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://werkezuerichsee.ch/category/newsticker-stoerungsmeldung/",
+  "elapsed_ms": 59,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 85534,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

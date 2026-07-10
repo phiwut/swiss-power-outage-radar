@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 11,
+        "sourceKey": "ewb-stoerungsmeldungen",
+        "sourceType": "html",
+        "operatorName": "Energie Wasser Bern",
+        "observationHash": "7c1e20bdfe9361bd0f90ac79bcaa2911366377dcc3f5873eb8e947f1fb50cd98",
+        "canonicalStatus": "irrelevant",
+        "eventType": "unclear",
+        "title": "Energie Wasser Bern: keine aktuelle Stromstörung",
+        "url": "https://www.ewb.ch/stoerungsmeldungen/",
+        "locationText": "Privatkunden für Unternehmen Stromtarife Solarstrom und Eigen",
+        "areaText": "Stadt Bern und ewb Versorgungsgebiet",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Aktuelle Meldungen :WNEOUC--> Zur Hauptnavigation springen Zum Inhalt springen Suche Suchen News Jobs Login Kundenportal Navigation Angebot Strom für Privatkunden für Unternehmen Stromtarife Solarstrom und Eigenverbrauch Wärme / Kälte Wärmekarte Fernwärme Wärmeverbunde Ausbau Wärmenetz Biogas und Erdgas Reduktion des Gasnetzes Energielösungen Wärme- und Kälte-Contracting Photovoltaik-Contracting Energieberatung Förderprogramme Elektromobilität Telecom Berner Glasfasernetz Lösungen für Unternehmen Service Provider Privatkunden Service Provider Geschäftskunden Rund ums Bauen Netzanschluss Planen und Bauen Installationskontrolle Werknormen Aues für Bärn Wasserversorgung Kehrichtverwertung Öffentliche Beleuchtung Bauprojekte Ökofonds Erfolgsgeschichten Kundenservice Kundendienst und Kontakt Kundenportal Kontaktformular Zählerablesung Lageplan Versorgungsgebiet Newsletter Umzug Umzug melden Umzugstipps Rechnung Musterrechnung Elektronische Rechnung Ratenzahlung und Fristenverlängerung Führungen & Eventraum Führungen Energiezentrale Eventraum Energiezentrale Eventraum Matte Über uns Unternehmen Organisation Vision & Strategie Produktionsanlagen Finanzen Karriere Offene Stellen ewb als Ar",
+        "rawPayloadJson": "{\"excerpt\":\"Aktuelle Meldungen :WNEOUC--> Zur Hauptnavigation springen Zum Inhalt springen Suche Suchen News Jobs Login Kundenportal Navigation Angebot Strom für Privatkunden für Unternehmen Stromtarife Solarstrom und Eigenverbrauch Wärme / Kälte Wärmekarte Fernwärme Wärmeverbunde Ausbau Wärmenetz Biogas und Erdgas Reduktion des Gasnetzes Energielösungen Wärme- und Kälte-Contracting Photovoltaik-Contracting Energieberatung Förderprogramme Elektromobilität Telecom Berner Glasfasernetz Lösungen für Unternehmen Service Provider Privatkunden Service Provider Geschäftskunden Rund ums Bauen Netzanschluss Planen und Bauen Installationskontrolle Werknormen Aues für Bärn Wasserversorgung Kehrichtverwertung Öffentliche Beleuchtung Bauprojekte Ökofonds Erfolgsgeschichten Kundenservice Kundendienst und Kontakt Kundenportal Kontaktformular Zählerablesung Lageplan Versorgungsgebiet Newsletter Umzug Umzug melden Umzugstipps Rechnung Musterrechnung Elektronische Rechnung Ratenzahlung und Fristenverlängerung Führungen & Eventraum Führungen Energiezentrale Eventraum Energiezentrale Eventraum Matte Über uns Unternehmen Organisation Vision & Strategie Produktionsanlagen Finanzen Karriere Offene Stellen ewb als Arbeitgeber Lehrstellen Medien & Publikationen Medienmitteilungen Bildmaterial Geschäftsbericht Magazin DiREKT Sponsoring Sponsoringengagements Sponsoringgrundsätze Wissen Energieeffizienz Spartipps Wasser Spartipps Strom Spartipps Heizen Energiepolitik Richtplan Energie Energie- und Klimastrategie FAQs & Dokumente Fragen & Antworten Dokumente News Jobs Login Kundenportal Startseite Aktuelle Meldungen Netzstatus und Störungen Störungsmeldungen Hier finden Sie eine Übersicht der aktuellen Störungen und geplanten Wartungsarbeiten vom gesamten ewb-Netz. Alle Meldungen Strom Gas Fernwärme Wasser Internet und TV Allgemein Keine Einträge vorhanden Archiv Alle Meldungen Strom Gas Fernwärme Wasser Internet und TV Allgemein 05.07.2026 Wir beheben einen Stromausfall! Im Gebiet Kirchenfeld ist am 05.07\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0,
+        "independenceKey": "ewb.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": false,
+        "is_ch_incident": false,
+        "location_text": "Privatkunden für Unternehmen Stromtarife Solarstrom und Eigen",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "background",
+        "quality_score": 0,
+        "quality_reasons": [
+          "source_registry:ewb-stoerungsmeldungen",
+          "status:irrelevant"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: irrelevant",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Energie Wasser Bern: keine aktuelle Stromstörung",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Privatkunden für Unternehmen Stromtarife Solarstrom und Eigen",
+            "confidence": 0.9,
+            "evidence_excerpt": "Aktuelle Meldungen :WNEOUC--> Zur Hauptnavigation springen Zum Inhalt springen Suche Suchen News Jobs Login Kundenportal Navigation Angebot Strom für Privatkunden für Unternehmen Stromtarife Solarstrom und Eigenverbrauch Wärme / Kälte Wärmekarte Fernwärme Wärmeverbunde Ausbau Wärmenetz Biogas und Erdgas Reduktion des Gasnetzes Energielösungen Wärme- und Kälte-Contracting Photovoltaik-Contracting Energieberatung Förderprogramme Elektromobilität Telecom Berner Glasfasernetz Lösungen für Unternehmen Service Provider Privatkunden Service Provider Geschäftskunden Rund ums Bauen Netzanschluss Planen und Bauen Installationskontrolle Werknormen Aues für Bärn Wasserversorgung Kehrichtverwertung Öffentliche Beleuchtung Bauprojekte Ökofonds Erfolgsgeschichten Kundenservice Kundendienst und Kontakt Kundenportal Kontaktformular Zählerablesung Lageplan Versorgungsgebiet Newsletter Umzug Umzug melden Umzugstipps Rechnung Musterrechnung Elektronische Rechnung Ratenzahlung und Fristenverlängerung Führungen & Eventraum Führungen Energiezentrale Eventraum Energiezentrale Eventraum Matte Über uns Unternehmen Organisation Vision & Strategie Produktionsanlagen Finanzen Karriere Offene Stellen ewb als Ar",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Aktuelle Meldungen :WNEOUC--> Zur Hauptnavigation springen Zum Inhalt springen Suche Suchen News Jobs Login Kundenportal Navigation Angebot Strom für Privatkunden für Unternehmen Stromtarife Solarstrom und Eigenverbrauch Wärme / Kälte Wärmekarte Fernwärme Wärmeverbunde Ausbau Wärmenetz Biogas und Erdgas Reduktion des Gasnetzes Energielösungen Wärme- und Kälte-Contracting Photovoltaik-Contracting Energieberatung Förderprogramme Elektromobilität Telecom Berner Glasfasernetz Lösungen für Unternehmen Service Provider Privatkunden Service Provider Geschäftskunden Rund ums Bauen Netzanschluss Planen und Bauen Installationskontrolle Werknormen Aues für Bärn Wasserversorgung Kehrichtverwertung Öffentliche Beleuchtung Bauprojekte Ökofonds Erfolgsgeschichten Kundenservice Kundendienst und Kontakt Kundenportal Kontaktformular Zählerablesung Lageplan Versorgungsgebiet Newsletter Umzug Umzug melden Umzugstipps Rechnung Musterrechnung Elektronische Rechnung Ratenzahlung und Fristenverlängerung Führungen & Eventraum Führungen Energiezentrale Eventraum Energiezentrale Eventraum Matte Über uns Unternehmen Organisation Vision & Strategie Produktionsanlagen Finanzen Karriere Offene Stellen ewb als Ar",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

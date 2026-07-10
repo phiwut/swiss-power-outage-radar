@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 3,
+        "sourceKey": "ewz-stoerungen",
+        "sourceType": "html",
+        "operatorName": "ewz",
+        "observationHash": "69f41c78f1bd88f2cc5155a03d2589f5e2789b2862df2e86e2effc3c77e57561",
+        "canonicalStatus": "irrelevant",
+        "eventType": "unclear",
+        "title": "ewz: keine aktuelle Stromstörung",
+        "url": "https://www.ewz.ch/de/services/stoerungen.html",
+        "locationText": null,
+        "areaText": "Stadt Zürich, Mittelbünden und Bergell",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Aktuelle Stromausfälle Stadt Zürich | ewz Stromausfall Stadt Zürich, Mittelbünden und Bergell Wir sind rund um die Uhr für Sie da house Services & Kontakt angle-down Stromausfall Zum Hauptinhalt springen Zur Hauptnavigation springen Zur Suche springen Zur Suche springen Privatkunden Geschäftskunden Über ewz Jobs Kundenvorteile Services & Kontakt search-gpt Suche close search-gpt Suche close nav-burger Services & Kontakt Stromausfall in der Stadt Zürich, in Mittelbünden oder im Bergell? Hier sehen Sie aktuelle Stromausfall-Infos oder melden Sie uns einen Ausfall. Stromausfall-SMS aktivieren Bleiben Sie informiert: Wir benachrichtigen Sie per SMS bei Stromausfällen in Ihrem Wohngebiet (nur in der Stadt Zürich). Jetzt aktivieren arrow-right Aktuell Stromausfall Stadt Zürich Aktuell sind keine Störungen bekannt. Stromausfall Mittelbünden und Bergell Aktuell sind keine Störungen bekannt. Melden Stromausfall ausserhalb der Stadt Zürich ewz ist für die Stromversorgung in der Stadt Zürich , in Mittelbünden und im Bergell zuständig. Bei Stromausfällen ausserhalb dieser Gebiete informieren Sie sich bitte direkt bei Ihrem Stromanbieter. Stadt Zürich: Stromausfall melden Sind Sie in der Stadt ",
+        "rawPayloadJson": "{\"excerpt\":\"Aktuelle Stromausfälle Stadt Zürich | ewz Stromausfall Stadt Zürich, Mittelbünden und Bergell Wir sind rund um die Uhr für Sie da house Services & Kontakt angle-down Stromausfall Zum Hauptinhalt springen Zur Hauptnavigation springen Zur Suche springen Zur Suche springen Privatkunden Geschäftskunden Über ewz Jobs Kundenvorteile Services & Kontakt search-gpt Suche close search-gpt Suche close nav-burger Services & Kontakt Stromausfall in der Stadt Zürich, in Mittelbünden oder im Bergell? Hier sehen Sie aktuelle Stromausfall-Infos oder melden Sie uns einen Ausfall. Stromausfall-SMS aktivieren Bleiben Sie informiert: Wir benachrichtigen Sie per SMS bei Stromausfällen in Ihrem Wohngebiet (nur in der Stadt Zürich). Jetzt aktivieren arrow-right Aktuell Stromausfall Stadt Zürich Aktuell sind keine Störungen bekannt. Stromausfall Mittelbünden und Bergell Aktuell sind keine Störungen bekannt. Melden Stromausfall ausserhalb der Stadt Zürich ewz ist für die Stromversorgung in der Stadt Zürich , in Mittelbünden und im Bergell zuständig. Bei Stromausfällen ausserhalb dieser Gebiete informieren Sie sich bitte direkt bei Ihrem Stromanbieter. Stadt Zürich: Stromausfall melden Sind Sie in der Stadt Zürich von einem Stromausfall betroffen? Bitte melden Sie uns den Ausfall per Telefon oder E-Mail. Stromausfall Stadt Zürich CONTACTTEASERLIST.PHONE +41 58 319 40 30 CONTACTTEASERLIST.EMAIL 7x24stunden@ewz.ch Mittelbünden & Bergell: Stromausfall melden Sind Sie von einem Stromausfall in Mittelbünden oder im Bergell betroffen? Bitte melden Sie uns den Ausfall per Telefon oder E-Mail. Stromausfall Mittelbünden & Bergell CONTACTTEASERLIST.PHONE +41 58 319 69 71 CONTACTTEASERLIST.EMAIL 7x24stundenGR@ewz.ch Geplante Stromunterbrechungen Stromunterbrechungen sind manchmal unausweichlich. Hier finden Sie Tipps und häufige Fragen zu geplanten Stromunterbrechungen. Mehr erfahren arrow-right Weitere Störungen: Wärme und öffentliche Anlagen Störungen bei Fernwärme sowie bei Strassenbeleuchtung und öf\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0,
+        "independenceKey": "ewz.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": false,
+        "is_ch_incident": false,
+        "location_text": "Stadt Zürich, Mittelbünden und Bergell",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "background",
+        "quality_score": 0,
+        "quality_reasons": [
+          "source_registry:ewz-stoerungen",
+          "status:irrelevant"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: irrelevant",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "ewz: keine aktuelle Stromstörung",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Stadt Zürich, Mittelbünden und Bergell",
+            "confidence": 0.9,
+            "evidence_excerpt": "Aktuelle Stromausfälle Stadt Zürich | ewz Stromausfall Stadt Zürich, Mittelbünden und Bergell Wir sind rund um die Uhr für Sie da house Services & Kontakt angle-down Stromausfall Zum Hauptinhalt springen Zur Hauptnavigation springen Zur Suche springen Zur Suche springen Privatkunden Geschäftskunden Über ewz Jobs Kundenvorteile Services & Kontakt search-gpt Suche close search-gpt Suche close nav-burger Services & Kontakt Stromausfall in der Stadt Zürich, in Mittelbünden oder im Bergell? Hier sehen Sie aktuelle Stromausfall-Infos oder melden Sie uns einen Ausfall. Stromausfall-SMS aktivieren Bleiben Sie informiert: Wir benachrichtigen Sie per SMS bei Stromausfällen in Ihrem Wohngebiet (nur in der Stadt Zürich). Jetzt aktivieren arrow-right Aktuell Stromausfall Stadt Zürich Aktuell sind keine Störungen bekannt. Stromausfall Mittelbünden und Bergell Aktuell sind keine Störungen bekannt. Melden Stromausfall ausserhalb der Stadt Zürich ewz ist für die Stromversorgung in der Stadt Zürich , in Mittelbünden und im Bergell zuständig. Bei Stromausfällen ausserhalb dieser Gebiete informieren Sie sich bitte direkt bei Ihrem Stromanbieter. Stadt Zürich: Stromausfall melden Sind Sie in der Stadt ",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Aktuelle Stromausfälle Stadt Zürich | ewz Stromausfall Stadt Zürich, Mittelbünden und Bergell Wir sind rund um die Uhr für Sie da house Services & Kontakt angle-down Stromausfall Zum Hauptinhalt springen Zur Hauptnavigation springen Zur Suche springen Zur Suche springen Privatkunden Geschäftskunden Über ewz Jobs Kundenvorteile Services & Kontakt search-gpt Suche close search-gpt Suche close nav-burger Services & Kontakt Stromausfall in der Stadt Zürich, in Mittelbünden oder im Bergell? Hier sehen Sie aktuelle Stromausfall-Infos oder melden Sie uns einen Ausfall. Stromausfall-SMS aktivieren Bleiben Sie informiert: Wir benachrichtigen Sie per SMS bei Stromausfällen in Ihrem Wohngebiet (nur in der Stadt Zürich). Jetzt aktivieren arrow-right Aktuell Stromausfall Stadt Zürich Aktuell sind keine Störungen bekannt. Stromausfall Mittelbünden und Bergell Aktuell sind keine Störungen bekannt. Melden Stromausfall ausserhalb der Stadt Zürich ewz ist für die Stromversorgung in der Stadt Zürich , in Mittelbünden und im Bergell zuständig. Bei Stromausfällen ausserhalb dieser Gebiete informieren Sie sich bitte direkt bei Ihrem Stromanbieter. Stadt Zürich: Stromausfall melden Sind Sie in der Stadt ",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

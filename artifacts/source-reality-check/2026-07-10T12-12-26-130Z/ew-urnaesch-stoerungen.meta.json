@@ -1,0 +1,14 @@
+{
+  "source_key": "ew-urnaesch-stoerungen",
+  "operator_name": "EW Urnäsch",
+  "source_category": "news_feed",
+  "url": "https://ewurnaesch.ch/kundenservice/aktuelle-stoerungen/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://ewurnaesch.ch/kundenservice/aktuelle-stoerungen/",
+  "elapsed_ms": 503,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 54437,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

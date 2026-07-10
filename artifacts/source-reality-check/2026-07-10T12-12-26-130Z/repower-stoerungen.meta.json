@@ -1,0 +1,14 @@
+{
+  "source_key": "repower-stoerungen",
+  "operator_name": "Repower",
+  "source_category": "outage_map",
+  "url": "https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle",
+  "elapsed_ms": 131,
+  "content_type": "text/html; charset=utf-8",
+  "bytes": 182052,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

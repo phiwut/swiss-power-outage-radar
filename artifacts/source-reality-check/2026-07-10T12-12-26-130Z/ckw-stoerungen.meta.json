@@ -1,0 +1,14 @@
+{
+  "source_key": "ckw-stoerungen",
+  "operator_name": "CKW",
+  "source_category": "live_status",
+  "url": "https://www.ckw.ch/kontakt/stoerungen",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ckw.ch/kontakt/stoerungen",
+  "elapsed_ms": 1735,
+  "content_type": "text/html;charset=UTF-8",
+  "bytes": 71766,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

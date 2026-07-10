@@ -1,8 +1,8 @@
 # Swiss Power Outage Radar
 
-Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft drei Google-Alerts-RSS-Feeds, dedupliziert neue Items in D1, filtert billige Nicht-Kandidaten, klassifiziert Kandidaten mit Workers AI und gruppiert relevante Treffer in vorsichtige `outage_events` mit Quellen. Orte werden opportunistisch über geo.admin.ch normalisiert und zusätzlich über einen lokalen OpenPLZ-basierten D1-Ortskatalog als `event_places` strukturiert. Neue mögliche Ereignisse senden eine Mail über Cloudflare Email Sending an Philipp. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert nur Metadaten und kurze Auszüge.
+Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft direkte Netzbetreiberquellen aus der `source_registry` und nutzt Google Alerts nur noch als Discovery-Quelle. Alle Funde werden als unveränderliche `source_observations` gespeichert und erst danach in die bestehende Pipeline aus `alert_items`, `outage_candidates`, `outage_facts`, Snapshots, OpenPLZ/Geo-Erkennung, Exa-Recherche, Event-Merging und Quality Gates eingespeist.
 
-Kein Portal, keine Karte, kein Strommix, kein Firecrawl. Webrecherche läuft nicht im Cron, sondern nur manuell per Admin-Klick. Ein `outage_event` ist keine offizielle Verifikation, sondern eine automatische Ereignis-Akte aus Google Alerts und optionaler manueller Recherche.
+Ein öffentliches `outage_event` entsteht automatisch nur, wenn mindestens eine offizielle Netzbetreiber-/Behördenquelle vorliegt oder mindestens zwei unabhängige glaubwürdige Quellen dasselbe Ereignis belegen. Alles andere bleibt Kandidat, Review-Fall oder nicht öffentliche Quellenbeobachtung. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert Metadaten, kurze Belegauszüge, Extraktorversionen und versionierte Event-Stände.
 
 ## Setup
 
@@ -43,6 +43,15 @@ npx wrangler secret put ADMIN_TOKEN
 npx wrangler secret put EXA_API_KEY
 ```
 
+Optional für priorisierte dynamische Betreiberseiten und Webhooks:
+
+```bash
+npx wrangler secret put FIRECRAWL_API_KEY
+npx wrangler secret put FIRECRAWL_WEBHOOK_SECRET
+```
+
+`FIRECRAWL_API_KEY` und `FIRECRAWL_WEBHOOK_SECRET` sind optional. Ohne Firecrawl-Key laufen alle JSON/API-, RSS-, HTML- und Google-Alert-Adapter normal weiter. Firecrawl wird nur für priorisierte schwierige HTML-Quellen mit `firecrawl_enabled = 1` und hoher `priority` genutzt.
+
 Lokale Entwicklung kann mit einer nicht committed `.dev.vars` arbeiten:
 
 ```dotenv
@@ -59,6 +68,97 @@ EXA_MOCK_MODE="true"
 ```
 
 `AI_MOCK_MODE`, `EMAIL_MOCK_MODE`, `BROWSER_MOCK_MODE` und `EXA_MOCK_MODE` sind nur für lokale Smoke-Tests gedacht. In Produktion weglassen.
+
+## Quellenpipeline
+
+Die kanonische Quellenliste steht in D1 unter `source_registry`. Die Migration `0009_source_registry_observations_qa.sql` legt eine kleine Startauswahl an, `0010_expand_source_registry.sql` erweitert sie um priorisierte Schweizer EVU-Quellen und Alertswiss.
+
+- BKW: `https://outage.bkw.ch/`
+- ewz: `https://www.ewz.ch/de/services/stoerungen.html`
+- CKW: `https://www.ckw.ch/kontakt/stoerungen`
+- Energie Wasser Bern: `https://www.ewb.ch/stoerungsmeldungen/`
+- Repower: `https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle`
+
+Die erweiterte Seed-Liste wird zusätzlich in `src/source-registry-seeds.ts` gepflegt. Sie enthält die im Projekt priorisierten Betreiberquellen von BKW, Romande Energie, ewz, SAK, CKW, AEW, IWB, Primeo, EBL, Repower, ewb, WWZ, ewl Luzern, ESB Biel, Evolon, EWS, ebs, Energie Uster, IBB Brugg, Regionalwerke Baden, ibw Wohlen, Genossenschaft Elektra, Werke am Zürichsee, Energie Kreuzlingen, EW Neuenhof, EW Urnäsch, Elektra Fislisbach, TB Flawil, TBGN, TBGS, Stadtwerke Gossau, Technische Betriebe Wil, Thurplus, Viteos und Alertswiss.
+
+Wichtige Felder:
+
+- `source_type`: `json_api`, `rss`, `html` oder `google_alert`
+- `source_category`: `live_status`, `outage_map`, `news_feed`, `discovery_only` oder `needs_adapter`
+- `url`: direkte Quelle
+- `area_text`: Versorgungsgebiet
+- `trust_level`: `official`, `credible`, `aggregator` oder `unknown`
+- `check_interval_minutes`: gewünschter Polling-Abstand
+- `priority`: höhere Werte werden zuerst geprüft
+- `adapter_config_json`: Parser-Hinweise wie `no_outage_terms`, `historical_terms`, `json_path`
+- `firecrawl_enabled`: nur für schwierige priorisierte HTML-Seiten aktivieren
+- `health_status`, `last_checked_at`, `last_success_at`, `last_error`, `consecutive_failures`: Adapter-Freshness und Health
+
+Polling-Regel:
+
+- Live- und Kartenquellen: 10 bis 15 Minuten
+- Newsfeeds und Discovery-Quellen: 30 Minuten
+- Google Alerts bleiben Discovery und werden nicht als Wahrheit behandelt
+
+Bei generischen HTML-Seiten gilt ein Sicherheitsmodus: negative Statusmeldungen wie "keine Störung" werden als erfolgreiche `irrelevant`-Observation gespeichert. Nicht-negative Treffer aus Karten-, News-, Multi-Utility- oder nicht verifizierten Vollseiten werden dagegen mit `parser_needs_adapter` gestoppt, bis ein item-spezifischer Adapter oder stabiler JSON/API-Endpunkt vorhanden ist. Dadurch werden Archiv-, Navigations- und FAQ-Texte nicht als Stromausfall-Kandidaten veröffentlicht.
+
+Die Adapter schreiben immutable `source_observations` mit `canonical_status`:
+
+- `planned`: geplanter Stromunterbruch
+- `unplanned`: akuter ungeplanter Ausfall
+- `resolved`: Aufhebung/Behebung eines bestehenden Ereignisses
+- `historical`: Archiv, Rückblick oder alte Meldung
+- `irrelevant`: keine Störung oder nicht stromrelevant
+- `unverified`: potenziell relevant, aber nicht belastbar genug
+
+Nur `planned`, `unplanned` und `resolved` werden automatisch in Event-Akten weitergeführt. `historical`, `irrelevant` und `unverified` bleiben nicht öffentlich.
+
+## Quality Gates
+
+Die Pipeline trennt Datenqualität in zwei Stufen:
+
+1. `outage_candidates` und `outage_facts` prüfen, ob ein Fund grundsätzlich ein Schweizer Stromversorgungsereignis mit Ort, Evidenz und Belegauszug ist.
+2. Das Publication Gate veröffentlicht nur offizielle Quellen oder Ereignisse mit mindestens zwei unabhängigen glaubwürdigen Quellen. Ein einzelner Google-Alert- oder Medienfund bleibt verborgen.
+
+Jeder öffentliche Fakt in `outage_facts` speichert Quelle, Belegauszug, Zeitpunkt und `extractor_version`. Betreiber-Observations ergänzen zusätzlich `source_observation_id` und `observed_at`.
+
+Updates und Aufhebungen werden anhand von Betreiber, Ort, Zeitfenster und Evidenz in dasselbe Event gemerged. Jede Änderung schreibt einen Eintrag in `outage_event_versions`.
+
+## Firecrawl
+
+Firecrawl ist optional und soll wegen des Free-Limits von 1'000 Credits/Monat sparsam bleiben:
+
+- Nur Quellen mit `firecrawl_enabled = 1` und hoher Priorität verwenden Firecrawl als Fallback.
+- Normale HTML-, RSS- und JSON/API-Fetches kosten keine Firecrawl-Credits.
+- `qa_metrics.metric_name = 'firecrawl_credits_estimated'` hält die geschätzten Scrape-Aufrufe gegen das Monatslimit.
+
+Webhook:
+
+```bash
+curl -X POST https://outage.ch/api/firecrawl/webhook \
+  -H "x-firecrawl-webhook-secret: <FIRECRAWL_WEBHOOK_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://outage.bkw.ch/","title":"BKW Stromausfall","markdown":"Stromausfall in Belp behoben."}'
+```
+
+Alternativ akzeptiert der Webhook den bestehenden Admin-Bearer. Der Webhook schreibt keine Sonderarchitektur, sondern dieselben `source_observations` wie die Polling-Adapter.
+
+## QA-Kennzahlen
+
+`qa_metrics` speichert messbare Betriebs- und Datenqualitätswerte. Aktuell werden pro Workflow-Lauf geschrieben:
+
+- `source_coverage_checked`: Anzahl geprüfter Registry-Quellen
+- `adapter_freshness_success_rate`: Anteil erfolgreicher Adapterchecks
+- `firecrawl_credits_estimated`: geschätzte Firecrawl-Scrapes gegen 1'000 Credits/Monat
+
+Weitere Kennzahlen können additiv ergänzt werden:
+
+- Precision: Anteil veröffentlichter Events, die nach Review korrekt waren
+- Detection-Latenz: Differenz zwischen `started_at_estimate`/Quellzeit und `first_seen_at`
+- Quellenabdeckung: aktive Registry-Quellen nach Versorgungsgebiet
+- Duplikate: offene Merge-Suggestions und tatsächliche Merges
+- False Merges/Splits: Admin-Markierungen auf `event_merge_suggestions`
+- Ortsgenauigkeit: `event_places`-Granularität und Confidence
 
 ## R2 und Browser Run
 
@@ -111,16 +211,24 @@ curl http://127.0.0.1:8787/recent \
 
 Die öffentliche Statusseite ist unter `http://127.0.0.1:8787/` erreichbar und zeigt keine Feed-URLs oder Secrets.
 
+Live-Reality-Check aller Registry-Seeds:
+
+```bash
+npx tsx scripts/reality-check-sources.ts
+```
+
+Der Check speichert pro Quelle Rohdaten, HTTP-Metadaten, Adapterausgabe und eine `summary.json` unter `artifacts/source-reality-check/<run-id>/`. Firecrawl wird dabei nur genutzt, wenn lokal `FIRECRAWL_API_KEY` gesetzt ist und die Quelle entsprechend priorisiert wurde.
+
 ## Deploy
 
 ```bash
+npm run db:migrate:remote
 npm run deploy
 ```
 
 Nach dem Deployment:
 
 ```bash
-npm run db:migrate:remote
 curl -X POST https://<worker-url>/run \
   -H "Authorization: Bearer <ADMIN_TOKEN>"
 ```
@@ -134,6 +242,7 @@ Danach die Worker-URL öffnen und die Statusseite prüfen. Der Cron Trigger `*/1
 - `GET /status` geschützter JSON-Debugstatus
 - `POST /run` geschützter manueller Workflow-Start
 - `GET /recent` geschützte letzte 20 Items
+- `POST /api/firecrawl/webhook` optionaler Firecrawl-Monitor-Webhook
 - `POST /admin/events/:id/merge` geschütztes Merge von Event `:id` in `target_event_id`
 - `POST /admin/events/:id/dismiss` geschütztes Dismiss eines Events
 - `POST /admin/events/:id/corroborate` geschütztes Markieren als `corroborated`
@@ -195,9 +304,9 @@ Der OpenPLZ-Sync ist bewusst klein: `name` synchronisiert gezielt passende Lokal
 
 ## Bekannte Limitierungen
 
-- Google Alerts ist nicht garantiert realtime.
-- KI-Ergebnis ist nur eine Vorprüfung.
-- Keine offizielle Verifikation.
+- Google Alerts ist Discovery, nicht Wahrheit.
+- KI-Ergebnis ist nur eine Vorprüfung; offizielle Betreiberquellen und unabhängige Evidenz haben Vorrang.
+- Automatische Veröffentlichung bedeutet Quellenregel erfüllt, nicht behördliche Verifikation.
 - geo.admin.ch-Ortsnormalisierung ist eine Datenhilfe, kein Pflichtpfad; bei Fehlern läuft der Radar mit lokalem Fallback weiter.
 - OpenPLZ-Ortserkennung greift nur, soweit der lokale D1-Ortskatalog bereits synchronisiert ist.
 - Kanton-/Bezirk-Treffer werden als Kontext behandelt und nicht als betroffene Orte gezählt.

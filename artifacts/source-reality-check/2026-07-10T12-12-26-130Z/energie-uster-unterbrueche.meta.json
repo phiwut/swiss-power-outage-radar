@@ -1,0 +1,14 @@
+{
+  "source_key": "energie-uster-unterbrueche",
+  "operator_name": "Energie Uster",
+  "source_category": "live_status",
+  "url": "https://energieuster.ch/service-center/unterbrueche-stoerungen/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://energieuster.ch/service-center/unterbrueche-stoerungen/",
+  "elapsed_ms": 709,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 178074,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

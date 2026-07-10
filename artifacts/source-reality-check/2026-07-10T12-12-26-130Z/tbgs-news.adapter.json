@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 30,
+        "sourceKey": "tbgs-news",
+        "sourceType": "html",
+        "operatorName": "TBGS",
+        "observationHash": "338fad4ddb08f0cebaea4a1f5d920e6f147dd2ff37517d1eed04692af7429551",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "Technische Betriebe Glarus Süd Skip to main content Portal Schalter Menu Icon Angebot Strom Dienstleistungen Kommunikation Wärme News Unternehmen Portrait Filialen Team Leitbild Ka",
+        "url": "https://tbgs.ch/news",
+        "locationText": null,
+        "areaText": "TBGS Versorgungsgebiet",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Technische Betriebe Glarus Süd Skip to main content Portal Schalter Menu Icon Angebot Strom Dienstleistungen Kommunikation Wärme News Unternehmen Portrait Filialen Team Leitbild Karriere Downloads Kontakt Strom Dienstleistungen Kommunikation Wärme Kundenportal Portal Online-Schalter Schalter Kundenportal Portal Online-Schalter Schalter Portrait Filialen Team Leitbild Kundenportal Portal Online-Schalter Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter News Lädt... Alle Branchennews Geschäftsberichte Kontakt tbgs - Technische Betriebe Glarus Süd Farbstrasse 22 8762 Schwanden T +41 55 647 41 00 Öffnungszeiten Montag bis Donnerstag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 17.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 17.00 Uhr Freitag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 16.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 16.00 Uhr Pikettdienst bei Störungen (24 h) +41 58 611 99 99 &copy; 2026 Technische Betriebe Glarus Süd webwork: lemonbrain.ch Impressum Datenschutz Störung? 24 h Pikettdienst bei Störungen (24 h) +41 58 611 99 99 Close Icon /packages/lemonbrain_webp/css/min/lemonbrain_webp.min.css?",
+        "rawPayloadJson": "{\"excerpt\":\"Technische Betriebe Glarus Süd Skip to main content Portal Schalter Menu Icon Angebot Strom Dienstleistungen Kommunikation Wärme News Unternehmen Portrait Filialen Team Leitbild Karriere Downloads Kontakt Strom Dienstleistungen Kommunikation Wärme Kundenportal Portal Online-Schalter Schalter Kundenportal Portal Online-Schalter Schalter Portrait Filialen Team Leitbild Kundenportal Portal Online-Schalter Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter News Lädt... Alle Branchennews Geschäftsberichte Kontakt tbgs - Technische Betriebe Glarus Süd Farbstrasse 22 8762 Schwanden T +41 55 647 41 00 Öffnungszeiten Montag bis Donnerstag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 17.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 17.00 Uhr Freitag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 16.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 16.00 Uhr Pikettdienst bei Störungen (24 h) +41 58 611 99 99 &copy; 2026 Technische Betriebe Glarus Süd webwork: lemonbrain.ch Impressum Datenschutz Störung? 24 h Pikettdienst bei Störungen (24 h) +41 58 611 99 99 Close Icon /packages/lemonbrain_webp/css/min/lemonbrain_webp.min.css?ccm_nocache=bc62c2df378a490af23048e7575a030483708eb3 /packages/tbgs/blocks/autonav/templates/tbgs/view.css?ccm_nocache=5bb91013ac8bc3c0c8e07ebdc57c68971a6621f1 /packages/tbgs/blocks/header_image/templates/tbgs/view.css?ccm_nocache=cfb623d520a4837aadfc8b0392c9585228d102b4 /packages/tbgs/blocks/news_grid/templates/tbgs/view.css?ccm_nocache=cfb623d520a4837aadfc8b0392c9585228d102b4 /packages/tbgs/blocks/emergency_phone/templates/tbgs/view.css?ccm_nocache=cfb623d520a4837aadfc8b0392c9585228d102b4 /packages/tbgs/blocks/emergency_info/templates/tbgs/view.css?ccm_nocache=cfb623d520a4837aadfc8b0392c9585228d102b4 false https://tbgs.ch/news/load-all-news/1783631818%3A0d2ac3abb1013c14b66a5e71c8f0879f/238 0 10 11 /packages/lemonbrain_services/js/min/lb.min.js?ccm_nocache=b5d71596b08eee22fd8700d475c8725d\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "tbgs.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "TBGS Versorgungsgebiet",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:tbgs-news",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Technische Betriebe Glarus Süd Skip to main content Portal Schalter Menu Icon Angebot Strom Dienstleistungen Kommunikation Wärme News Unternehmen Portrait Filialen Team Leitbild Ka",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "TBGS Versorgungsgebiet",
+            "confidence": 0.9,
+            "evidence_excerpt": "Technische Betriebe Glarus Süd Skip to main content Portal Schalter Menu Icon Angebot Strom Dienstleistungen Kommunikation Wärme News Unternehmen Portrait Filialen Team Leitbild Karriere Downloads Kontakt Strom Dienstleistungen Kommunikation Wärme Kundenportal Portal Online-Schalter Schalter Kundenportal Portal Online-Schalter Schalter Portrait Filialen Team Leitbild Kundenportal Portal Online-Schalter Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter News Lädt... Alle Branchennews Geschäftsberichte Kontakt tbgs - Technische Betriebe Glarus Süd Farbstrasse 22 8762 Schwanden T +41 55 647 41 00 Öffnungszeiten Montag bis Donnerstag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 17.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 17.00 Uhr Freitag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 16.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 16.00 Uhr Pikettdienst bei Störungen (24 h) +41 58 611 99 99 &copy; 2026 Technische Betriebe Glarus Süd webwork: lemonbrain.ch Impressum Datenschutz Störung? 24 h Pikettdienst bei Störungen (24 h) +41 58 611 99 99 Close Icon /packages/lemonbrain_webp/css/min/lemonbrain_webp.min.css?",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Technische Betriebe Glarus Süd Skip to main content Portal Schalter Menu Icon Angebot Strom Dienstleistungen Kommunikation Wärme News Unternehmen Portrait Filialen Team Leitbild Karriere Downloads Kontakt Strom Dienstleistungen Kommunikation Wärme Kundenportal Portal Online-Schalter Schalter Kundenportal Portal Online-Schalter Schalter Portrait Filialen Team Leitbild Kundenportal Portal Online-Schalter Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter Kundenportal Online-Schalter News Lädt... Alle Branchennews Geschäftsberichte Kontakt tbgs - Technische Betriebe Glarus Süd Farbstrasse 22 8762 Schwanden T +41 55 647 41 00 Öffnungszeiten Montag bis Donnerstag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 17.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 17.00 Uhr Freitag Empfang: 08.00 &ndash; 11.30 Uhr / 13.30 &ndash; 16.00 Uhr Telefon: 07.00 &ndash; 11.30 Uhr / 13.00 &ndash; 16.00 Uhr Pikettdienst bei Störungen (24 h) +41 58 611 99 99 &copy; 2026 Technische Betriebe Glarus Süd webwork: lemonbrain.ch Impressum Datenschutz Störung? 24 h Pikettdienst bei Störungen (24 h) +41 58 611 99 99 Close Icon /packages/lemonbrain_webp/css/min/lemonbrain_webp.min.css?",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

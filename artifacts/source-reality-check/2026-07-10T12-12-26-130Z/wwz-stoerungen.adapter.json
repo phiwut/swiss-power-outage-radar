@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 12,
+        "sourceKey": "wwz-stoerungen",
+        "sourceType": "html",
+        "operatorName": "WWZ",
+        "observationHash": "87f2a911f6a788d4330f7857e7df802e2817fb21793c2d6c9297193d8e90b00d",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "Störungen | WWZ Zum Inhalt springen 🍪 Einstellungen Hier können Sie die einzelnen Cookies zulassen oder blockieren: Technisch notwendige (immer aktiv) Diese Cookies sind zur Funkt",
+        "url": "https://www.wwz.ch/de/stoerungen",
+        "locationText": "Sie weiter zu verbessern",
+        "areaText": "WWZ Versorgungsgebiet Zug und Umgebung",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Störungen | WWZ Zum Inhalt springen 🍪 Einstellungen Hier können Sie die einzelnen Cookies zulassen oder blockieren: Technisch notwendige (immer aktiv) Diese Cookies sind zur Funktion unserer Website erforderlich und können in unseren Systemen nicht deaktiviert werden. In der Regel werden diese Cookies nur als Reaktion auf von Ihnen getätigten Aktionen gesetzt, die einer Dienstanforderung entsprechen, wie etwa dem Festlegen Ihrer Datenschutzeinstellungen, dem Anmelden oder dem Ausfüllen von Formularen. Sie können Ihren Browser so einstellen, dass diese Cookies blockiert oder Sie über diese Cookies benachrichtigt werde. Einige Bereiche der Website funktionieren dann aber möglicherweise nicht. Cookies für statistische Zwecke Mit diesen Cookies können wir Besuche zählen und Zugriffsquellen eruieren, um die Leistung unserer Website zu ermitteln und zu verbessern. Sie unterstützen uns bei der Beantwortung der Frage, welche Seiten am beliebtesten sind, welche am wenigsten genutzt werden und wie sich Besucher auf der Website bewegen. Alle von diesen Cookies erfassten Informationen werden aggregiert. Wenn Sie diese anonymisierten Cookies nicht zulassen, können wir unsere Website nicht an d",
+        "rawPayloadJson": "{\"excerpt\":\"Störungen | WWZ Zum Inhalt springen 🍪 Einstellungen Hier können Sie die einzelnen Cookies zulassen oder blockieren: Technisch notwendige (immer aktiv) Diese Cookies sind zur Funktion unserer Website erforderlich und können in unseren Systemen nicht deaktiviert werden. In der Regel werden diese Cookies nur als Reaktion auf von Ihnen getätigten Aktionen gesetzt, die einer Dienstanforderung entsprechen, wie etwa dem Festlegen Ihrer Datenschutzeinstellungen, dem Anmelden oder dem Ausfüllen von Formularen. Sie können Ihren Browser so einstellen, dass diese Cookies blockiert oder Sie über diese Cookies benachrichtigt werde. Einige Bereiche der Website funktionieren dann aber möglicherweise nicht. Cookies für statistische Zwecke Mit diesen Cookies können wir Besuche zählen und Zugriffsquellen eruieren, um die Leistung unserer Website zu ermitteln und zu verbessern. Sie unterstützen uns bei der Beantwortung der Frage, welche Seiten am beliebtesten sind, welche am wenigsten genutzt werden und wie sich Besucher auf der Website bewegen. Alle von diesen Cookies erfassten Informationen werden aggregiert. Wenn Sie diese anonymisierten Cookies nicht zulassen, können wir unsere Website nicht an den Bedarf unserer Nutzer anpassen und entdecken Fehler auf der Website nicht. Cookies für marketingzwecke Diese Cookies können über unsere Website von unseren Werbepartnern gesetzt werden. Sie können von diesen Unternehmen verwendet werden, um ein Profil Ihrer Interessen zu erstellen und Ihnen relevante Werbung auf anderen Websites zu zeigen. Sie funktionieren durch eindeutige Identifikation Ihres Browsers und Ihres Geräts. Wenn Sie diese Cookies nicht zulassen, werden Sie auf anderen Websites nicht unsere zielgerichtete Werbung erleben. Alle Akzeptieren Einstellungen speichern Alle Ablehnen 🍪 Wir verwenden Cookies Unsere Website nutzt Cookies um unsere Services für Sie weiter zu verbessern, aber auch um sicherzustellen, dass unsere Sites zuverlässig und sicher laufen. Ausserdem nutzen wi\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "wwz.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "Sie weiter zu verbessern",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:wwz-stoerungen",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Störungen | WWZ Zum Inhalt springen 🍪 Einstellungen Hier können Sie die einzelnen Cookies zulassen oder blockieren: Technisch notwendige (immer aktiv) Diese Cookies sind zur Funkt",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Sie weiter zu verbessern",
+            "confidence": 0.9,
+            "evidence_excerpt": "Störungen | WWZ Zum Inhalt springen 🍪 Einstellungen Hier können Sie die einzelnen Cookies zulassen oder blockieren: Technisch notwendige (immer aktiv) Diese Cookies sind zur Funktion unserer Website erforderlich und können in unseren Systemen nicht deaktiviert werden. In der Regel werden diese Cookies nur als Reaktion auf von Ihnen getätigten Aktionen gesetzt, die einer Dienstanforderung entsprechen, wie etwa dem Festlegen Ihrer Datenschutzeinstellungen, dem Anmelden oder dem Ausfüllen von Formularen. Sie können Ihren Browser so einstellen, dass diese Cookies blockiert oder Sie über diese Cookies benachrichtigt werde. Einige Bereiche der Website funktionieren dann aber möglicherweise nicht. Cookies für statistische Zwecke Mit diesen Cookies können wir Besuche zählen und Zugriffsquellen eruieren, um die Leistung unserer Website zu ermitteln und zu verbessern. Sie unterstützen uns bei der Beantwortung der Frage, welche Seiten am beliebtesten sind, welche am wenigsten genutzt werden und wie sich Besucher auf der Website bewegen. Alle von diesen Cookies erfassten Informationen werden aggregiert. Wenn Sie diese anonymisierten Cookies nicht zulassen, können wir unsere Website nicht an d",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Störungen | WWZ Zum Inhalt springen 🍪 Einstellungen Hier können Sie die einzelnen Cookies zulassen oder blockieren: Technisch notwendige (immer aktiv) Diese Cookies sind zur Funktion unserer Website erforderlich und können in unseren Systemen nicht deaktiviert werden. In der Regel werden diese Cookies nur als Reaktion auf von Ihnen getätigten Aktionen gesetzt, die einer Dienstanforderung entsprechen, wie etwa dem Festlegen Ihrer Datenschutzeinstellungen, dem Anmelden oder dem Ausfüllen von Formularen. Sie können Ihren Browser so einstellen, dass diese Cookies blockiert oder Sie über diese Cookies benachrichtigt werde. Einige Bereiche der Website funktionieren dann aber möglicherweise nicht. Cookies für statistische Zwecke Mit diesen Cookies können wir Besuche zählen und Zugriffsquellen eruieren, um die Leistung unserer Website zu ermitteln und zu verbessern. Sie unterstützen uns bei der Beantwortung der Frage, welche Seiten am beliebtesten sind, welche am wenigsten genutzt werden und wie sich Besucher auf der Website bewegen. Alle von diesen Cookies erfassten Informationen werden aggregiert. Wenn Sie diese anonymisierten Cookies nicht zulassen, können wir unsere Website nicht an d",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

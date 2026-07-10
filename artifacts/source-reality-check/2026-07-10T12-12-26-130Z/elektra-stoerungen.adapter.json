@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 22,
+        "sourceKey": "elektra-stoerungen",
+        "sourceType": "html",
+        "operatorName": "Genossenschaft Elektra",
+        "observationHash": "4170c10ef4049cafb148f7312036716a994546f2c150429987c2785ae2ed6a28",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "Elektra.ch Loading...",
+        "url": "https://stoerungen.elektra.ch/",
+        "locationText": null,
+        "areaText": "Genossenschaft Elektra Netzgebiet",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Elektra.ch Loading... %7B%22lang%22:%7B%221%22:%22de%22%7D%7D 1 1 1 description 1 1 1 1 1 1 1 1",
+        "rawPayloadJson": "{\"excerpt\":\"Elektra.ch Loading... %7B%22lang%22:%7B%221%22:%22de%22%7D%7D 1 1 1 description 1 1 1 1 1 1 1 1\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "stoerungen.elektra.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "Genossenschaft Elektra Netzgebiet",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:elektra-stoerungen",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Elektra.ch Loading...",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Genossenschaft Elektra Netzgebiet",
+            "confidence": 0.9,
+            "evidence_excerpt": "Elektra.ch Loading... %7B%22lang%22:%7B%221%22:%22de%22%7D%7D 1 1 1 description 1 1 1 1 1 1 1 1",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Elektra.ch Loading... %7B%22lang%22:%7B%221%22:%22de%22%7D%7D 1 1 1 description 1 1 1 1 1 1 1 1",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "source_key": "romande-energie-pannes",
+  "operator_name": "Romande Energie",
+  "source_category": "outage_map",
+  "url": "https://www.romande-energie.ch/infos-pannes",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.romande-energie.ch/infos-pannes",
+  "elapsed_ms": 361,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 78772,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

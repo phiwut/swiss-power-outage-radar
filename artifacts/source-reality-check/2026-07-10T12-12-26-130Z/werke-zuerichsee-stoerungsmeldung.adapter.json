@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 23,
+        "sourceKey": "werke-zuerichsee-stoerungsmeldung",
+        "sourceType": "html",
+        "operatorName": "Werke am Zürichsee",
+        "observationHash": "bb636e95369e0696c453c891d2247196232bf768af6b94f80818dc1e10ba1978",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "Newsticker / Störungsmeldung – Werke am Zürichsee AG Zum Inhalt springen JS Bin wazGPT Suche Kundenportal Menü Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht",
+        "url": "https://werkezuerichsee.ch/category/newsticker-stoerungsmeldung/",
+        "locationText": "Notfälle Rund um die Uhr",
+        "areaText": "Zürichsee-Gemeinden im Versorgungsgebiet der Werke am Zürichsee",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "Newsticker / Störungsmeldung – Werke am Zürichsee AG Zum Inhalt springen JS Bin wazGPT Suche Kundenportal Menü Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kategorie: Newsticker / Störungsmeldung Adresse Werke am Zürichsee AG Freihofstrasse 30 8700 Küsnacht Telefon: 043 222 32 32 E-Mail: info@werkezuerichsee.ch Öffnungszeiten Montag – Donnerstag 8.00 – 11.30 Uhr 13.30 – 16.30 ",
+        "rawPayloadJson": "{\"excerpt\":\"Newsticker / Störungsmeldung – Werke am Zürichsee AG Zum Inhalt springen JS Bin wazGPT Suche Kundenportal Menü Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kategorie: Newsticker / Störungsmeldung Adresse Werke am Zürichsee AG Freihofstrasse 30 8700 Küsnacht Telefon: 043 222 32 32 E-Mail: info@werkezuerichsee.ch Öffnungszeiten Montag – Donnerstag 8.00 – 11.30 Uhr 13.30 – 16.30 Uhr Freitag 8.00 – 11.30 Uhr 13.30 – 16.00 Uhr Hotline für Notfälle Rund um die Uhr – 365 Tage im Jahr Für Notfälle ausserhalb der Geschäftszeiten 043 222 32 22 Für Notfälle innerhalb der Geschäftszeiten 043 222 32 32 © Werke am Zürichsee AG Impressum | Datenschutz | AGB header 23 {&quot;element_pack_global_tooltip_width&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;element_pack_global_tooltip_width_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;element_pack_global_tooltip_width_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;element_pack_global_tooltip_padding&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "werkezuerichsee.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "Notfälle Rund um die Uhr",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:werke-zuerichsee-stoerungsmeldung",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "Newsticker / Störungsmeldung – Werke am Zürichsee AG Zum Inhalt springen JS Bin wazGPT Suche Kundenportal Menü Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Notfälle Rund um die Uhr",
+            "confidence": 0.9,
+            "evidence_excerpt": "Newsticker / Störungsmeldung – Werke am Zürichsee AG Zum Inhalt springen JS Bin wazGPT Suche Kundenportal Menü Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kategorie: Newsticker / Störungsmeldung Adresse Werke am Zürichsee AG Freihofstrasse 30 8700 Küsnacht Telefon: 043 222 32 32 E-Mail: info@werkezuerichsee.ch Öffnungszeiten Montag – Donnerstag 8.00 – 11.30 Uhr 13.30 – 16.30 ",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "Newsticker / Störungsmeldung – Werke am Zürichsee AG Zum Inhalt springen JS Bin wazGPT Suche Kundenportal Menü Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kundenportal Zollikon Wasser Strom Wärme Abwasser / Kehricht Küsnacht Wasser Strom Wärme Internet / TV / Telefon EW-Laden Abwasser / Kehricht Erlenbach Wasser Strom Abwasser / Kehricht Technische Dienste Energieberatung Formulare & Dokumente Planauskünfte Smart Meter Infocenter Neuigkeiten Pikettdienst Kundenmagazin Stromunterbrechung Über uns Kontakt / Standort Geschäftsberichte Jahresrechnung und Budget Statuten Offene Stellen Kategorie: Newsticker / Störungsmeldung Adresse Werke am Zürichsee AG Freihofstrasse 30 8700 Küsnacht Telefon: 043 222 32 32 E-Mail: info@werkezuerichsee.ch Öffnungszeiten Montag – Donnerstag 8.00 – 11.30 Uhr 13.30 – 16.30 ",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}

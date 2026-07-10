@@ -1,0 +1,14 @@
+{
+  "source_key": "esb-biel-stoerungen",
+  "operator_name": "ESB Biel",
+  "source_category": "live_status",
+  "url": "https://www.esb.ch/de/stoerungen-unterbrueche",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.esb.ch/de/stoerungen-unterbrueche",
+  "elapsed_ms": 90,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 438298,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

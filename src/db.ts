@@ -19,6 +19,10 @@ import type {
   ResearchAssessment,
   ResearchStatus,
   SourcePublicDigest,
+  SourceRegistryEntry,
+  SourceHealthStatus,
+  SourceObservation,
+  SourceObservationInput,
   SourceSnapshot,
   StoredAlertItem
 } from "./types";
@@ -344,6 +348,9 @@ export async function getDebugStatus(db: D1Database) {
     snapshotStats,
     researchStats,
     researchErrors,
+    sourceRegistry,
+    observationStats,
+    qaMetrics,
     recentEvents,
     relevant
   ] = await Promise.all([
@@ -386,6 +393,33 @@ export async function getDebugStatus(db: D1Database) {
       .all(),
     db
       .prepare(
+        `SELECT source_key, operator_name, source_type, COALESCE(source_category, 'live_status') AS source_category,
+                area_text, trust_level,
+                check_interval_minutes, priority, firecrawl_enabled, last_checked_at,
+                last_success_at, last_error, health_status, consecutive_failures
+         FROM source_registry
+         ORDER BY priority DESC, source_key ASC`
+      )
+      .all(),
+    db
+      .prepare(
+        `SELECT canonical_status, COUNT(*) AS count, MAX(observed_at) AS latest_observed_at
+         FROM source_observations
+         GROUP BY canonical_status
+         ORDER BY canonical_status`
+      )
+      .all(),
+    db
+      .prepare(
+        `SELECT metric_date, metric_name, metric_value, numerator, denominator,
+                dimension_key, notes, calculated_at
+         FROM qa_metrics
+         ORDER BY calculated_at DESC, metric_name ASC
+         LIMIT 50`
+      )
+      .all(),
+    db
+      .prepare(
         `SELECT id, title, status, event_type, location_text, first_seen_at, last_seen_at,
                 confidence, source_count, primary_source_title, primary_source_url,
                 outage_nature, cause_category, research_status, fact_confidence,
@@ -413,6 +447,9 @@ export async function getDebugStatus(db: D1Database) {
     snapshot_stats: snapshotStats,
     research_status_counts: researchStats.results,
     last_research_errors: researchErrors.results,
+    source_registry: sourceRegistry.results,
+    source_observation_status_counts: observationStats.results,
+    qa_metrics: qaMetrics.results,
     recent_events: recentEvents.results,
     relevant_items: relevant.results
   };
@@ -645,8 +682,8 @@ export async function insertOutageFacts(
         `INSERT INTO outage_facts (
            candidate_id, outage_event_id, outage_source_id, snapshot_id,
            fact_type, value_text, value_json, confidence, evidence_excerpt,
-           source_role, verified_by
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           source_role, verified_by, source_observation_id, observed_at, extractor_version
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         input.candidateId,
@@ -659,7 +696,10 @@ export async function insertOutageFacts(
         fact.confidence,
         fact.evidence_excerpt,
         fact.source_role ?? null,
-        fact.verified_by ?? "auto"
+        fact.verified_by ?? "auto",
+        fact.source_observation_id ?? null,
+        fact.observed_at ?? null,
+        fact.extractor_version ?? null
       )
       .run();
   }
@@ -742,6 +782,8 @@ export async function refreshOutageEventAfterSource(
     confidence: number;
     summary: string;
     reason: string;
+    resolvedAtEstimate?: string | null;
+    candidateStatus?: "active" | "resolved" | "unknown";
   }
 ): Promise<OutageEvent> {
   await db
@@ -755,11 +797,14 @@ export async function refreshOutageEventAfterSource(
            END,
            source_count = (SELECT COUNT(*) FROM outage_sources WHERE outage_event_id = ?),
            status = CASE
+             WHEN ? = 'resolved' AND status != 'dismissed'
+             THEN 'resolved'
              WHEN (SELECT COUNT(*) FROM outage_sources WHERE outage_event_id = ?) >= 2
                   AND status = 'needs_review'
              THEN 'corroborated'
              ELSE status
            END,
+           resolved_at_estimate = COALESCE(resolved_at_estimate, ?),
            confidence = MAX(confidence, ?),
            summary = CASE WHEN LENGTH(COALESCE(summary, '')) = 0 THEN ? ELSE summary END,
            reason = CASE WHEN LENGTH(COALESCE(reason, '')) = 0 THEN ? ELSE reason END,
@@ -772,7 +817,9 @@ export async function refreshOutageEventAfterSource(
       patch.lastSeenAt,
       patch.lastSeenAt,
       eventId,
+      patch.candidateStatus ?? "unknown",
       eventId,
+      patch.resolvedAtEstimate ?? null,
       patch.confidence,
       patch.summary,
       patch.reason,
@@ -1040,6 +1087,255 @@ export async function insertSourceSnapshot(
     .first<SourceSnapshot>();
   if (!row) throw new Error("Source snapshot could not be loaded after insert");
   return row;
+}
+
+export async function getDueSourceRegistryEntries(
+  db: D1Database,
+  nowIso: string,
+  limit = 10
+): Promise<SourceRegistryEntry[]> {
+  const result = await db
+    .prepare(
+      `SELECT *
+       FROM source_registry
+       WHERE enabled = 1
+         AND (
+           last_checked_at IS NULL
+           OR datetime(last_checked_at, '+' || check_interval_minutes || ' minutes') <= datetime(?)
+         )
+       ORDER BY priority DESC, COALESCE(last_checked_at, '1970-01-01') ASC
+       LIMIT ?`
+    )
+    .bind(nowIso, Math.max(1, Math.min(50, limit)))
+    .all<SourceRegistryEntry>();
+  return result.results;
+}
+
+export async function getSourceRegistryEntryByUrl(
+  db: D1Database,
+  url: string
+): Promise<SourceRegistryEntry | null> {
+  try {
+    const target = new URL(url);
+    const host = target.hostname.replace(/^www\./, "");
+    return await db
+      .prepare(
+        `SELECT *
+         FROM source_registry
+         WHERE enabled = 1
+           AND (
+             url = ?
+             OR replace(replace(url, 'https://www.', 'https://'), 'http://www.', 'http://') LIKE ?
+           )
+         ORDER BY priority DESC
+         LIMIT 1`
+      )
+      .bind(url, `%://${host}%`)
+      .first<SourceRegistryEntry>();
+  } catch {
+    return await db
+      .prepare("SELECT * FROM source_registry WHERE enabled = 1 AND url = ? LIMIT 1")
+      .bind(url)
+      .first<SourceRegistryEntry>();
+  }
+}
+
+export async function updateSourceRegistryHealth(
+  db: D1Database,
+  sourceId: number,
+  input: {
+    checkedAt: string;
+    success: boolean;
+    error?: string | null;
+    healthStatus?: SourceHealthStatus;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE source_registry
+       SET last_checked_at = ?,
+           last_success_at = CASE WHEN ? = 1 THEN ? ELSE last_success_at END,
+           last_error = ?,
+           health_status = ?,
+           consecutive_failures = CASE WHEN ? = 1 THEN 0 ELSE consecutive_failures + 1 END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    )
+    .bind(
+      input.checkedAt,
+      input.success ? 1 : 0,
+      input.checkedAt,
+      input.error ?? null,
+      input.healthStatus ?? (input.success ? "healthy" : "degraded"),
+      input.success ? 1 : 0,
+      sourceId
+    )
+    .run();
+}
+
+export async function insertSourceObservation(
+  db: D1Database,
+  input: SourceObservationInput
+): Promise<{ inserted: boolean; observation: SourceObservation }> {
+  const result = await db
+    .prepare(
+      `INSERT OR IGNORE INTO source_observations (
+         source_registry_id, source_key, source_type, operator_name, observation_hash,
+         canonical_status, event_type, title, url, location_text, area_text,
+         started_at, resolved_at, observed_at, published_at, evidence_excerpt,
+         raw_payload_json, extractor_version, confidence, independence_key
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      input.sourceRegistryId,
+      input.sourceKey,
+      input.sourceType,
+      input.operatorName,
+      input.observationHash,
+      input.canonicalStatus,
+      input.eventType,
+      input.title,
+      input.url,
+      input.locationText,
+      input.areaText,
+      input.startedAt,
+      input.resolvedAt,
+      input.observedAt,
+      input.publishedAt,
+      input.evidenceExcerpt,
+      input.rawPayloadJson,
+      input.extractorVersion,
+      input.confidence,
+      input.independenceKey
+    )
+    .run();
+
+  const observation = await db
+    .prepare("SELECT * FROM source_observations WHERE observation_hash = ?")
+    .bind(input.observationHash)
+    .first<SourceObservation>();
+  if (!observation) throw new Error("Source observation could not be loaded after insert");
+  return { inserted: changes(result) > 0, observation };
+}
+
+export async function linkSourceObservationToAlert(
+  db: D1Database,
+  observationId: number,
+  alertItemId: number
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE source_observations
+       SET alert_item_id = COALESCE(alert_item_id, ?)
+       WHERE id = ?`
+    )
+    .bind(alertItemId, observationId)
+    .run();
+  await db
+    .prepare("UPDATE alert_items SET source_observation_id = ? WHERE id = ?")
+    .bind(observationId, alertItemId)
+    .run();
+}
+
+export async function linkSourceObservationToEvent(
+  db: D1Database,
+  observationId: number,
+  eventId: number,
+  sourceId: number
+): Promise<void> {
+  await db
+    .prepare("UPDATE source_observations SET outage_event_id = ? WHERE id = ?")
+    .bind(eventId, observationId)
+    .run();
+  await db
+    .prepare(
+      `UPDATE outage_sources
+       SET source_observation_id = COALESCE(source_observation_id, ?),
+           source_registry_id = COALESCE(source_registry_id, (
+             SELECT source_registry_id FROM source_observations WHERE id = ?
+           ))
+       WHERE id = ?`
+    )
+    .bind(observationId, observationId, sourceId)
+    .run();
+}
+
+export async function recordEventVersion(
+  db: D1Database,
+  input: {
+    event: OutageEvent;
+    changeType: string;
+    sourceObservationId?: number | null;
+    snapshotId?: number | null;
+    evidenceExcerpt?: string | null;
+    extractorVersion?: string | null;
+  }
+): Promise<void> {
+  const next = await db
+    .prepare(
+      `SELECT COALESCE(MAX(version_number), 0) + 1 AS version_number
+       FROM outage_event_versions
+       WHERE outage_event_id = ?`
+    )
+    .bind(input.event.id)
+    .first<{ version_number: number }>();
+  await db
+    .prepare(
+      `INSERT INTO outage_event_versions (
+         outage_event_id, version_number, change_type, source_observation_id,
+         source_snapshot_id, event_state_json, evidence_excerpt, extractor_version
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      input.event.id,
+      next?.version_number ?? 1,
+      input.changeType,
+      input.sourceObservationId ?? null,
+      input.snapshotId ?? null,
+      JSON.stringify(input.event),
+      input.evidenceExcerpt ?? null,
+      input.extractorVersion ?? null
+    )
+    .run();
+}
+
+export async function upsertQaMetric(
+  db: D1Database,
+  input: {
+    metricDate: string;
+    metricName: string;
+    metricValue: number;
+    numerator?: number | null;
+    denominator?: number | null;
+    dimensionKey?: string | null;
+    notes?: string | null;
+    calculatedAt: string;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO qa_metrics (
+         metric_date, metric_name, metric_value, numerator, denominator,
+         dimension_key, notes, calculated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(metric_date, metric_name, dimension_key) DO UPDATE SET
+         metric_value = excluded.metric_value,
+         numerator = excluded.numerator,
+         denominator = excluded.denominator,
+         notes = excluded.notes,
+         calculated_at = excluded.calculated_at`
+    )
+    .bind(
+      input.metricDate,
+      input.metricName,
+      input.metricValue,
+      input.numerator ?? null,
+      input.denominator ?? null,
+      input.dimensionKey ?? null,
+      input.notes ?? null,
+      input.calculatedAt
+    )
+    .run();
 }
 
 export async function updateSourceSnapshotDigest(
@@ -1587,6 +1883,40 @@ export async function markOutageEventPublishable(
 
   const event = await getOutageEvent(db, eventId);
   if (!event) throw new Error("Event vanished after quality update");
+  return event;
+}
+
+export async function updateOutageEventPublicationGate(
+  db: D1Database,
+  eventId: number,
+  input: {
+    publicStatus: string;
+    verificationLevel: string;
+    eventQualityState: string;
+    mailDecisionReason: string;
+  }
+): Promise<OutageEvent> {
+  await db
+    .prepare(
+      `UPDATE outage_events
+       SET public_status = ?,
+           verification_level = ?,
+           event_quality_state = ?,
+           mail_decision_reason = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    )
+    .bind(
+      input.publicStatus,
+      input.verificationLevel,
+      input.eventQualityState,
+      input.mailDecisionReason,
+      eventId
+    )
+    .run();
+
+  const event = await getOutageEvent(db, eventId);
+  if (!event) throw new Error("Event vanished after publication gate update");
   return event;
 }
 

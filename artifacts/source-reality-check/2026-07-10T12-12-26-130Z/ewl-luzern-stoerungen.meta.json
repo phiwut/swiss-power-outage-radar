@@ -1,0 +1,14 @@
+{
+  "source_key": "ewl-luzern-stoerungen",
+  "operator_name": "ewl Luzern",
+  "source_category": "live_status",
+  "url": "https://www.ewl-luzern.ch/kundencenter/stoerungen",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ewl-luzern.ch/kundencenter/stoerungen",
+  "elapsed_ms": 142,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 188784,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

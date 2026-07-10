@@ -1,0 +1,14 @@
+{
+  "source_key": "evolon-stoerungen",
+  "operator_name": "Evolon",
+  "source_category": "live_status",
+  "url": "https://www.evolon.ch/stoerungen",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.evolon.ch/stoerungen",
+  "elapsed_ms": 108,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 406546,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

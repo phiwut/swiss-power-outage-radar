@@ -1,0 +1,14 @@
+{
+  "source_key": "ebs-stoerungen",
+  "operator_name": "ebs",
+  "source_category": "live_status",
+  "url": "https://www.ebs.swiss/stoerungen/",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ebs.swiss/stoerungen/",
+  "elapsed_ms": 1031,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 71426,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

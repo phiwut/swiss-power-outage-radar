@@ -1,0 +1,14 @@
+{
+  "source_key": "ibw-wohlen-stoerungen",
+  "operator_name": "ibw Wohlen",
+  "source_category": "live_status",
+  "url": "https://www.ibw.ag/stoerungen",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://www.ibw.ag/stoerungen",
+  "elapsed_ms": 421,
+  "content_type": "text/html;charset=UTF-8",
+  "bytes": 49183,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

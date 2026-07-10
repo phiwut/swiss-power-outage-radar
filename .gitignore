@@ -9,3 +9,4 @@ work/
 .hallmark/
 coverage/
 *.log
+artifacts/source-reality-check/**/*.raw.txt

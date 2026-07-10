@@ -1,0 +1,14 @@
+{
+  "source_key": "ews-status",
+  "operator_name": "EWS",
+  "source_category": "live_status",
+  "url": "https://ews.ch/status",
+  "ok": true,
+  "http_status": 200,
+  "final_url": "https://ews.ch/status",
+  "elapsed_ms": 674,
+  "content_type": "text/html; charset=UTF-8",
+  "bytes": 127464,
+  "error": null,
+  "observed_at": "2026-07-10T12:12:26.132Z"
+}

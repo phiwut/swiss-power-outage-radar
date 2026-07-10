@@ -1,0 +1,42 @@
+{
+  "real_outage": {
+    "title": "Stromausfall in Zürich Höngg",
+    "text": "Aktuelle Störung aufgrund technischer Ursachen. Betroffen sind Höngg und Wipkingen. Die Behebung läuft.",
+    "location": "Zürich Höngg"
+  },
+  "updated_outage": {
+    "title": "Update Stromausfall in Zürich Höngg",
+    "text": "Aktuelle Störung in Zürich Höngg. Weitere Strassen sind betroffen, die Behebung läuft weiterhin.",
+    "location": "Zürich Höngg"
+  },
+  "historical": {
+    "title": "Rückblick auf Stromausfall 2025",
+    "text": "Historischer Rückblick: Beim Stromausfall 2025 waren mehrere Gemeinden betroffen.",
+    "location": "Valzeina"
+  },
+  "planned": {
+    "title": "Geplanter Stromunterbruch in Diegten",
+    "text": "Wegen Wartungsarbeiten kommt es zu einem geplanten Stromunterbruch in Diegten.",
+    "location": "Diegten"
+  },
+  "resolved": {
+    "title": "Störung in Belp behoben",
+    "text": "Der Stromausfall in Belp ist behoben. Die Versorgung ist wiederhergestellt.",
+    "location": "Belp"
+  },
+  "no_current_outage": {
+    "title": "Aktuell Stromausfall Stadt Zürich",
+    "text": "Aktuell Stromausfall Stadt Zürich. Aktuell sind keine Störungen bekannt.",
+    "location": null
+  },
+  "duplicate_outage": {
+    "title": "Stromausfall in Zürich Höngg",
+    "text": "Aktuelle Störung aufgrund technischer Ursachen. Betroffen sind Höngg und Wipkingen. Die Behebung läuft.",
+    "location": "Zürich Höngg"
+  },
+  "foreign": {
+    "title": "Stromausfall in Berlin",
+    "text": "Schweizer Medien berichten über einen Stromausfall in Berlin.",
+    "location": "Berlin"
+  }
+}

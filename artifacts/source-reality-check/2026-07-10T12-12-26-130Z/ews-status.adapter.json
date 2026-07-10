@@ -1,0 +1,72 @@
+{
+  "adapter_error": null,
+  "used_firecrawl": false,
+  "observations": [
+    {
+      "source_observation": {
+        "sourceRegistryId": 16,
+        "sourceKey": "ews-status",
+        "sourceType": "html",
+        "operatorName": "EWS",
+        "observationHash": "50eb8f5895cf44b56b6656f6f35e23f988d895bdfa2d013bc3efa4c0a5c8f49e",
+        "canonicalStatus": "unverified",
+        "eventType": "unclear",
+        "title": "EWS Home Energie Zurück Energie Strom Zurück Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Zurück Energieberatungen Grossverbraucher Netz nutzen",
+        "url": "https://ews.ch/status",
+        "locationText": "Industrie",
+        "areaText": "EWS Netzgebiet",
+        "startedAt": null,
+        "resolvedAt": null,
+        "observedAt": "2026-07-10T12:12:26.132Z",
+        "publishedAt": null,
+        "evidenceExcerpt": "EWS Home Energie Zurück Energie Strom Zurück Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Zurück Energieberatungen Grossverbraucher Netz nutzen Zurück Netz nutzen Netzprodukte Netzanschluss Werkleitungsauskunft Meldewesen und Geräte Netzdienstleistungen Zurück Netzdienstleistungen Öffentliche Beleuchtung Wir bauen Netze Planung Energieversorgung Netzqualitätsmessung Thermographie Netz- und Infrastrukturbau Zurück Netz- und Infrastrukturbau Anlagen für Industrie & Gewerbe Anlagen & Netzbau für Netzbetreiber BESS (Battery Energy Storage Systems) Schnellladestationen für E-Mobilität Glasfaser- und IT-Netzwerke Gebäudetechnik Zurück Gebäudetechnik Erneuerbare Energien Zurück Erneuerbare Energien E-Mobilität Photovoltaik & Energiespeicher Energetische Gebäudesanierungen Energienachweis & GEAK Wärmepumpen & Boiler Elektroinstallationen Zurück Elektroinstallationen Elektroplanung Haushaltsgeräte Unsere Standorte Gebäudeinformatik Zurück Gebäudeinformatik Smart Home Telematik Showroom Internet, TV & Telefon Zurück Internet, TV & Telefon EWS Fiber Home EWS Fiber Business EWS Fiber-Konfigurator Schaltanlagenbau Zurück Schaltanlagenbau Industriesektoren Zu",
+        "rawPayloadJson": "{\"excerpt\":\"EWS Home Energie Zurück Energie Strom Zurück Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Zurück Energieberatungen Grossverbraucher Netz nutzen Zurück Netz nutzen Netzprodukte Netzanschluss Werkleitungsauskunft Meldewesen und Geräte Netzdienstleistungen Zurück Netzdienstleistungen Öffentliche Beleuchtung Wir bauen Netze Planung Energieversorgung Netzqualitätsmessung Thermographie Netz- und Infrastrukturbau Zurück Netz- und Infrastrukturbau Anlagen für Industrie & Gewerbe Anlagen & Netzbau für Netzbetreiber BESS (Battery Energy Storage Systems) Schnellladestationen für E-Mobilität Glasfaser- und IT-Netzwerke Gebäudetechnik Zurück Gebäudetechnik Erneuerbare Energien Zurück Erneuerbare Energien E-Mobilität Photovoltaik & Energiespeicher Energetische Gebäudesanierungen Energienachweis & GEAK Wärmepumpen & Boiler Elektroinstallationen Zurück Elektroinstallationen Elektroplanung Haushaltsgeräte Unsere Standorte Gebäudeinformatik Zurück Gebäudeinformatik Smart Home Telematik Showroom Internet, TV & Telefon Zurück Internet, TV & Telefon EWS Fiber Home EWS Fiber Business EWS Fiber-Konfigurator Schaltanlagenbau Zurück Schaltanlagenbau Industriesektoren Zurück Industriesektoren Energieversorgung Gebäudetechnik Verkehrsinfrastruktur E-Mobilität Leistungsportfolio Zurück Leistungsportfolio Planung, Projekte & AVOR Engineering Schaltgerätekombinationen Kupferbearbeitung Kabelkonfektion Klemmleistenbestückung Unternehmen Zurück Unternehmen News Organisation Zurück Organisation Team Rot Nachhaltigkeit Sponsoring Geschichte Arbeiten bei EWS Zurück Arbeiten bei EWS Offene Stellen EWS als Arbeitgeberin Ausbildung im Team Rot Kontakt Zurück Kontakt Events Anfahrtsplan 24-h-Kundenservice Kontakt Kundenportal 24 h Notfalldienst Energie Gebäudetechnik Schaltanlagenbau Unternehmen Kontakt Kundenportal 24 h Notfalldienst Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Grossverbraucher Netz nutzen Netzprodukte Netzanschlu\",\"usedFirecrawl\":false}",
+        "extractorVersion": "source-registry/v1",
+        "confidence": 0.92,
+        "independenceKey": "ews.ch"
+      },
+      "candidate_assessment": {
+        "publishable": false,
+        "needs_admin": true,
+        "is_ch_incident": true,
+        "location_text": "Industrie",
+        "location_granularity": "municipality",
+        "event_type": "unclear",
+        "relevance_role": "unknown",
+        "quality_score": 35,
+        "quality_reasons": [
+          "source_registry:ews-status",
+          "status:unverified"
+        ],
+        "rejection_reason": "Nicht öffentliche Quellenbeobachtung: unverified",
+        "outage_nature": "unknown",
+        "status": "unknown",
+        "summary_de": "EWS Home Energie Zurück Energie Strom Zurück Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Zurück Energieberatungen Grossverbraucher Netz nutzen",
+        "facts": [
+          {
+            "fact_type": "location",
+            "value_text": "Industrie",
+            "confidence": 0.9,
+            "evidence_excerpt": "EWS Home Energie Zurück Energie Strom Zurück Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Zurück Energieberatungen Grossverbraucher Netz nutzen Zurück Netz nutzen Netzprodukte Netzanschluss Werkleitungsauskunft Meldewesen und Geräte Netzdienstleistungen Zurück Netzdienstleistungen Öffentliche Beleuchtung Wir bauen Netze Planung Energieversorgung Netzqualitätsmessung Thermographie Netz- und Infrastrukturbau Zurück Netz- und Infrastrukturbau Anlagen für Industrie & Gewerbe Anlagen & Netzbau für Netzbetreiber BESS (Battery Energy Storage Systems) Schnellladestationen für E-Mobilität Glasfaser- und IT-Netzwerke Gebäudetechnik Zurück Gebäudetechnik Erneuerbare Energien Zurück Erneuerbare Energien E-Mobilität Photovoltaik & Energiespeicher Energetische Gebäudesanierungen Energienachweis & GEAK Wärmepumpen & Boiler Elektroinstallationen Zurück Elektroinstallationen Elektroplanung Haushaltsgeräte Unsere Standorte Gebäudeinformatik Zurück Gebäudeinformatik Smart Home Telematik Showroom Internet, TV & Telefon Zurück Internet, TV & Telefon EWS Fiber Home EWS Fiber Business EWS Fiber-Konfigurator Schaltanlagenbau Zurück Schaltanlagenbau Industriesektoren Zu",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          },
+          {
+            "fact_type": "planned_nature",
+            "value_text": "unknown",
+            "confidence": 0.78,
+            "evidence_excerpt": "EWS Home Energie Zurück Energie Strom Zurück Strom Stromprodukte Eigenen Strom produzieren Versorgungsgebiet Energieberatungen Zurück Energieberatungen Grossverbraucher Netz nutzen Zurück Netz nutzen Netzprodukte Netzanschluss Werkleitungsauskunft Meldewesen und Geräte Netzdienstleistungen Zurück Netzdienstleistungen Öffentliche Beleuchtung Wir bauen Netze Planung Energieversorgung Netzqualitätsmessung Thermographie Netz- und Infrastrukturbau Zurück Netz- und Infrastrukturbau Anlagen für Industrie & Gewerbe Anlagen & Netzbau für Netzbetreiber BESS (Battery Energy Storage Systems) Schnellladestationen für E-Mobilität Glasfaser- und IT-Netzwerke Gebäudetechnik Zurück Gebäudetechnik Erneuerbare Energien Zurück Erneuerbare Energien E-Mobilität Photovoltaik & Energiespeicher Energetische Gebäudesanierungen Energienachweis & GEAK Wärmepumpen & Boiler Elektroinstallationen Zurück Elektroinstallationen Elektroplanung Haushaltsgeräte Unsere Standorte Gebäudeinformatik Zurück Gebäudeinformatik Smart Home Telematik Showroom Internet, TV & Telefon Zurück Internet, TV & Telefon EWS Fiber Home EWS Fiber Business EWS Fiber-Konfigurator Schaltanlagenbau Zurück Schaltanlagenbau Industriesektoren Zu",
+            "source_role": "operator",
+            "verified_by": "official_source",
+            "source_observation_id": 0,
+            "observed_at": "2026-07-10T12:12:26.132Z",
+            "extractor_version": "source-registry/v1"
+          }
+        ]
+      }
+    }
+  ]
+}
