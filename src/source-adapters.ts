@@ -19,12 +19,15 @@ interface AdapterConfig {
   planned_terms?: string[];
   utility_filter?: "electricity_only";
   json_path?: string;
+  api_url?: string;
 }
 
 export interface AdapterResult {
   observations: SourceObservationInput[];
   error: string | null;
   usedFirecrawl: boolean;
+  transportStatus: "ok" | "error";
+  parserStatus: "ready" | "no_current_outage" | "needs_adapter" | "error";
 }
 
 function compact(value: string | null | undefined): string {
@@ -146,17 +149,70 @@ function titleFromText(text: string, fallback: string): string {
 
 function requiresItemLevelAdapter(source: SourceRegistryEntry, config: AdapterConfig, status: CanonicalObservationStatus): boolean {
   if (status === "irrelevant" || status === "unverified") return false;
-  if (config.allow_generic_positive === true) return false;
   return true;
+}
+
+function explicitLocation(text: string): string | null {
+  const match = text.match(/(?:^|\s)(?:in|für|fuer|betroffen(?:e)?|commune de|à|a)\s+([A-ZÄÖÜ][A-Za-zÀ-ÿÄÖÜäöü' -]{2,60})/);
+  return match?.[1]
+    ? compact(match[1].replace(/\b(?:ist|sind|wurde|wurden|kam|kommt|seit|am|vom)\b.*$/i, ""))
+    : null;
 }
 
 function likelyLocation(text: string, source: SourceRegistryEntry): string | null {
   if (inferStatus(text, parseConfig(source)) === "irrelevant") return null;
-  const explicit = text.match(/\b(?:in|für|fuer|betroffen(?:e)?|commune de|à|a)\s+([A-ZÄÖÜ][A-Za-zÀ-ÿÄÖÜäöü' -]{2,60})/);
-  if (explicit?.[1]) return compact(explicit[1].replace(/\b(?:ist|sind|wurde|wurden|kam|kommt)\b.*$/i, ""));
+  const explicit = explicitLocation(text);
+  if (explicit) return explicit;
   if (source.operator_name.toLowerCase() === "ewz") return "Zürich";
   if (source.operator_name.toLowerCase().includes("bern")) return "Bern";
   return null;
+}
+
+export async function extractStructuredHtmlOutageItems(
+  source: SourceRegistryEntry,
+  html: string,
+  observedAt: string
+): Promise<SourceObservationInput[]> {
+  const config = parseConfig(source);
+  const markers = [
+    "data-outage-item", "outage-item", "incident-item", "alert-item", "stoerung-item", "panne-item"
+  ];
+  const blocks = html.matchAll(/<(article|li|tr|div)\b([^>]*)>([\s\S]*?)<\/\1>/gi);
+  const seen = new Set<string>();
+  const observations: SourceObservationInput[] = [];
+
+  for (const match of blocks) {
+    const attributes = normalizeLocation(match[2] ?? "");
+    if (!markers.some((marker) => attributes.includes(normalizeLocation(marker)))) continue;
+    const blockHtml = match[3] ?? "";
+    const text = compact(stripHtml(blockHtml));
+    if (!text || seen.has(text)) continue;
+    const status = inferStatus(text, config);
+    if (!["planned", "unplanned", "resolved"].includes(status)) continue;
+    const location = explicitLocation(text);
+    if (!location) continue;
+    seen.add(text);
+    const href = blockHtml.match(/\bhref=["']([^"']+)["']/i)?.[1];
+    let itemUrl = source.url;
+    if (href) {
+      try {
+        itemUrl = new URL(href, source.url).toString();
+      } catch {
+        itemUrl = source.url;
+      }
+    }
+    observations.push(
+      await makeSourceObservationFromText(source, {
+        title: titleFromText(text, `${source.operator_name}: Stromnetz-Meldung`),
+        url: itemUrl,
+        text,
+        locationText: location,
+        raw: { excerpt: text.slice(0, 2000), adapter: "structured-html-items" },
+        observedAt
+      })
+    );
+  }
+  return observations;
 }
 
 export async function makeSourceObservationFromText(
@@ -169,12 +225,15 @@ export async function makeSourceObservationFromText(
     publishedAt?: string | null;
     raw?: unknown;
     observedAt: string;
+    canonicalStatus?: CanonicalObservationStatus;
+    startedAt?: string | null;
+    resolvedAt?: string | null;
   }
 ): Promise<SourceObservationInput> {
   const config = parseConfig(source);
   const fullText = compact(patch.text);
   const evidence = fullText.slice(0, 1200) || patch.title;
-  const status = inferStatus(`${patch.title}. ${fullText}`, config);
+  const status = patch.canonicalStatus ?? inferStatus(`${patch.title}. ${fullText}`, config);
   const url = canonicalUrl(patch.url ?? source.url);
   const observedAt = patch.observedAt;
   const hash = await sha256Hex(
@@ -193,8 +252,8 @@ export async function makeSourceObservationFromText(
     url,
     locationText: patch.locationText ?? likelyLocation(`${patch.title}. ${evidence}`, source),
     areaText: source.area_text,
-    startedAt: null,
-    resolvedAt: status === "resolved" ? observedAt : null,
+    startedAt: patch.startedAt ?? null,
+    resolvedAt: patch.resolvedAt ?? (status === "resolved" ? observedAt : null),
     observedAt,
     publishedAt: patch.publishedAt ?? null,
     evidenceExcerpt: evidence,
@@ -203,6 +262,259 @@ export async function makeSourceObservationFromText(
     confidence: status === "irrelevant" ? 0 : source.trust_level === "official" ? 0.92 : 0.72,
     independenceKey: hostOf(url)
   };
+}
+
+interface KnownAdapterPayload {
+  observations: SourceObservationInput[];
+  schemaMatched: boolean;
+}
+
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function isoOrNull(value: unknown): string | null {
+  const raw = stringOrNull(value);
+  if (!raw) return null;
+  const timestamp = Date.parse(raw);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function operatorLocation(title: string): string | null {
+  const withoutPrefix = title
+    .replace(/^(?:netzstörung|netzstoerung|stromunterbruch|stromausfall|panne(?: de courant)?)\s+/i, "")
+    .replace(/\s+(?:und|et)\s+umgebung.*$/i, "")
+    .trim();
+  if (!withoutPrefix) return null;
+  const parenthesis = withoutPrefix.match(/^([^()]{2,80})\s*\(/)?.[1];
+  return compact(parenthesis ?? withoutPrefix).slice(0, 120) || null;
+}
+
+async function makeKnownObservation(
+  source: SourceRegistryEntry,
+  input: {
+    status: CanonicalObservationStatus;
+    title: string;
+    text: string;
+    location: string | null;
+    observedAt: string;
+    startedAt?: string | null;
+    resolvedAt?: string | null;
+    publishedAt?: string | null;
+    raw: unknown;
+  }
+): Promise<SourceObservationInput> {
+  return makeSourceObservationFromText(source, {
+    title: input.title,
+    text: input.text,
+    locationText: input.location,
+    observedAt: input.observedAt,
+    startedAt: input.startedAt,
+    resolvedAt: input.resolvedAt,
+    publishedAt: input.publishedAt,
+    canonicalStatus: input.status,
+    raw: input.raw
+  });
+}
+
+async function parseBkwPayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  if (!Array.isArray(payload)) return { observations: [], schemaMatched: false };
+  const rows = payload.map(recordOf);
+  const allowedStates = new Set(["SUPPLIED", "DISCONNECTION", "FAILURE"]);
+  const schemaMatched = rows.length === 0 || rows.every((row) =>
+    typeof row.supplyState === "string" && allowedStates.has(row.supplyState) && typeof row.city === "string"
+  );
+  if (!schemaMatched) return { observations: [], schemaMatched: false };
+  const affected = rows.filter((row) => row.supplyState === "FAILURE" || row.supplyState === "DISCONNECTION");
+  return {
+    schemaMatched: true,
+    observations: await Promise.all(affected.map((row) => {
+      const city = compact(String(row.city));
+      const postalCode = Number.isFinite(Number(row.plz)) ? String(row.plz) : "";
+      const planned = row.supplyState === "DISCONNECTION";
+      const status: CanonicalObservationStatus = planned ? "planned" : "unplanned";
+      const title = planned ? `Geplanter Stromunterbruch in ${city}` : `Stromausfall in ${city}`;
+      return makeKnownObservation(source, {
+        status,
+        title,
+        text: `${title}. Netzstatus: ${String(row.supplyState)}.`,
+        location: compact(`${postalCode} ${city}`),
+        observedAt,
+        raw: row
+      });
+    }))
+  };
+}
+
+async function parseSakPayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  if (!Array.isArray(payload)) return { observations: [], schemaMatched: false };
+  const rows = payload.map(recordOf);
+  const allowedStatuses = new Set([0, 1, 2]);
+  const allowedCategories = new Set([0, 1, 2]);
+  const schemaMatched = rows.length === 0 || rows.every((row) =>
+    typeof row.title === "string" && typeof row.status === "number" && allowedStatuses.has(row.status) &&
+    typeof row.category === "number" && allowedCategories.has(row.category) && typeof row.start_date === "string"
+  );
+  if (!schemaMatched) return { observations: [], schemaMatched: false };
+  const now = Date.parse(observedAt);
+  const currentOrUpcoming = rows.filter((row) => {
+    const end = Date.parse(String(row.end_date ?? ""));
+    return !Number.isFinite(end) || end >= now;
+  });
+  return {
+    schemaMatched: true,
+    observations: await Promise.all(currentOrUpcoming.map((row) => {
+      const title = compact(String(row.title));
+      const startedAt = isoOrNull(row.start_date);
+      const planned = Number(row.category) !== 0 && (startedAt ? Date.parse(startedAt) > now : false);
+      const status: CanonicalObservationStatus = planned ? "planned" : "unplanned";
+      return makeKnownObservation(source, {
+        status,
+        title,
+        text: compact(`${title}. ${String(row.description ?? "")}`),
+        location: operatorLocation(title),
+        observedAt,
+        startedAt,
+        publishedAt: isoOrNull(row.publish_date),
+        raw: row
+      });
+    }))
+  };
+}
+
+async function parsePrimeoPayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  const root = recordOf(payload);
+  if (!Array.isArray(root.current) || !Array.isArray(root.done)) {
+    return { observations: [], schemaMatched: false };
+  }
+  const current = root.current.map(recordOf);
+  const done = root.done.map(recordOf);
+  const allowedStatuses = new Set(["PROGRESS", "PLANNED", "RESOLVED"]);
+  const schemaMatched = [...current, ...done].every((row) =>
+    typeof row.status === "string" && allowedStatuses.has(row.status) && typeof row.title === "string"
+  );
+  if (!schemaMatched) return { observations: [], schemaMatched: false };
+  const active = current.filter((row) => row.status === "PROGRESS" || row.status === "PLANNED");
+  return {
+    schemaMatched: true,
+    observations: await Promise.all(active.map((row) => {
+      const titleLocation = compact(String(row.title));
+      const status: CanonicalObservationStatus = row.status === "PLANNED" ? "planned" : "unplanned";
+      const title = status === "planned"
+        ? `Geplanter Stromunterbruch in ${titleLocation}`
+        : `Stromausfall in ${titleLocation}`;
+      return makeKnownObservation(source, {
+        status,
+        title,
+        text: title,
+        location: operatorLocation(title),
+        observedAt,
+        startedAt: isoOrNull(row.from),
+        resolvedAt: isoOrNull(row.to),
+        raw: row
+      });
+    }))
+  };
+}
+
+async function parseRomandePayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  if (!Array.isArray(payload)) return { observations: [], schemaMatched: false };
+  const rows = payload.map(recordOf);
+  const allowedGenres = new Set(["coupure", "panne"]);
+  const schemaMatched = rows.length === 0 || rows.every((row) =>
+    typeof row.genre === "string" && allowedGenres.has(row.genre) &&
+    typeof row.date_debut === "string" && recordOf(row.geojson).type === "FeatureCollection"
+  );
+  if (!schemaMatched) return { observations: [], schemaMatched: false };
+  const now = Date.parse(observedAt);
+  const currentOrUpcoming = rows.filter((row) => {
+    const end = Date.parse(String(row.date_fin ?? ""));
+    return !Number.isFinite(end) || end >= now;
+  });
+  return {
+    schemaMatched: true,
+    observations: await Promise.all(currentOrUpcoming.map((row) => {
+      const planned = row.genre === "coupure";
+      const status: CanonicalObservationStatus = planned ? "planned" : "unplanned";
+      const geojson = recordOf(row.geojson);
+      const features = Array.isArray(geojson.features) ? geojson.features.map(recordOf) : [];
+      const properties = recordOf(features[0]?.properties);
+      const suppliedLocation = stringOrNull(properties.LOCATION ?? properties.LIEU ?? row.location);
+      const title = planned ? "Interruption de courant planifiée" : "Panne de courant";
+      const cause = stringOrNull(properties.CAUSE);
+      return makeKnownObservation(source, {
+        status,
+        title: suppliedLocation ? `${title} à ${suppliedLocation}` : title,
+        text: compact(`${title}. ${cause ? `Cause: ${cause}.` : ""}`),
+        // The live feed currently exposes geometry but no readable locality. Coordinates
+        // stay in the raw payload; without a verified place this cannot pass publication.
+        location: suppliedLocation,
+        observedAt,
+        startedAt: isoOrNull(row.date_debut),
+        resolvedAt: isoOrNull(row.date_fin),
+        raw: row
+      });
+    }))
+  };
+}
+
+async function parseEwzHtml(
+  source: SourceRegistryEntry,
+  html: string,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  const matches = [...html.matchAll(/<ewz-incident-messages\b([^>]*)>([\s\S]*?)<\/ewz-incident-messages>/gi)];
+  if (matches.length === 0) return { observations: [], schemaMatched: false };
+  const observations: SourceObservationInput[] = [];
+  for (const match of matches) {
+    const heading = compact(match[1]?.match(/\btitle=["']([^"']+)["']/i)?.[1] ?? "Stromausfall");
+    const body = compact(stripHtml(match[2] ?? ""));
+    const combined = compact(`${heading}. ${body}`);
+    const status = inferStatus(combined, parseConfig(source));
+    if (status === "irrelevant" || status === "unverified" || status === "historical") continue;
+    const headingLocation = heading.replace(/^Stromausfall\s+/i, "").trim();
+    observations.push(await makeKnownObservation(source, {
+      status,
+      title: titleFromText(combined, heading),
+      text: combined,
+      location: explicitLocation(body) ?? (headingLocation || null),
+      observedAt,
+      raw: { component: "ewz-incident-messages", title: heading, excerpt: body.slice(0, 2000) }
+    }));
+  }
+  return { observations, schemaMatched: true };
+}
+
+async function parseKnownApiPayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload | null> {
+  if (source.source_key === "bkw-outage") return parseBkwPayload(source, payload, observedAt);
+  if (source.source_key === "sak-netzstatus") return parseSakPayload(source, payload, observedAt);
+  if (source.source_key === "romande-energie-pannes") return parseRomandePayload(source, payload, observedAt);
+  if (source.source_key === "primeo-netzstatus") return parsePrimeoPayload(source, payload, observedAt);
+  return null;
 }
 
 async function fetchText(url: string): Promise<{ text: string; error: string | null }> {
@@ -264,9 +576,46 @@ export async function fetchSourceObservations(
 ): Promise<AdapterResult> {
   const config = parseConfig(source);
   try {
+    const knownApiUrl = config.api_url;
+    if (knownApiUrl && ["bkw-outage", "sak-netzstatus", "romande-energie-pannes", "primeo-netzstatus"].includes(source.source_key)) {
+      const fetched = await fetchText(knownApiUrl);
+      if (fetched.error) {
+        return { observations: [], error: fetched.error, usedFirecrawl: false, transportStatus: "error", parserStatus: "error" };
+      }
+      let payload: unknown;
+      try {
+        payload = JSON.parse(fetched.text);
+      } catch {
+        return {
+          observations: [],
+          error: "parser_invalid_json: operator API did not return JSON",
+          usedFirecrawl: false,
+          transportStatus: "ok",
+          parserStatus: "error"
+        };
+      }
+      const parsed = await parseKnownApiPayload(source, payload, observedAt);
+      if (!parsed?.schemaMatched) {
+        return {
+          observations: [],
+          error: "parser_schema_changed: operator API no longer matches the verified contract",
+          usedFirecrawl: false,
+          transportStatus: "ok",
+          parserStatus: "needs_adapter"
+        };
+      }
+      return {
+        observations: parsed.observations,
+        error: null,
+        usedFirecrawl: false,
+        transportStatus: "ok",
+        parserStatus: parsed.observations.length > 0 ? "ready" : "no_current_outage"
+      };
+    }
+
     if (source.source_type === "rss" || source.source_type === "google_alert") {
       const fetched = await fetchText(source.url);
-      if (fetched.error) return { observations: [], error: fetched.error, usedFirecrawl: false };
+      if (fetched.error) return { observations: [], error: fetched.error, usedFirecrawl: false, transportStatus: "error", parserStatus: "error" };
       const items = parseRssFeed(fetched.text, config.language ?? "de");
       return {
         observations: await Promise.all(
@@ -283,13 +632,15 @@ export async function fetchSourceObservations(
           )
         ),
         error: null,
-        usedFirecrawl: false
+        usedFirecrawl: false,
+        transportStatus: "ok",
+        parserStatus: "ready"
       };
     }
 
     if (source.source_type === "json_api") {
       const fetched = await fetchText(source.url);
-      if (fetched.error) return { observations: [], error: fetched.error, usedFirecrawl: false };
+      if (fetched.error) return { observations: [], error: fetched.error, usedFirecrawl: false, transportStatus: "error", parserStatus: "error" };
       const payload = JSON.parse(fetched.text) as unknown;
       const observations = await Promise.all(
         jsonItems(payload, config).map((item) => {
@@ -306,10 +657,29 @@ export async function fetchSourceObservations(
           });
         })
       );
-      return { observations, error: null, usedFirecrawl: false };
+      return { observations, error: null, usedFirecrawl: false, transportStatus: "ok", parserStatus: "ready" };
     }
 
     const fetched = await fetchText(source.url);
+    if (source.source_key === "ewz-stoerungen" && !fetched.error) {
+      const parsed = await parseEwzHtml(source, fetched.text, observedAt);
+      if (!parsed.schemaMatched) {
+        return {
+          observations: [],
+          error: "parser_schema_changed: ewz-incident-messages component missing",
+          usedFirecrawl: false,
+          transportStatus: "ok",
+          parserStatus: "needs_adapter"
+        };
+      }
+      return {
+        observations: parsed.observations,
+        error: null,
+        usedFirecrawl: false,
+        transportStatus: "ok",
+        parserStatus: parsed.observations.length > 0 ? "ready" : "no_current_outage"
+      };
+    }
     let text = compact(`${stripHtml(fetched.text)} ${dataAttributeText(fetched.text)}`);
     let usedFirecrawl = false;
     if (
@@ -325,21 +695,37 @@ export async function fetchSourceObservations(
       }
     }
     if (fetched.error && !usedFirecrawl) {
-      return { observations: [], error: fetched.error, usedFirecrawl: false };
+      return { observations: [], error: fetched.error, usedFirecrawl: false, transportStatus: "error", parserStatus: "error" };
     }
     if (!text.trim()) {
       return {
         observations: [],
         error: "parser_empty_content: direct HTML returned no extractable text",
-        usedFirecrawl
+        usedFirecrawl,
+        transportStatus: "ok",
+        parserStatus: "error"
       };
     }
     const status = inferStatus(text, config);
+    const structured = ["planned", "unplanned", "resolved"].includes(status)
+      ? await extractStructuredHtmlOutageItems(source, fetched.text, observedAt)
+      : [];
+    if (structured.length > 0) {
+      return {
+        observations: structured,
+        error: null,
+        usedFirecrawl,
+        transportStatus: "ok",
+        parserStatus: "ready"
+      };
+    }
     if (requiresItemLevelAdapter(source, config, status)) {
       return {
         observations: [],
         error: "parser_needs_adapter: item-level extraction required for non-negative status",
-        usedFirecrawl
+        usedFirecrawl,
+        transportStatus: "ok",
+        parserStatus: "needs_adapter"
       };
     }
     const title = status === "irrelevant" ? `${source.operator_name}: keine aktuelle Stromstörung` : titleFromText(text, `${source.operator_name}: Stromnetz-Meldung`);
@@ -354,13 +740,17 @@ export async function fetchSourceObservations(
         })
       ],
       error: null,
-      usedFirecrawl
+      usedFirecrawl,
+      transportStatus: "ok",
+      parserStatus: "no_current_outage"
     };
   } catch (error) {
     return {
       observations: [],
       error: error instanceof Error ? error.message : String(error),
-      usedFirecrawl: false
+      usedFirecrawl: false,
+      transportStatus: "error",
+      parserStatus: "error"
     };
   }
 }

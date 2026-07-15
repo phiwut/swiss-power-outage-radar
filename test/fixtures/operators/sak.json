@@ -1,0 +1,24 @@
+[
+  {
+    "id": "4ef9482b-f233-4bf4-9453-979176ef66c2",
+    "description": "Wir führen Arbeiten im Stromversorgungsnetz aus. Deshalb müssen wir die Stromversorgung unterbrechen.",
+    "status": 1,
+    "publish_date": "2026-07-15T08:30:00.000+02:00",
+    "start_date": "2026-07-16T08:30:00.000+02:00",
+    "end_date": "2026-07-16T11:30:00.000+02:00",
+    "coordinates": { "longitude": 9.1748842, "latitude": 47.2469634 },
+    "title": "Stromunterbruch Herrentoebeli",
+    "category": 1
+  },
+  {
+    "id": "8903a72c-e3af-48ce-a9fd-d9b3c7e11519",
+    "description": "Die Störung wurde behoben.",
+    "status": 2,
+    "publish_date": "2026-04-28T14:00:00.000+02:00",
+    "start_date": "2026-04-28T13:59:00.000+02:00",
+    "end_date": "2026-04-28T14:56:00.000+02:00",
+    "coordinates": { "longitude": 8.9813014, "latitude": 47.3584855 },
+    "title": "Netzstörung Bütschwil und Umgebung",
+    "category": 0
+  }
+]

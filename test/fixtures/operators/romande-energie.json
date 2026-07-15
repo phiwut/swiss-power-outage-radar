@@ -1,0 +1,27 @@
+[
+  {
+    "uuid_perturbation": "01KV5NYFYHYH052T9RETJFGAS9",
+    "genre": "coupure",
+    "date_debut": "2026-07-16T08:30:00+02:00",
+    "date_fin": "2026-07-16T16:00:00+02:00",
+    "active": false,
+    "geojson": {
+      "type": "FeatureCollection",
+      "name": "ZONE_IMPACT",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "GeometryCollection",
+            "geometries": [{ "type": "Point", "coordinates": [6.5271336, 46.6737207] }]
+          },
+          "properties": {
+            "DATE_DEBUT": "2026.07.16 08:30",
+            "DATE_FIN": "2026.07.16 16:00",
+            "CAUSE": "Déplacement, renforcement"
+          }
+        }
+      ]
+    }
+  }
+]

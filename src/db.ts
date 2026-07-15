@@ -16,6 +16,8 @@ import type {
   OutageEvent,
   OutageFact,
   OutageSource,
+  PublicationDecision,
+  PublicFeedItem,
   ResearchAssessment,
   ResearchStatus,
   SourcePublicDigest,
@@ -26,7 +28,8 @@ import type {
   SourceSnapshot,
   StoredAlertItem
 } from "./types";
-import { classifySource } from "./intelligence";
+import { canonicalSourceUrl, classifySource } from "./intelligence";
+import { parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "./publication";
 
 function changes(result: D1Result<unknown>): number {
   const meta = result.meta as { changes?: number } | undefined;
@@ -565,6 +568,7 @@ export async function createOutageEvent(
     canton: string | null;
     country: string;
     seenAt: string;
+    receivedAt?: string;
     summary: string;
     reason: string;
     confidence: number;
@@ -583,12 +587,12 @@ export async function createOutageEvent(
     .prepare(
       `INSERT INTO outage_events (
          title, status, event_type, location_text, normalized_location, canton, country,
-         first_seen_at, last_seen_at, started_at_estimate, resolved_at_estimate,
+         first_seen_at, last_seen_at, received_at, started_at_estimate, resolved_at_estimate,
          summary, reason, confidence,
          source_count, primary_source_url, primary_source_title,
          public_status, verification_level, location_granularity, event_quality_state,
          outage_nature
-       ) VALUES (?, 'needs_review', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`
+       ) VALUES (?, 'needs_review', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       input.title,
@@ -599,6 +603,7 @@ export async function createOutageEvent(
       input.country,
       input.seenAt,
       input.seenAt,
+      input.receivedAt ?? new Date().toISOString(),
       input.startedAtEstimate ?? null,
       input.resolvedAtEstimate ?? null,
       input.summary,
@@ -731,8 +736,10 @@ export async function attachSourceToEvent(
     isPrimary: boolean;
   }
 ): Promise<OutageSource> {
+  const canonicalUrl = canonicalSourceUrl(input.alertItem.url) ?? input.alertItem.url;
+  const registrySource = await getSourceRegistryEntryByUrl(db, canonicalUrl);
   const sourceIntel = classifySource({
-    url: input.alertItem.url,
+    url: canonicalUrl,
     title: input.alertItem.title,
     sourceName: input.alertItem.source
   });
@@ -741,13 +748,13 @@ export async function attachSourceToEvent(
       `INSERT OR IGNORE INTO outage_sources (
          outage_event_id, alert_item_id, source_url, source_title, source_name,
          published_at, relation_score, is_primary, source_kind, source_weight,
-         is_official, independence_key
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         is_official, independence_key, source_registry_id, source_observation_id
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       input.eventId,
       input.alertItem.id,
-      input.alertItem.url,
+      canonicalUrl,
       input.alertItem.title,
       input.alertItem.source,
       input.alertItem.published_at,
@@ -756,7 +763,9 @@ export async function attachSourceToEvent(
       sourceIntel.source_kind,
       sourceIntel.source_weight,
       sourceIntel.is_official,
-      sourceIntel.independence_key
+      sourceIntel.independence_key,
+      registrySource?.id ?? null,
+      input.alertItem.source_observation_id ?? null
     )
     .run();
 
@@ -1115,29 +1124,16 @@ export async function getSourceRegistryEntryByUrl(
   db: D1Database,
   url: string
 ): Promise<SourceRegistryEntry | null> {
-  try {
-    const target = new URL(url);
-    const host = target.hostname.replace(/^www\./, "");
-    return await db
-      .prepare(
-        `SELECT *
-         FROM source_registry
-         WHERE enabled = 1
-           AND (
-             url = ?
-             OR replace(replace(url, 'https://www.', 'https://'), 'http://www.', 'http://') LIKE ?
-           )
-         ORDER BY priority DESC
-         LIMIT 1`
-      )
-      .bind(url, `%://${host}%`)
-      .first<SourceRegistryEntry>();
-  } catch {
-    return await db
-      .prepare("SELECT * FROM source_registry WHERE enabled = 1 AND url = ? LIMIT 1")
-      .bind(url)
-      .first<SourceRegistryEntry>();
-  }
+  const canonical = canonicalSourceUrl(url);
+  if (!canonical) return null;
+  const targetHost = new URL(canonical).hostname.replace(/^www\./, "").toLowerCase();
+  const rows = await db
+    .prepare("SELECT * FROM source_registry WHERE enabled = 1 ORDER BY priority DESC")
+    .all<SourceRegistryEntry>();
+  return rows.results.find((row) => {
+    const registryUrl = canonicalSourceUrl(row.url);
+    return registryUrl && new URL(registryUrl).hostname.replace(/^www\./, "").toLowerCase() === targetHost;
+  }) ?? null;
 }
 
 export async function updateSourceRegistryHealth(
@@ -1148,6 +1144,9 @@ export async function updateSourceRegistryHealth(
     success: boolean;
     error?: string | null;
     healthStatus?: SourceHealthStatus;
+    transportStatus?: "unknown" | "ok" | "error";
+    parserStatus?: "unknown" | "ready" | "no_current_outage" | "needs_adapter" | "error";
+    lastObservationAt?: string | null;
   }
 ): Promise<void> {
   await db
@@ -1157,6 +1156,9 @@ export async function updateSourceRegistryHealth(
            last_success_at = CASE WHEN ? = 1 THEN ? ELSE last_success_at END,
            last_error = ?,
            health_status = ?,
+           transport_status = ?,
+           parser_status = ?,
+           last_observation_at = COALESCE(?, last_observation_at),
            consecutive_failures = CASE WHEN ? = 1 THEN 0 ELSE consecutive_failures + 1 END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`
@@ -1167,6 +1169,9 @@ export async function updateSourceRegistryHealth(
       input.checkedAt,
       input.error ?? null,
       input.healthStatus ?? (input.success ? "healthy" : "degraded"),
+      input.transportStatus ?? (input.success ? "ok" : "error"),
+      input.parserStatus ?? (input.success ? "ready" : "error"),
+      input.lastObservationAt ?? null,
       input.success ? 1 : 0,
       sourceId
     )
@@ -1494,6 +1499,254 @@ export async function getOutageEventFacts(
     .bind(eventId)
     .all<OutageFact>();
   return result.results;
+}
+
+function publicationDecisionStatements(
+  db: D1Database,
+  event: OutageEvent,
+  decision: PublicationDecision,
+  decidedAt: string
+): D1PreparedStatement[] {
+  return [
+    db
+      .prepare(
+        `INSERT INTO publication_decisions (
+           outage_event_id, publishable, trust, reasons_json, public_summary,
+           primary_source_publisher, primary_source_url, primary_source_domain,
+           evaluator_version, decided_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'strict-publication/v1', ?)
+         ON CONFLICT(outage_event_id) DO UPDATE SET
+           publishable = excluded.publishable,
+           trust = excluded.trust,
+           reasons_json = excluded.reasons_json,
+           public_summary = excluded.public_summary,
+           primary_source_publisher = excluded.primary_source_publisher,
+           primary_source_url = excluded.primary_source_url,
+           primary_source_domain = excluded.primary_source_domain,
+           evaluator_version = excluded.evaluator_version,
+           decided_at = excluded.decided_at`
+      )
+      .bind(
+        event.id,
+        decision.publishable ? 1 : 0,
+        decision.trust,
+        JSON.stringify(decision.reasons),
+        decision.summary,
+        decision.primary_source?.publisher ?? null,
+        decision.primary_source?.url ?? null,
+        decision.primary_source?.domain ?? null,
+        decidedAt
+      )
+  ];
+}
+
+export async function applyPublicationDecision(
+  db: D1Database,
+  event: OutageEvent,
+  decision: PublicationDecision,
+  decidedAt = new Date().toISOString()
+): Promise<OutageEvent> {
+  await db.batch(publicationDecisionStatements(db, event, decision, decidedAt));
+
+  const updated = await getOutageEvent(db, event.id);
+  if (!updated) throw new Error("Event vanished after publication decision");
+  return updated;
+}
+
+export async function applyPublicationDecisions(
+  db: D1Database,
+  entries: Array<{ event: OutageEvent; decision: PublicationDecision }>,
+  decidedAt = new Date().toISOString()
+): Promise<void> {
+  if (entries.length === 0) return;
+  await db.batch(entries.flatMap(({ event, decision }) =>
+    publicationDecisionStatements(db, event, decision, decidedAt)
+  ));
+}
+
+export async function recordPublicationRevalidationRun(
+  db: D1Database,
+  report: {
+    apply: boolean;
+    assessed: number;
+    publishable_before: number;
+    publishable_after: number;
+    changed: number;
+    decisions: unknown[];
+  },
+  createdAt = new Date().toISOString()
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO publication_revalidation_runs (
+         apply_mode, assessed, publishable_before, publishable_after,
+         changed, decisions_json, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      report.apply ? 1 : 0,
+      report.assessed,
+      report.publishable_before,
+      report.publishable_after,
+      report.changed,
+      JSON.stringify(report.decisions),
+      createdAt
+    )
+    .run();
+}
+
+export async function getEnabledSourceAuthorityHosts(db: D1Database): Promise<Set<string>> {
+  const result = await db
+    .prepare("SELECT hostname FROM source_authorities WHERE enabled = 1 AND trust_level = 'official'")
+    .all<{ hostname: string }>();
+  return new Set(result.results.map((row) => row.hostname.replace(/^www\./, "").toLowerCase()));
+}
+
+export async function getEventsForPublicationRevalidation(
+  db: D1Database,
+  limit = 50
+): Promise<OutageEvent[]> {
+  const result = await db
+    .prepare(
+      `SELECT * FROM outage_events
+       WHERE status != 'dismissed' AND country = 'CH'
+       ORDER BY COALESCE(received_at, created_at, first_seen_at) DESC
+       LIMIT ?`
+    )
+    .bind(Math.max(1, Math.min(50, Number.isFinite(limit) ? limit : 50)))
+    .all<OutageEvent>();
+  return result.results;
+}
+
+export async function getPublicationEvidenceForEvents(
+  db: D1Database,
+  eventIds: number[]
+): Promise<{ sources: Map<number, OutageSource[]>; facts: Map<number, OutageFact[]> }> {
+  const sources = new Map<number, OutageSource[]>();
+  const facts = new Map<number, OutageFact[]>();
+  if (eventIds.length === 0) return { sources, facts };
+  const placeholders = eventIds.map(() => "?").join(", ");
+  const [sourceRows, factRows] = await Promise.all([
+    db
+      .prepare(`SELECT * FROM outage_sources WHERE outage_event_id IN (${placeholders}) ORDER BY id ASC`)
+      .bind(...eventIds)
+      .all<OutageSource>(),
+    db
+      .prepare(`SELECT * FROM outage_facts WHERE outage_event_id IN (${placeholders}) ORDER BY confidence DESC, id ASC`)
+      .bind(...eventIds)
+      .all<OutageFact>()
+  ]);
+  for (const source of sourceRows.results) {
+    sources.set(source.outage_event_id, [...(sources.get(source.outage_event_id) ?? []), source]);
+  }
+  for (const fact of factRows.results) {
+    if (typeof fact.outage_event_id !== "number") continue;
+    facts.set(fact.outage_event_id, [...(facts.get(fact.outage_event_id) ?? []), fact]);
+  }
+  return { sources, facts };
+}
+
+export async function getPublicFeedItems(
+  db: D1Database,
+  input: { limit?: number; before?: string | null } = {}
+): Promise<{ items: PublicFeedItem[]; next_cursor: string | null }> {
+  const requestedLimit = Number(input.limit ?? 10);
+  const limit = Math.max(1, Math.min(10, Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : 10)));
+  const cursor = parsePublicFeedCursor(input.before);
+  const result = await db
+    .prepare(
+      `SELECT event.*, decision.trust AS publication_trust,
+              decision.public_summary AS publication_summary,
+              decision.primary_source_publisher, decision.primary_source_url,
+              decision.primary_source_domain, decision.reasons_json
+       FROM outage_events event
+       INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+       WHERE decision.publishable = 1
+         AND event.status != 'dismissed'
+         AND event.country = 'CH'
+         AND (
+           ? IS NULL
+           OR COALESCE(event.received_at, event.created_at, event.first_seen_at) < ?
+           OR (
+             COALESCE(event.received_at, event.created_at, event.first_seen_at) = ?
+             AND event.id < ?
+           )
+         )
+       ORDER BY COALESCE(event.received_at, event.created_at, event.first_seen_at) DESC, event.id DESC
+       LIMIT ?`
+    )
+    .bind(
+      cursor?.receivedAt ?? null,
+      cursor?.receivedAt ?? null,
+      cursor?.receivedAt ?? null,
+      cursor?.id ?? null,
+      limit
+    )
+    .all<OutageEvent & {
+      publication_trust: "official" | "corroborated";
+      publication_summary: string;
+      primary_source_publisher: string;
+      primary_source_url: string;
+      primary_source_domain: string;
+      reasons_json: string;
+    }>();
+
+  const items = result.results.flatMap((row) => {
+    const item = toPublicFeedItem(
+      row,
+      {
+        publishable: true,
+        trust: row.publication_trust,
+        reasons: [],
+        summary: row.publication_summary,
+        primary_source: {
+          publisher: row.primary_source_publisher,
+          url: row.primary_source_url,
+          domain: row.primary_source_domain
+        }
+      }
+    );
+    return item ? [item] : [];
+  });
+  return {
+    items,
+    next_cursor: items.length === limit && items.at(-1) ? publicFeedCursor(items.at(-1)!) : null
+  };
+}
+
+export async function getPublicFeedItem(db: D1Database, eventId: number): Promise<PublicFeedItem | null> {
+  const row = await db
+    .prepare(
+      `SELECT event.*, decision.trust AS publication_trust,
+              decision.public_summary AS publication_summary,
+              decision.primary_source_publisher, decision.primary_source_url,
+              decision.primary_source_domain
+       FROM outage_events event
+       INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+       WHERE event.id = ? AND decision.publishable = 1
+         AND event.status != 'dismissed' AND event.country = 'CH'
+       LIMIT 1`
+    )
+    .bind(eventId)
+    .first<OutageEvent & {
+      publication_trust: "official" | "corroborated";
+      publication_summary: string;
+      primary_source_publisher: string;
+      primary_source_url: string;
+      primary_source_domain: string;
+    }>();
+  if (!row) return null;
+  return toPublicFeedItem(row, {
+    publishable: true,
+    trust: row.publication_trust,
+    reasons: [],
+    summary: row.publication_summary,
+    primary_source: {
+      publisher: row.primary_source_publisher,
+      url: row.primary_source_url,
+      domain: row.primary_source_domain
+    }
+  });
 }
 
 export async function createGeoSyncRun(
@@ -1883,6 +2136,35 @@ export async function markOutageEventPublishable(
 
   const event = await getOutageEvent(db, eventId);
   if (!event) throw new Error("Event vanished after quality update");
+  return event;
+}
+
+export async function updateOutageEventCandidateDetails(
+  db: D1Database,
+  eventId: number,
+  input: {
+    locationGranularity: string;
+    outageNature: string;
+    startedAtEstimate?: string | null;
+  }
+): Promise<OutageEvent> {
+  await db
+    .prepare(
+      `UPDATE outage_events
+       SET started_at_estimate = COALESCE(started_at_estimate, ?),
+           location_granularity = ?,
+           country = 'CH',
+           outage_nature = CASE
+             WHEN COALESCE(outage_nature, 'unknown') = 'unknown' THEN ?
+             ELSE outage_nature
+           END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+    )
+    .bind(input.startedAtEstimate ?? null, input.locationGranularity, input.outageNature, eventId)
+    .run();
+  const event = await getOutageEvent(db, eventId);
+  if (!event) throw new Error("Event vanished after candidate detail update");
   return event;
 }
 

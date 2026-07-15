@@ -84,6 +84,24 @@ function source(patch: Partial<OutageSource> = {}): OutageSource {
 }
 
 describe("event intelligence", () => {
+  it("never infers official authority from broad words in a host or title", () => {
+    const selectra = classifySource({
+      url: "https://www.google.com/url?url=https%3A%2F%2Fselectraenergie.ch%2Ffr%2Fpanne-de-courant%2Fvaud",
+      title: "Panne de courant - Selectra Energie",
+      sourceName: "Google Alerts"
+    });
+    const news = classifySource({
+      url: "https://www.nau.ch/news/schweiz/stadtwerk-winterthur-kappte-strom-67147465",
+      title: "Stadtwerk Winterthur kappte Strom",
+      sourceName: "Nau.ch"
+    });
+
+    expect(selectra.is_official).toBe(0);
+    expect(selectra.independence_key).toBe("selectraenergie.ch");
+    expect(news.is_official).toBe(0);
+    expect(news.source_kind).toBe("local_media");
+  });
+
   it("caps high AI confidence for a single non-official source", () => {
     const scored = scoreEvent(event({ confidence: 0.99 }), [source()]);
 
@@ -93,13 +111,13 @@ describe("event intelligence", () => {
 
   it("raises score and evidence for official sources", () => {
     const official = source({
-      source_url: "https://www.gemeinde-belp.ch/aktuelles/stromausfall",
-      source_title: "Gemeinde Belp: Stromausfall",
-      source_name: "Gemeinde Belp",
+      source_url: "https://www.ai.ch/feuerschaugemeinde/news/stoerung",
+      source_title: "Kanton Appenzell: Stromausfall",
+      source_name: "Kanton Appenzell Innerrhoden",
       ...classifySource({
-        url: "https://www.gemeinde-belp.ch/aktuelles/stromausfall",
-        title: "Gemeinde Belp: Stromausfall",
-        sourceName: "Gemeinde Belp"
+        url: "https://www.ai.ch/feuerschaugemeinde/news/stoerung",
+        title: "Kanton Appenzell: Stromausfall",
+        sourceName: "Kanton Appenzell Innerrhoden"
       })
     });
 

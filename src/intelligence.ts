@@ -1,4 +1,5 @@
 import { canonicalLocation, normalizeLocation } from "./events";
+import { SOURCE_REGISTRY_SEEDS } from "./source-registry-seeds";
 import type {
   EvidenceLevel,
   FactSheet,
@@ -27,28 +28,23 @@ export interface MailDecision {
   reason: string;
 }
 
-function canonicalUrl(value: string | null | undefined): URL | null {
+export function canonicalSourceUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
     const nested = url.searchParams.get("url");
-    if (url.hostname.includes("google.") && nested) return new URL(nested);
-    return url;
+    const canonical = url.hostname.includes("google.") && nested ? new URL(nested) : url;
+    canonical.hash = "";
+    return canonical.toString();
   } catch {
     return null;
   }
 }
 
 function hostOf(value: string | null | undefined): string {
-  return canonicalUrl(value)?.hostname.replace(/^www\./, "").toLowerCase() ?? "";
-}
-
-function normalizedText(...values: Array<string | null | undefined>): string {
-  return normalizeLocation(values.filter(Boolean).join(" "));
-}
-
-function includesAny(text: string, terms: string[]): boolean {
-  return terms.some((term) => text.includes(normalizeLocation(term)));
+  const canonical = canonicalSourceUrl(value);
+  if (!canonical) return "";
+  return new URL(canonical).hostname.replace(/^www\./, "").toLowerCase();
 }
 
 function concreteLocation(event: OutageEvent): boolean {
@@ -62,40 +58,42 @@ export function classifySource(input: {
   sourceName?: string | null;
 }): SourceIntelligence {
   const host = hostOf(input.url);
-  const text = normalizedText(input.title, input.sourceName, host);
   let source_kind: SourceKind = "other";
   let source_weight = 0.35;
   let is_official = 0;
 
-  const operatorHost = includesAny(host, [
-    "aew",
-    "bkw",
-    "ewz",
-    "primeo",
-    "ibw",
-    "ewl",
-    "groupe-e",
-    "romande-energie",
-    "axpo",
-    "swissgrid",
-    "ckw",
-    "strom",
-    "energie"
+  const operatorHosts = new Set(
+    SOURCE_REGISTRY_SEEDS
+      .filter((source) => source.trust_level === "official")
+      .map((source) => hostOf(source.url))
+      .filter(Boolean)
+  );
+  const publicHosts = new Set(["admin.ch", "alert.swiss", "alertswiss.ch", "ai.ch"]);
+  const localMediaHosts = new Set([
+    "nau.ch",
+    "aargauerzeitung.ch",
+    "tagblatt.ch",
+    "bote.ch",
+    "neo1.ch",
+    "freiburger-nachrichten.ch",
+    "baernerbaer.ch",
+    "march24.ch"
   ]);
-  const publicHost = includesAny(host, ["admin.ch", "polizei", "feuerwehr", "alertswiss"]);
-  const municipalContext = includesAny(text, ["gemeinde", "stadt", "kanton", "verwaltung"]);
+  const nationalMediaHosts = new Set(["srf.ch", "20min.ch", "blick.ch", "watson.ch", "tagesanzeiger.ch"]);
+  const operatorHost = operatorHosts.has(host);
+  const publicHost = publicHosts.has(host);
 
-  if (operatorHost || publicHost || municipalContext) {
+  if (operatorHost || publicHost) {
     source_kind = operatorHost ? "operator" : "official";
     source_weight = 1;
     is_official = 1;
-  } else if (includesAny(text, ["nau.ch", "aargauerzeitung", "tagblatt", "bote", "neo1", "freiburger-nachrichten", "baernerbaer", "march24"])) {
+  } else if (localMediaHosts.has(host)) {
     source_kind = "local_media";
     source_weight = 0.65;
-  } else if (includesAny(text, ["srf", "20min", "blick", "watson", "tagesanzeiger"])) {
+  } else if (nationalMediaHosts.has(host)) {
     source_kind = "national_media";
     source_weight = 0.6;
-  } else if (host.includes("google.") || input.sourceName === "Exa Search") {
+  } else if (host.startsWith("google.") || host === "google.com" || input.sourceName === "Exa Search") {
     source_kind = "aggregator";
     source_weight = 0.3;
   }
@@ -169,7 +167,7 @@ export function scoreEvent(event: OutageEvent, sources: OutageSource[]): EventSc
   const evidence_level: EvidenceLevel =
     hasOfficial && score >= 70
       ? "official"
-      : independentCount >= 2 && score >= 70
+      : independentCount >= 2 && score >= 65
         ? "corroborated"
         : score >= 65
           ? "plausible"

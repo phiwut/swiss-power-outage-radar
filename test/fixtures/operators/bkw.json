@@ -1,0 +1,22 @@
+[
+  {
+    "supplyZoneId": 1,
+    "plz": 3011,
+    "city": "Bern",
+    "supplyState": "FAILURE",
+    "latitude": 46.948,
+    "longitude": 7.447,
+    "failures": 1,
+    "disconnections": 0
+  },
+  {
+    "supplyZoneId": 2,
+    "plz": 2300,
+    "city": "La Cibourg",
+    "supplyState": "SUPPLIED",
+    "latitude": 47.11995,
+    "longitude": 6.87804,
+    "failures": 0,
+    "disconnections": 0
+  }
+]

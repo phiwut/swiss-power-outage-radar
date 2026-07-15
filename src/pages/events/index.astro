@@ -3,399 +3,92 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
 ---
 
 <RadarLayout
-  title="Stromausfall Detailansicht | outage.ch"
-  description="Detailansicht zu einem möglichen Stromausfall oder Netzunterbruch in der Schweiz mit Ort, Status, Ursache, Quellenlage und verständlicher Zusammenfassung."
+  title="Stromausfall-Meldung | outage.ch"
+  description="Bestätigte Stromausfall-Meldung mit bekannten Fakten und Originalquelle."
 >
-  <section class="grid gap-4 pb-24 pt-3 lg:pb-10">
-    <div>
-      <a href="/" class="control-button bg-surface2 px-3 py-2 text-sm font-semibold text-muted hover:text-ink">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-        Zur Übersicht
-      </a>
-    </div>
-    <div id="event-shell">
-      <div class="panel loading-stripe h-96 rounded-md"></div>
-    </div>
+  <section class="detail-page">
+    <a class="back-link" href="/">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      Alle Meldungen
+    </a>
+    <main id="event-shell" aria-live="polite" aria-busy="true">
+      <div class="detail-loading"></div>
+    </main>
   </section>
 
-  <dialog id="source-dialog" class="source-modal w-[min(900px,calc(100vw-24px))] rounded-md border border-rule bg-surface p-0 text-ink shadow-panel">
-    <div class="border-b border-rule px-4 py-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p class="section-label text-muted">Quellenauszug</p>
-          <h2 id="source-dialog-title" class="clamp-title mt-1 font-display text-xl font-bold"></h2>
-          <p id="source-dialog-meta" class="mt-1 text-sm text-muted"></p>
-        </div>
-        <button id="source-dialog-close" class="control-button bg-surface2 px-3 py-2 text-sm font-semibold text-muted" type="button">Schliessen</button>
-      </div>
-    </div>
-    <div class="grid gap-3 p-4">
-      <div id="source-dialog-summary" class="rounded-md border border-rule bg-surface2 p-3 text-base leading-7 text-ink"></div>
-      <div id="source-dialog-body" class="markdown-preview max-h-[56vh] overflow-auto rounded-md border border-rule bg-surface2 p-4"></div>
-      <a id="source-dialog-link" class="control-button justify-center border-ink bg-ink px-3 py-2 text-center font-semibold text-surface" rel="noreferrer" target="_blank">
-        Originalquelle öffnen
-      </a>
-    </div>
-  </dialog>
-
-  <nav class="fixed inset-x-2 bottom-2 z-40 grid grid-cols-2 gap-2 rounded-md border border-rule bg-surface/96 p-2 shadow-panel backdrop-blur lg:hidden">
-    <a href="/" class="control-button bg-surface2 px-3 py-2 text-sm font-semibold text-ink">Übersicht</a>
-    <button id="mobile-detail-refresh" class="control-button bg-ink px-3 py-2 text-sm font-semibold text-surface" type="button">Neu laden</button>
-  </nav>
-
   <script>
-    const id = location.pathname.match(/\/events\/(\d+)/)?.[1];
-    const fmt = new Intl.DateTimeFormat("de-CH", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Zurich" });
-
-    const labels = {
-      status: { active: "Aktiv", unknown: "Unklar", needs_review: "Zu prüfen", corroborated: "Mehrfach belegt", dismissed: "Verworfen", resolved: "Behoben" },
-      nature: { planned: "Geplant", unplanned: "Ungeplant", unknown: "Unklar" },
-      cause: {
-        planned_maintenance: "Wartung",
-        weather: "Wetter",
-        tree_or_overhead_line: "Baum / Freileitung",
-        construction_damage: "Bauarbeiten",
-        cable_damage: "Kabelschaden",
-        transformer_or_substation: "Trafostation",
-        technical_fault: "Technische Störung",
-        fire: "Brand",
-        overload: "Überlast",
-        third_party_damage: "Dritteinwirkung",
-        water_or_flooding: "Wasser",
-        unknown: "Unbekannt"
-      },
-      relevance: { main: "Hauptquelle", supporting: "Nebenquelle", context: "Kontext", unclear: "Unklar" }
-    };
-    const escapeHtml = (value) => String(value ?? "")
+    const eventId = location.pathname.match(/\/events\/(\d+)/)?.[1];
+    const shell = document.querySelector<HTMLElement>("#event-shell")!;
+    const escapeHtml = (value: unknown) => String(value ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;");
-    const label = (group, value) => labels[group]?.[value] ?? value ?? "-";
-    const icons = {
-      zap: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z"/></svg>`,
-      clock: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
-      check: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
-      external: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>`
-    };
-
-    let currentData = null;
-
-    function parseJson(value, fallback) {
-      try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
-    }
-    function parseFactSheet(event) {
-      return parseJson(event.fact_sheet_json, null);
-    }
-    function formatDate(value) {
-      if (!value) return "-";
+    const fmt = new Intl.DateTimeFormat("de-CH", {
+      dateStyle: "long", timeStyle: "short", timeZone: "Europe/Zurich"
+    });
+    const formatDate = (value: string) => {
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? value : fmt.format(date);
-    }
-    function hostFromUrl(value) {
-      try { return new URL(value).hostname.replace(/^www\./, ""); } catch { return value || "Quelle"; }
-    }
-    function stripMarkdown(value) {
-      return String(value ?? "")
-        .replace(/!\[[^\]]*]\([^)]+\)/g, "")
-        .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
-        .replace(/[#>*_`~]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-    function markdownInline(value) {
-      const escaped = escapeHtml(value);
-      return escaped
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/\[([^\]]+)]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
-    }
-    function renderMarkdownExcerpt(markdown) {
-      const blocks = String(markdown ?? "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean).slice(0, 28);
-      return blocks.map((block) => {
-        if (/^#{1,3}\s+/.test(block)) {
-          const text = block.replace(/^#{1,3}\s+/, "");
-          return `<h3>${markdownInline(text)}</h3>`;
-        }
-        if (/^[-*]\s+/m.test(block)) {
-          const items = block.split(/\n/).map((line) => line.replace(/^[-*]\s+/, "").trim()).filter(Boolean).map((item) => `<li>${markdownInline(item)}</li>`).join("");
-          return `<ul>${items}</ul>`;
-        }
-        return `<p>${markdownInline(block.replace(/\n/g, " "))}</p>`;
-      }).join("");
-    }
-    function incidentStatus(event) {
-      const fact = parseFactSheet(event);
-      if (event.status === "resolved" || fact?.status === "resolved") return "resolved";
-      if (fact?.status === "active") return "active";
-      if (event.status === "needs_review") return "needs_review";
-      return "unknown";
-    }
-    function sourceQualityLabel(event) {
-      if (event.evidence_level === "official" || event.evidence_level === "corroborated") return "stark";
-      if (event.evidence_level === "plausible" || Number(event.source_count ?? 0) >= 2) return "mittel";
-      return "schwach";
-    }
-    function certaintyLabel(event) {
-      if (event.evidence_level === "official" || event.evidence_level === "corroborated") return "Gut belegt";
-      if (event.evidence_level === "plausible" || Number(event.source_count ?? 0) >= 2) return "Wahrscheinlich";
-      return "Unklar";
-    }
-    function sourceSituation(event) {
-      if (event.evidence_level === "official") return "Offizielle Quelle";
-      if (Number(event.source_count ?? 0) >= 2) return "Mehrere Quellen";
-      if (Number(event.source_count ?? 0) === 1) return "1 Quelle";
-      return "Keine Quelle";
-    }
-    function eventDate(event) {
-      return event.started_at_estimate || event.first_seen_at || event.last_seen_at;
-    }
-    function durationText(event) {
-      if (!event.started_at_estimate || !event.resolved_at_estimate) return "Dauer nicht belegt";
-      return `${formatDate(event.started_at_estimate)} bis ${formatDate(event.resolved_at_estimate)}`;
-    }
-    function summaryText(event) {
-      const fact = parseFactSheet(event);
-      return fact?.summary_de || event.research_summary_de || event.summary || event.primary_source_title || "Noch keine belastbare Kurzfassung vorhanden.";
-    }
-    function eventTitle(event) {
-      const location = event.location_text || "Ort unklar";
-      return certaintyLabel(event) === "Gut belegt" ? `Stromausfall in ${location}` : `Möglicher Stromausfall in ${location}`;
-    }
-    function badgeClass(kind, value) {
-      if (kind === "status" && value === "active") return "badge-warn";
-      if (kind === "status" && value === "resolved") return "badge-ok";
-      if (kind === "quality" && value === "stark") return "badge-ok";
-      if (kind === "quality" && value === "mittel") return "badge-blue";
-      if (kind === "certainty" && value === "Gut belegt") return "badge-ok";
-      if (kind === "certainty" && value === "Wahrscheinlich") return "badge-blue";
-      return "badge-muted";
-    }
-    function statusIcon(status) {
-      if (status === "resolved") return icons.check;
-      if (status === "active") return icons.zap;
-      return icons.clock;
-    }
-    function publicFacts(facts) {
-      return (facts ?? [])
-        .filter((fact) => ["outage_happened", "planned_outage_notice", "location", "planned_nature", "status", "cause", "affected_area", "start_time", "end_time"].includes(fact.fact_type))
-        .map((fact) => {
-          const name = {
-            outage_happened: "Unterbruch",
-            planned_outage_notice: "Geplanter Unterbruch",
-            location: "Ort",
-            planned_nature: "Art",
-            status: "Status",
-            cause: "Ursache",
-            affected_area: "Betroffen",
-            start_time: "Beginn",
-            end_time: "Ende"
-          }[fact.fact_type] ?? fact.fact_type;
-          return `${name}: ${fact.value_text}${fact.evidence_excerpt ? ` - ${fact.evidence_excerpt}` : ""}`;
-        });
-    }
-    function renderFactList(items, empty) {
-      const rows = (items ?? []).filter(Boolean);
-      if (!rows.length) return `<p class="text-base leading-7 text-muted">${escapeHtml(empty)}</p>`;
-      return `<ul class="grid gap-2 text-base leading-7">${rows.map((item) => `<li class="rounded-md border border-rule bg-surface2 px-3 py-2">${escapeHtml(item)}</li>`).join("")}</ul>`;
-    }
-    function renderKnowledge(event, facts) {
-      const factSheet = parseFactSheet(event);
-      const confirmed = publicFacts(facts);
-      const open = [
-        event.outage_nature === "unknown" ? "Ob der Unterbruch geplant oder ungeplant war, ist nicht sicher belegt." : "",
-        event.cause_category === "unknown" ? "Die Ursache ist aus den Quellen noch nicht belastbar ableitbar." : "",
-        incidentStatus(event) === "unknown" ? "Der aktuelle Status ist unklar." : ""
-      ].filter(Boolean);
-      return `
-        <section class="grid gap-3 lg:grid-cols-2">
-          <div class="panel rounded-md p-4">
-            <p class="section-label text-muted">Belegt</p>
-            <h2 class="mt-1 font-display text-xl font-bold">Was wir wissen</h2>
-            <div class="mt-3">${renderFactList(confirmed.length ? confirmed : factSheet?.confirmed_facts, "Noch keine konkreten Fakten gespeichert.")}</div>
-          </div>
-          <div class="panel rounded-md p-4">
-            <p class="section-label text-muted">Offen</p>
-            <h2 class="mt-1 font-display text-xl font-bold">Was unklar ist</h2>
-            <div class="mt-3">${renderFactList(open.length ? open : factSheet?.open_questions, "Keine offenen Punkte gespeichert.")}</div>
-          </div>
+    };
+
+    async function load(): Promise<void> {
+      if (!eventId) throw new Error("Meldung nicht gefunden.");
+      const response = await fetch(`/api/public/events/${eventId}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Diese Meldung ist nicht mehr öffentlich verfügbar.");
+      const data = await response.json();
+      const item = data.item;
+      const facts = Array.isArray(data.known_facts) ? data.known_facts : [];
+      const trust = item.trust === "official" ? "Offizielle Quelle" : "Durch unabhängige Quellen bestätigt";
+      shell.innerHTML = `<article class="detail-card">
+        <header>
+          <p class="section-label text-accent">Eingegangen ${escapeHtml(formatDate(item.received_at))}</p>
+          <h1>${escapeHtml(item.location)}</h1>
+          <p class="summary">${escapeHtml(item.summary)}</p>
+        </header>
+        ${facts.length ? `<section class="known-facts"><h2>Bekannte Fakten</h2><dl>${facts.map((fact: { label: string; value: string }) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.label === "Beginn" || fact.label === "Behoben" ? formatDate(fact.value) : fact.value)}</dd></div>`).join("")}</dl></section>` : ""}
+        <section class="source-block">
+          <div><span>${escapeHtml(trust)}</span><strong>${escapeHtml(item.source.publisher)}</strong><small>${escapeHtml(item.source.domain)}</small></div>
+          <a href="${escapeHtml(item.source.url)}" target="_blank" rel="noreferrer">Originalquelle öffnen <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
         </section>
-      `;
+      </article>`;
+      shell.setAttribute("aria-busy", "false");
     }
-    function renderPlaces(places) {
-      const rows = (places ?? []).filter((entry) => ["affected", "possibly_affected"].includes(entry.role));
-      if (!rows.length) return "";
-      return `
-        <section class="panel rounded-md p-4">
-          <p class="section-label text-muted">Orte</p>
-          <h2 class="mt-1 font-display text-xl font-bold">Betroffene Orte</h2>
-          <div class="mt-3 flex flex-wrap gap-2">
-            ${rows.map((entry) => {
-              const place = entry.place || {};
-              const name = place.canonical_name || place.locality_name || place.municipality_name || "Ort unklar";
-              const meta = [place.postcode, place.municipality_name && place.municipality_name !== name ? place.municipality_name : null, place.canton_code].filter(Boolean).join(" · ");
-              return `<span class="rounded-md border border-rule bg-surface2 px-3 py-2 text-sm"><strong>${escapeHtml(name)}</strong>${meta ? `<span class="ml-2 text-muted">${escapeHtml(meta)}</span>` : ""}</span>`;
-            }).join("")}
-          </div>
-        </section>
-      `;
-    }
-    function renderTimeline(event) {
-      const rows = [
-        event.started_at_estimate ? ["Unterbruch gemeldet", formatDate(event.started_at_estimate)] : null,
-        ["Erstmals erkannt", formatDate(event.first_seen_at)],
-        event.resolved_at_estimate ? ["Als behoben erkannt", formatDate(event.resolved_at_estimate)] : null,
-        ["Letzte Aktualisierung", formatDate(event.last_seen_at)]
-      ].filter(Boolean);
-      return `
-        <section class="panel rounded-md p-4">
-          <p class="section-label text-muted">Zeitverlauf</p>
-          <h2 class="mt-1 font-display text-xl font-bold">Wann ist was passiert?</h2>
-          <ol class="mt-4 grid gap-3">
-            ${rows.map(([title, time]) => `
-              <li class="timeline-step rounded-md border border-rule bg-surface2 p-3">
-                <strong>${escapeHtml(title)}</strong>
-                <p class="mt-1 text-sm text-muted">${escapeHtml(time)}</p>
-              </li>
-            `).join("")}
-          </ol>
-        </section>
-      `;
-    }
-    function sourceDate(source, snapshot) {
-      return source.published_at || snapshot?.fetched_at || source.created_at || null;
-    }
-    function sourceSummary(source, snapshot) {
-      return snapshot?.public_summary_de || stripMarkdown(snapshot?.markdown_excerpt || "").slice(0, 360) || source.source_name || "Für diese Quelle liegt noch keine kompakte Zusammenfassung vor.";
-    }
-    function sourcePoints(snapshot) {
-      return parseJson(snapshot?.public_key_points_json, []);
-    }
-    function sourceFacts(snapshot) {
-      return parseJson(snapshot?.public_facts_json, {});
-    }
-    function openSourceDialog(source, snapshot) {
-      const dialog = document.querySelector("#source-dialog");
-      document.querySelector("#source-dialog-title").textContent = source.source_title || "Quelle";
-      document.querySelector("#source-dialog-meta").textContent = [source.source_name || hostFromUrl(source.source_url), sourceDate(source, snapshot) ? formatDate(sourceDate(source, snapshot)) : null, hostFromUrl(snapshot?.final_url || source.source_url)].filter(Boolean).join(" · ");
-      document.querySelector("#source-dialog-summary").textContent = sourceSummary(source, snapshot);
-      document.querySelector("#source-dialog-link").href = source.source_url;
-      document.querySelector("#source-dialog-body").innerHTML = snapshot?.markdown_excerpt ? renderMarkdownExcerpt(snapshot.markdown_excerpt) : `<p>Für diese Quelle ist kein Markdown-Auszug vorhanden. Öffne die Originalquelle für Details.</p>`;
-      dialog.showModal();
-    }
-    function renderSources(sources, snapshotsBySource) {
-      return `
-        <section class="panel rounded-md">
-          <div class="border-b border-rule p-4">
-            <p class="section-label text-muted">Quellen</p>
-            <h2 class="mt-1 font-display text-xl font-bold">Worauf sich die Einschätzung stützt</h2>
-            <p class="mt-2 text-base leading-7 text-muted">Jede Quelle wird als kurze Vorschau gezeigt. Der gespeicherte Markdown-Auszug öffnet sich erst auf Klick.</p>
-          </div>
-          <div class="grid gap-3 p-3">
-            ${sources.map((source) => {
-              const snapshot = snapshotsBySource.get(source.id);
-              const points = sourcePoints(snapshot);
-              const facts = sourceFacts(snapshot);
-              const relevance = snapshot?.public_relevance_label || (source.is_primary === 1 ? "main" : "supporting");
-              return `
-                <article class="source-card rounded-md border border-rule bg-surface p-3">
-                  <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px]">
-                    <div class="min-w-0">
-                      <div class="flex flex-wrap gap-2">
-                        <span class="pill ${relevance === "main" ? "badge-blue" : "badge-muted"}">${escapeHtml(label("relevance", relevance))}</span>
-                        ${source.is_official === 1 ? `<span class="pill badge-ok">Offiziell</span>` : ""}
-                        <span class="pill badge-muted">${escapeHtml(source.source_name || hostFromUrl(source.source_url))}</span>
-                      </div>
-                      <h3 class="clamp-title mt-3 font-display text-lg font-bold">${escapeHtml(source.source_title || "Quelle")}</h3>
-                      <p class="mt-2 text-base leading-7 text-muted">${escapeHtml(sourceSummary(source, snapshot))}</p>
-                      ${points.length ? `<ul class="mt-3 grid gap-1 text-sm leading-6 text-muted">${points.map((point) => `<li>- ${escapeHtml(point)}</li>`).join("")}</ul>` : ""}
-                      <div class="mt-3 flex flex-wrap gap-2">
-                        <button class="source-button control-button bg-ink px-3 py-2 text-sm font-semibold text-surface" data-source-id="${source.id}" type="button">Auszug lesen</button>
-                        <a class="control-button bg-surface2 px-3 py-2 text-sm font-semibold text-ink" href="${escapeHtml(source.source_url)}" target="_blank" rel="noreferrer">Original ${icons.external}</a>
-                      </div>
-                    </div>
-                    <dl class="grid gap-2 text-sm">
-                      <div class="rounded-md border border-rule bg-surface2 p-2"><dt class="section-label text-muted">Datum</dt><dd class="mt-1 font-semibold">${escapeHtml(sourceDate(source, snapshot) ? formatDate(sourceDate(source, snapshot)) : "nicht erkannt")}</dd></div>
-                      <div class="rounded-md border border-rule bg-surface2 p-2"><dt class="section-label text-muted">Ort</dt><dd class="mt-1 font-semibold">${escapeHtml(facts.location || "nicht belegt")}</dd></div>
-                      <div class="rounded-md border border-rule bg-surface2 p-2"><dt class="section-label text-muted">Ursache</dt><dd class="mt-1 font-semibold">${escapeHtml(facts.cause || "nicht belegt")}</dd></div>
-                      <div class="rounded-md border border-rule bg-surface2 p-2"><dt class="section-label text-muted">Status</dt><dd class="mt-1 font-semibold">${escapeHtml(facts.status || "nicht belegt")}</dd></div>
-                    </dl>
-                  </div>
-                </article>
-              `;
-            }).join("") || `<div class="rounded-md border border-rule bg-surface p-6 text-base text-muted">Keine Quellen gespeichert.</div>`}
-          </div>
-        </section>
-      `;
-    }
-    function renderEvent(data) {
-      currentData = data;
-      const event = data.event;
-      const sources = data.sources ?? [];
-      const snapshots = data.snapshots ?? [];
-      const snapshotsBySource = new Map(snapshots.filter((snapshot) => snapshot.outage_source_id !== null).map((snapshot) => [snapshot.outage_source_id, snapshot]));
-      const status = incidentStatus(event);
-      const quality = sourceQualityLabel(event);
-      const certainty = certaintyLabel(event);
-      document.title = `${eventTitle(event)} | outage.ch`;
-      document.querySelector("#event-shell").innerHTML = `
-        <article class="grid gap-4">
-          <section class="hero-surface rounded-md p-4 sm:p-6">
-            <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-              <div>
-                <div class="flex flex-wrap gap-2">
-                  <span class="pill ${badgeClass("status", status)}">${statusIcon(status)} ${escapeHtml(label("status", status))}</span>
-                  <span class="pill badge-muted">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
-                  <span class="pill badge-muted">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
-                  <span class="pill ${badgeClass("quality", quality)}">Quellenlage ${escapeHtml(quality)}</span>
-                  <span class="pill ${badgeClass("certainty", certainty)}">${escapeHtml(certainty)}</span>
-                </div>
-                <h1 class="clamp-title mt-4 font-display text-3xl font-bold leading-tight sm:text-5xl">${escapeHtml(eventTitle(event))}</h1>
-                <p class="mt-4 max-w-3xl text-lg leading-8 text-muted">${escapeHtml(summaryText(event))}</p>
-              </div>
-              <dl class="grid gap-2 rounded-md border border-rule bg-surface/90 p-3">
-                <div><dt class="section-label text-muted">Wo</dt><dd class="mt-1 text-xl font-bold">${escapeHtml(event.location_text || "Ort unklar")}</dd></div>
-                <div><dt class="section-label text-muted">Wann erkannt</dt><dd class="mt-1 font-semibold">${escapeHtml(formatDate(eventDate(event)))}</dd></div>
-                <div><dt class="section-label text-muted">Dauer</dt><dd class="mt-1 font-semibold">${escapeHtml(durationText(event))}</dd></div>
-                <div><dt class="section-label text-muted">Quellen</dt><dd class="mt-1 font-semibold">${escapeHtml(sourceSituation(event))}</dd></div>
-              </dl>
-            </div>
-          </section>
-          ${renderKnowledge(event, data.facts ?? [])}
-          ${renderPlaces(data.places ?? [])}
-          ${renderTimeline(event)}
-          ${renderSources(sources, snapshotsBySource)}
-          <section class="rounded-md border border-warn bg-warnsoft p-4 text-base leading-7">
-            Automatisch aus öffentlichen Quellen erstellt und nicht offiziell verifiziert. Bei kritischen Situationen bitte Quelle, Gemeinde, Netzbetreiber oder Behörden prüfen.
-          </section>
-        </article>
-      `;
-      document.querySelectorAll(".source-button").forEach((button) => {
-        button.addEventListener("click", () => {
-          const sourceId = Number(button.dataset.sourceId);
-          const source = sources.find((item) => item.id === sourceId);
-          const snapshot = snapshotsBySource.get(sourceId);
-          if (source) openSourceDialog(source, snapshot);
-        });
-      });
-    }
-    async function loadEvent() {
-      if (!id) throw new Error("Event-ID fehlt");
-      document.querySelector("#event-shell").classList.add("opacity-70");
-      const response = await fetch(`/api/public/events/${id}`, { cache: "no-store" });
-      if (response.status === 404) throw new Error("Ereignis nicht gefunden");
-      if (!response.ok) throw new Error("Ereignis konnte nicht geladen werden");
-      renderEvent(await response.json());
-      document.querySelector("#event-shell").classList.remove("opacity-70");
-    }
-    document.querySelector("#source-dialog-close").addEventListener("click", () => document.querySelector("#source-dialog").close());
-    document.querySelector("#mobile-detail-refresh").addEventListener("click", async (event) => {
-      event.currentTarget.textContent = "Lädt";
-      await loadEvent();
-      event.currentTarget.textContent = "Neu laden";
-    });
-    loadEvent().catch((error) => {
-      document.querySelector("#event-shell").innerHTML = `<div class="panel rounded-md p-8 text-danger">${escapeHtml(error.message)}</div>`;
+
+    load().catch((error) => {
+      shell.innerHTML = `<div class="detail-error"><strong>Meldung nicht verfügbar</strong><p>${escapeHtml(error instanceof Error ? error.message : String(error))}</p><a href="/">Zurück zur Übersicht</a></div>`;
+      shell.setAttribute("aria-busy", "false");
     });
   </script>
+
+  <style is:global>
+    .detail-page { margin: 0 auto; max-width: 860px; padding: 2rem 0 5rem; }
+    .back-link { align-items: center; color: var(--color-muted); display: inline-flex; font-size: .875rem; font-weight: 600; gap: .4rem; margin-bottom: 2rem; text-decoration: none; }
+    .back-link:hover { color: var(--color-ink); }
+    .detail-card { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .75rem; box-shadow: 0 18px 50px color-mix(in oklch, var(--color-ink) 7%, transparent); overflow: hidden; }
+    .detail-card > header { padding: clamp(1.5rem, 5vw, 3.5rem); }
+    .detail-card h1 { font-family: var(--font-display); font-size: clamp(2.25rem, 7vw, 4.25rem); font-weight: 800; letter-spacing: -.045em; line-height: 1; margin: .8rem 0 0; }
+    .summary { color: var(--color-muted); font-size: clamp(1.05rem, 2vw, 1.25rem); line-height: 1.7; margin: 1.5rem 0 0; max-width: 680px; }
+    .known-facts { border-top: 1px solid var(--color-rule); padding: clamp(1.5rem, 4vw, 2.5rem); }
+    .known-facts h2 { font-family: var(--font-display); font-size: 1.15rem; margin: 0 0 1rem; }
+    .known-facts dl { display: grid; gap: 0; margin: 0; }
+    .known-facts dl div { border-top: 1px solid var(--color-rule); display: grid; gap: 1rem; grid-template-columns: 120px 1fr; padding: .9rem 0; }
+    .known-facts dt { color: var(--color-muted); font-family: var(--font-mono); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; }
+    .known-facts dd { margin: 0; }
+    .source-block { align-items: center; background: var(--color-surface-2); border-top: 1px solid var(--color-rule); display: flex; gap: 1rem; justify-content: space-between; padding: 1.25rem clamp(1.5rem, 4vw, 2.5rem); }
+    .source-block div { display: grid; gap: .2rem; }
+    .source-block span, .source-block small { color: var(--color-muted); font-size: .72rem; }
+    .source-block a { align-items: center; background: var(--color-ink); border-radius: var(--radius-md); color: var(--color-surface); display: inline-flex; font-size: .85rem; font-weight: 600; gap: .45rem; min-height: 2.75rem; padding: .65rem 1rem; text-decoration: none; }
+    .detail-loading { animation: pulse 1.4s ease-in-out infinite; background: var(--color-surface-2); border-radius: .75rem; height: 420px; }
+    .detail-error { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .75rem; display: grid; gap: .75rem; padding: 3rem; text-align: center; }
+    .detail-error p { color: var(--color-muted); margin: 0; }
+    .detail-error a { color: var(--color-accent); }
+    @keyframes pulse { 50% { opacity: .58; } }
+    @media (max-width: 640px) {
+      .detail-page { padding-top: 1.25rem; }
+      .known-facts dl div { gap: .3rem; grid-template-columns: 1fr; }
+      .source-block { align-items: stretch; flex-direction: column; }
+      .source-block a { justify-content: center; }
+    }
+  </style>
 </RadarLayout>

@@ -1,0 +1,17 @@
+{
+  "current": [
+    {
+      "status": "PROGRESS",
+      "title": "Liestal (Rheinstrasse)",
+      "from": "2026-07-15T08:10:00.000Z"
+    }
+  ],
+  "done": [
+    {
+      "status": "RESOLVED",
+      "title": "Nuglar (Gempenstrasse)",
+      "from": "2026-07-13T19:09:00.000Z",
+      "to": "2026-07-14T00:30:00.000Z"
+    }
+  ]
+}

@@ -8,6 +8,8 @@ import {
   getOutageEventFacts,
   getOutageEventSources,
   getOutageEventSnapshots,
+  getPublicFeedItem,
+  getPublicFeedItems,
   getPublicStatus,
   getRecentItems,
   getSnapshotsNeedingPublicDigest,
@@ -19,7 +21,7 @@ import { summarizeSourceForPublic } from "./ai";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
-import { ingestFirecrawlWebhook, runAlertCheck } from "./runner";
+import { ingestFirecrawlWebhook, revalidatePublicEvents, runAlertCheck } from "./runner";
 import { isBearerAuthorized } from "./auth";
 import type { CheckAlertFeedsParams, Env } from "./types";
 
@@ -286,7 +288,17 @@ async function startWorkflow(env: Env, params: CheckAlertFeedsParams) {
 }
 
 export class CheckAlertFeedsWorkflow extends WorkflowEntrypoint<Env, CheckAlertFeedsParams> {
-  async run(_event: WorkflowEvent<CheckAlertFeedsParams>, step: WorkflowStep): Promise<void> {
+  async run(event: WorkflowEvent<CheckAlertFeedsParams>, step: WorkflowStep): Promise<void> {
+    if (event.payload.revalidatePublicEvents) {
+      await step.do("revalidate public events", async () => {
+        const report = await revalidatePublicEvents(this.env, {
+          apply: event.payload.apply === true,
+          limit: event.payload.limit
+        });
+        console.log(JSON.stringify({ type: "public_revalidation", ...report }));
+      });
+      return;
+    }
     await step.do(
       "check google alert feeds",
       {
@@ -311,29 +323,25 @@ export default {
     const asset = await assetResponse(env, request);
     if (asset) return asset;
 
-    if (url.pathname === "/api/public/status" && request.method === "GET") {
-      return json(await getPublicStatus(env.DB));
+    if ((url.pathname === "/api/public/events" || url.pathname === "/api/public/status") && request.method === "GET") {
+      const requestedLimit = Number(url.searchParams.get("limit") ?? 10);
+      const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(10, Math.floor(requestedLimit))) : 10;
+      const before = url.searchParams.get("before");
+      return json({
+        ...(await getPublicFeedItems(env.DB, { limit, before })),
+        generated_at: new Date().toISOString()
+      });
     }
 
     const publicEventMatch = url.pathname.match(/^\/api\/public\/events\/(\d+)$/);
     if (publicEventMatch && request.method === "GET") {
-      const event = await getOutageEvent(env.DB, Number(publicEventMatch[1]));
-      if (!event) return json({ error: "Not found" }, { status: 404 });
-      if (
-        event.status === "dismissed" ||
-        event.country !== "CH" ||
-        (event.public_status ?? "hidden") === "hidden" ||
-        (event.event_quality_state ?? "candidate_only") !== "publishable"
-      ) {
-        return json({ error: "Not found" }, { status: 404 });
-      }
+      const eventId = Number(publicEventMatch[1]);
+      const item = await getPublicFeedItem(env.DB, eventId);
+      if (!item) return json({ error: "Not found" }, { status: 404 });
       return json({
-        event,
-        sources: await getOutageEventSources(env.DB, event.id),
-        snapshots: await getOutageEventSnapshots(env.DB, event.id),
-        facts: await getOutageEventFacts(env.DB, event.id),
-        places: await getEventPlaces(env.DB, event.id),
-        merge_suggestions: await getMergeSuggestionsForEvent(env.DB, event.id)
+        item,
+        known_facts: [],
+        sources: [item.source]
       });
     }
 
@@ -374,6 +382,15 @@ export default {
       } catch (error) {
         return badRequest(error instanceof Error ? error.message : String(error));
       }
+    }
+
+    if (url.pathname === "/admin/events/revalidate" && request.method === "POST") {
+      if (!isAuthorized(request, env)) return unauthorized();
+      const body = await readJsonBody(request);
+      return json(await revalidatePublicEvents(env, {
+        apply: body.apply === true,
+        limit: typeof body.limit === "number" ? body.limit : undefined
+      }));
     }
 
     const adminMergeMatch = url.pathname.match(/^\/admin\/events\/(\d+)\/merge$/);

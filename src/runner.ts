@@ -2,18 +2,24 @@ import { assessIncidentValidity, classifyItem } from "./ai";
 import { assessCandidateEvidence } from "./candidate-quality";
 import {
   attachSourceToEvent,
+  applyPublicationDecision,
+  applyPublicationDecisions,
   createWorkflowRun,
   createOutageEvent,
   findCandidateEvents,
   finishWorkflowRun,
   getAlertItemById,
   getEventsNeedingIntelligence,
+  getEventsForPublicationRevalidation,
+  getEnabledSourceAuthorityHosts,
   getLatestAlertSnapshot,
   getLinkedRelevantItemsNeedingCandidate,
   getDueSourceRegistryEntries,
   getSourceRegistryEntryByUrl,
   getOutageEventSources,
+  getOutageEventFacts,
   getPendingOutageEventEmails,
+  getPublicationEvidenceForEvents,
   getUnlinkedRelevantItems,
   insertOutageCandidate,
   insertOutageFacts,
@@ -22,16 +28,16 @@ import {
   linkSourceObservationToAlert,
   linkSourceObservationToEvent,
   linkCandidateToEvent,
-  markOutageEventPublishable,
   markAiError,
   markAlertLinkedToEvent,
   markOutageEventEmailSent,
   markOutageEventUpdateEmailSent,
   markFiltered,
   recordEventVersion,
+  recordPublicationRevalidationRun,
   refreshOutageEventAfterSource,
   updateSourceRegistryHealth,
-  updateOutageEventPublicationGate,
+  updateOutageEventCandidateDetails,
   updateOutageEventMailDecision,
   updateClassification,
   upsertQaMetric,
@@ -40,7 +46,8 @@ import {
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { canAutoMergeLocation, canCreateEvent, makeEventTitle, normalizeLocation, scoreEventCandidate } from "./events";
 import { normalizeSwissLocation } from "./geo";
-import { decideNewEventMail, decideUpdateMail, independentSourceCount, officialSourceCount } from "./intelligence";
+import { decideNewEventMail, decideUpdateMail } from "./intelligence";
+import { evaluatePublicEvent } from "./publication";
 import { sendEventEmail } from "./email";
 import { cheapFilterItem } from "./filter";
 import { itemHash, parseRssFeed } from "./rss";
@@ -287,30 +294,16 @@ async function maybeAutoResearchHighConfidenceEvent(
 }
 
 async function applyPublicationGate(env: Env, event: OutageEvent): Promise<OutageEvent> {
-  const sources = await getOutageEventSources(env.DB, event.id);
-  const officialCount = officialSourceCount(sources);
-  const independentCount = independentSourceCount(sources);
-  const score = Number(event.event_score ?? 0);
-  const official = officialCount > 0;
-  const corroborated = independentCount >= 2 && score >= 70;
-
-  if (official || corroborated) {
-    return await updateOutageEventPublicationGate(env.DB, event.id, {
-      publicStatus: official ? "public_verified" : "public_auto",
-      verificationLevel: official ? "official_source" : "auto_analyzed",
-      eventQualityState: "publishable",
-      mailDecisionReason: official
-        ? `publish: official operator/source evidence (${officialCount})`
-        : `publish: ${independentCount} independent credible sources`
-    });
-  }
-
-  return await updateOutageEventPublicationGate(env.DB, event.id, {
-    publicStatus: "hidden",
-    verificationLevel: event.verification_level ?? "auto_analyzed",
-    eventQualityState: "candidate_only",
-    mailDecisionReason: `hold public: official_sources ${officialCount}, independent_sources ${independentCount}, score ${score}`
-  });
+  const [sources, facts, authorityHosts] = await Promise.all([
+    getOutageEventSources(env.DB, event.id),
+    getOutageEventFacts(env.DB, event.id),
+    getEnabledSourceAuthorityHosts(env.DB)
+  ]);
+  return await applyPublicationDecision(
+    env.DB,
+    event,
+    evaluatePublicEvent(event, sources, facts, { authorityHosts })
+  );
 }
 
 async function linkAlertToOutageEvent(
@@ -338,10 +331,6 @@ async function linkAlertToOutageEvent(
   let relationScore = best?.score ?? 100;
 
   if (!event) {
-    const publicStatus =
-      options.assessment?.facts.some((fact) => fact.verified_by === "official_source")
-        ? "public_verified"
-        : "public_auto";
     event = await createOutageEvent(env.DB, {
       title: makeEventTitle(classification),
       eventType: classification.event_type,
@@ -350,29 +339,23 @@ async function linkAlertToOutageEvent(
       canton: null,
       country: options.assessment?.is_ch_incident ? "CH" : classification.country,
       seenAt: item.published_at ?? item.fetched_at ?? now,
+      receivedAt: item.fetched_at ?? now,
       summary: classification.summary,
       reason: classification.reason,
       confidence: classification.confidence,
       primarySourceUrl: item.url,
       primarySourceTitle: item.title,
       startedAtEstimate,
-      publicStatus,
-      verificationLevel: publicStatus === "public_verified" ? "official_source" : "auto_analyzed",
+      publicStatus: "hidden",
+      verificationLevel: "auto_analyzed",
       locationGranularity: options.assessment?.location_granularity ?? "unknown",
-      eventQualityState: "publishable",
+      eventQualityState: "candidate_only",
       outageNature: options.assessment?.outage_nature ?? "unknown"
     });
     created = true;
   } else if (options.assessment?.publishable) {
-    event = await markOutageEventPublishable(env.DB, event.id, {
-      publicStatus: options.assessment.facts.some((fact) => fact.verified_by === "official_source")
-        ? "public_verified"
-        : "public_auto",
-      verificationLevel: options.assessment.facts.some((fact) => fact.verified_by === "official_source")
-        ? "official_source"
-        : "auto_analyzed",
+    event = await updateOutageEventCandidateDetails(env.DB, event.id, {
       locationGranularity: options.assessment.location_granularity,
-      eventQualityState: "publishable",
       outageNature: options.assessment.outage_nature,
       startedAtEstimate
     });
@@ -558,20 +541,14 @@ async function backfillLinkedCandidateQuality(
 
       const startedAtEstimate =
         assessment.facts.find((fact) => fact.fact_type === "start_time")?.value_text ?? null;
-      const publicStatus = assessment.facts.some((fact) => fact.verified_by === "official_source")
-        ? "public_verified"
-        : "public_auto";
-
-      await markOutageEventPublishable(env.DB, item.outage_event_id, {
-        publicStatus,
-        verificationLevel: publicStatus === "public_verified" ? "official_source" : "auto_analyzed",
+      let event = await updateOutageEventCandidateDetails(env.DB, item.outage_event_id, {
         locationGranularity: assessment.location_granularity,
-        eventQualityState: "publishable",
         outageNature: assessment.outage_nature,
         startedAtEstimate
       });
       await linkCandidateToEvent(env.DB, candidate.id, item.outage_event_id);
-      published += 1;
+      event = await applyPublicationGate(env, event);
+      if (event.event_quality_state === "publishable") published += 1;
     } catch (error) {
       errors.push(
         `candidate quality backfill item ${item.id}: ${
@@ -753,12 +730,14 @@ async function collectRegistrySources(env: Env): Promise<{
     const fetched = await fetchSourceObservations(env, source, checkedAt);
     if (fetched.usedFirecrawl) summary.firecrawlCreditsEstimated += 1;
     if (fetched.error) {
-      const needsItemAdapter = fetched.error.startsWith("parser_needs_adapter:");
+      const healthy = fetched.transportStatus === "ok" && ["ready", "no_current_outage"].includes(fetched.parserStatus);
       await updateSourceRegistryHealth(env.DB, source.id, {
         checkedAt,
-        success: needsItemAdapter,
+        success: healthy,
         error: fetched.error,
-        healthStatus: needsItemAdapter ? "healthy" : "degraded"
+        healthStatus: "degraded",
+        transportStatus: fetched.transportStatus,
+        parserStatus: fetched.parserStatus
       });
       continue;
     }
@@ -768,7 +747,10 @@ async function collectRegistrySources(env: Env): Promise<{
       checkedAt,
       success: true,
       error: null,
-      healthStatus: "healthy"
+      healthStatus: "healthy",
+      transportStatus: fetched.transportStatus,
+      parserStatus: fetched.parserStatus,
+      lastObservationAt: fetched.observations.length > 0 ? checkedAt : null
     });
 
     for (const input of fetched.observations) {
@@ -846,6 +828,74 @@ export async function ingestFirecrawlWebhook(
     eventId: stored.observation.outage_event_id,
     reason: result.classified ? "processed" : "stored"
   };
+}
+
+export async function revalidatePublicEvents(
+  env: Env,
+  options: { apply: boolean; limit?: number }
+): Promise<{
+  apply: boolean;
+  assessed: number;
+  publishable_before: number;
+  publishable_after: number;
+  changed: number;
+  decisions: Array<{
+    event_id: number;
+    before: { publishable: boolean; reason: string | null };
+    after: { publishable: boolean; trust: string | null; reasons: string[] };
+  }>;
+}> {
+  const events = await getEventsForPublicationRevalidation(env.DB, options.limit ?? 50);
+  const [authorityHosts, evidence] = await Promise.all([
+    getEnabledSourceAuthorityHosts(env.DB),
+    getPublicationEvidenceForEvents(env.DB, events.map((event) => event.id))
+  ]);
+  let publishableBefore = 0;
+  let publishableAfter = 0;
+  let changed = 0;
+  const decisions: Array<{
+    event_id: number;
+    before: { publishable: boolean; reason: string | null };
+    after: { publishable: boolean; trust: string | null; reasons: string[] };
+  }> = [];
+  const evaluated: Array<{ event: OutageEvent; decision: ReturnType<typeof evaluatePublicEvent> }> = [];
+
+  for (const event of events) {
+    const sources = evidence.sources.get(event.id) ?? [];
+    const facts = evidence.facts.get(event.id) ?? [];
+    const decision = evaluatePublicEvent(event, sources, facts, { authorityHosts });
+    const wasPublishable = event.public_status !== "hidden" && event.event_quality_state === "publishable";
+    if (wasPublishable) publishableBefore += 1;
+    if (decision.publishable) publishableAfter += 1;
+    if (wasPublishable !== decision.publishable) changed += 1;
+    decisions.push({
+      event_id: event.id,
+      before: { publishable: wasPublishable, reason: event.mail_decision_reason },
+      after: {
+        publishable: decision.publishable,
+        trust: decision.trust,
+        reasons: decision.reasons
+      }
+    });
+    evaluated.push({ event, decision });
+  }
+
+  const report = {
+    apply: options.apply,
+    assessed: events.length,
+    publishable_before: publishableBefore,
+    publishable_after: publishableAfter,
+    changed,
+    decisions
+  };
+  if (options.apply) {
+    // With 46 current events this remains exactly within D1 Free's 50-query
+    // Worker invocation budget (4 reads + 46 decision upserts).
+    await applyPublicationDecisions(env.DB, evaluated);
+  } else {
+    await recordPublicationRevalidationRun(env.DB, report);
+  }
+  return report;
 }
 
 export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {

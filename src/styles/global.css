@@ -22,14 +22,7 @@ body {
   min-height: 100%;
   margin: 0;
   overflow-x: clip;
-  background:
-    radial-gradient(circle at 12% 0%, color-mix(in oklch, var(--color-accent-soft) 42%, transparent), transparent 30rem),
-    linear-gradient(180deg, color-mix(in oklch, white 70%, var(--color-bg)), var(--color-bg) 26rem),
-    linear-gradient(var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
-    linear-gradient(90deg, var(--color-rule) var(--rule-thin), transparent var(--rule-thin)),
-    var(--color-bg);
-  background-size: auto, auto, 44px 44px, 44px 44px, auto;
-  background-position: center, center, -1px -1px, -1px -1px, center;
+  background: linear-gradient(180deg, color-mix(in oklch, white 65%, var(--color-bg)), var(--color-bg) 32rem);
 }
 
 * {

@@ -8,6 +8,8 @@ export type SourceRegistryCategory =
   | "needs_adapter";
 export type SourceTrustLevel = "official" | "credible" | "aggregator" | "unknown";
 export type SourceHealthStatus = "unknown" | "healthy" | "degraded" | "failing" | "paused";
+export type SourceTransportStatus = "unknown" | "ok" | "error";
+export type SourceParserStatus = "unknown" | "ready" | "no_current_outage" | "needs_adapter" | "error";
 export type CanonicalObservationStatus =
   | "planned"
   | "unplanned"
@@ -65,6 +67,7 @@ export interface StoredAlertItem extends NormalizedRssItem {
   email_sent_at: string | null;
   outage_event_id: number | null;
   event_linked_at: string | null;
+  source_observation_id?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -126,6 +129,7 @@ export type SourceKind = "official" | "local_media" | "national_media" | "operat
 export type PublicStatus = "hidden" | "public_auto" | "public_verified";
 export type VerificationLevel = "auto_analyzed" | "official_source" | "admin_verified";
 export type EventQualityState = "candidate_only" | "publishable" | "needs_review" | "rejected";
+export type PublicTrust = "official" | "corroborated";
 export type GeoPlaceType = "canton" | "district" | "municipality" | "locality" | "postcode" | "street";
 export type EventPlaceRole = "affected" | "possibly_affected" | "context" | "operator_area" | "dismissed";
 export type LocationGranularity =
@@ -180,6 +184,7 @@ export interface OutageEvent {
   country: "CH" | "other" | "unknown" | null;
   first_seen_at: string;
   last_seen_at: string;
+  received_at?: string | null;
   started_at_estimate: string | null;
   resolved_at_estimate: string | null;
   summary: string | null;
@@ -229,7 +234,35 @@ export interface OutageSource {
   source_weight: number | null;
   is_official: number | null;
   independence_key: string | null;
+  source_registry_id?: number | null;
+  source_observation_id?: number | null;
   created_at: string;
+}
+
+export interface PublicCanonicalSource {
+  publisher: string;
+  url: string;
+  domain: string;
+}
+
+export interface PublicationDecision {
+  publishable: boolean;
+  trust: PublicTrust | null;
+  reasons: string[];
+  summary: string | null;
+  primary_source: PublicCanonicalSource | null;
+}
+
+export interface PublicFeedItem {
+  id: number;
+  location: string;
+  received_at: string;
+  started_at: string | null;
+  resolved_at: string | null;
+  status: "active" | "resolved" | null;
+  summary: string;
+  trust: PublicTrust;
+  source: PublicCanonicalSource;
 }
 
 export interface SourceSnapshot {
@@ -276,6 +309,9 @@ export interface SourceRegistryEntry {
   last_success_at: string | null;
   last_error: string | null;
   health_status: SourceHealthStatus;
+  transport_status?: SourceTransportStatus;
+  parser_status?: SourceParserStatus;
+  last_observation_at?: string | null;
   consecutive_failures: number;
   enabled: number;
   created_at: string;
@@ -363,6 +399,9 @@ export interface OutageFact {
   evidence_excerpt: string;
   source_role: string | null;
   verified_by: VerificationLevel | "auto" | null;
+  source_observation_id?: number | null;
+  observed_at?: string | null;
+  extractor_version?: string | null;
   created_at: string;
 }
 
@@ -535,4 +574,7 @@ export interface CheckAlertFeedsParams {
   cron?: string;
   scheduledTime?: number;
   requestedAt?: string;
+  revalidatePublicEvents?: boolean;
+  apply?: boolean;
+  limit?: number;
 }

@@ -19,6 +19,7 @@ export interface SourceRegistrySeed {
     no_outage_terms?: string[];
     historical_terms?: string[];
     planned_terms?: string[];
+    api_url?: string;
   };
 }
 
@@ -40,14 +41,14 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     source_key: "bkw-outage",
     operator_name: "BKW",
     source_type: "html",
-    source_category: "needs_adapter",
+    source_category: "outage_map",
     url: "https://outage.bkw.ch/",
     area_text: "BKW Versorgungsgebiet in Bern, Jura, Solothurn, Neuenburg und angrenzenden Gebieten",
     trust_level: "official",
     check_interval_minutes: 10,
     priority: 100,
     firecrawl_enabled: 1,
-    adapter_config: { language: "de", status_mode: "js_outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+    adapter_config: { language: "de", status_mode: "operator_api", api_url: "https://api-outage.bkw.ch/api/services/supplyZone/state", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
   },
   {
     source_key: "romande-energie-pannes",
@@ -60,7 +61,7 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     check_interval_minutes: 10,
     priority: 98,
     firecrawl_enabled: 1,
-    adapter_config: { language: "fr", status_mode: "outage_map", utility_filter: "electricity_only", no_outage_terms: ["aucune panne", "pas de panne", ...commonNoOutageTerms] }
+    adapter_config: { language: "fr", status_mode: "operator_api", api_url: "https://www.romande-energie.ch/re_infopannes/data", utility_filter: "electricity_only", no_outage_terms: ["aucune panne", "pas de panne", ...commonNoOutageTerms] }
   },
   {
     source_key: "ewz-stoerungen",
@@ -86,7 +87,7 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     check_interval_minutes: 10,
     priority: 94,
     firecrawl_enabled: 1,
-    adapter_config: { language: "de", status_mode: "js_outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+    adapter_config: { language: "de", status_mode: "operator_api", api_url: "https://netzstatus.sak.ch/api/v1/failures", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
   },
   {
     source_key: "ckw-stoerungen",
@@ -138,7 +139,7 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     check_interval_minutes: 10,
     priority: 86,
     firecrawl_enabled: 1,
-    adapter_config: { language: "de", status_mode: "outage_map", utility_filter: "electricity_only", no_outage_terms: ["no disruptions", "no outages", ...commonNoOutageTerms] }
+    adapter_config: { language: "de", status_mode: "operator_api", api_url: "https://www.primeo-energie.ch/magnolia/.rest/primeo/v1/gridStatus.json?limit=20", utility_filter: "electricity_only", no_outage_terms: ["no disruptions", "no outages", ...commonNoOutageTerms] }
   },
   {
     source_key: "ebl-stoerungen",

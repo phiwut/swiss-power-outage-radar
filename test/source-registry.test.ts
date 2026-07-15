@@ -3,6 +3,12 @@ import { scoreEvent, classifySource } from "../src/intelligence";
 import { fetchSourceObservations, makeSourceObservationFromText } from "../src/source-adapters";
 import { assessSourceObservation, observationToClassification } from "../src/source-quality";
 import type { OutageEvent, OutageSource, SourceObservation, SourceRegistryEntry } from "../src/types";
+import bkwFixture from "./fixtures/operators/bkw.json?raw";
+import ewzFixture from "./fixtures/operators/ewz.html?raw";
+import ewzNoCurrentFixture from "./fixtures/operators/ewz-no-current.html?raw";
+import primeoFixture from "./fixtures/operators/primeo.json?raw";
+import romandeFixture from "./fixtures/operators/romande-energie.json?raw";
+import sakFixture from "./fixtures/operators/sak.json?raw";
 
 function registry(patch: Partial<SourceRegistryEntry> = {}): SourceRegistryEntry {
   return {
@@ -225,7 +231,7 @@ describe("source registry observations", () => {
       vi
         .fn()
         .mockResolvedValueOnce(
-          new Response("<html><body>Aktuell Stromausfall Stadt Zürich. Aktuell sind keine Störungen bekannt.</body></html>", {
+          new Response("<html><body>Aktuell Stromausfall Stadt Zürich. Aktuell sind keine Störungen bekannt.<article class='stoerung-card'>Archiv: Stromausfall in Bern.</article></body></html>", {
             status: 200,
             headers: { "content-type": "text/html" }
           })
@@ -240,24 +246,28 @@ describe("source registry observations", () => {
         )
     );
 
-    const noOutage = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry(), "2026-07-10T08:00:00.000Z");
+    const noOutage = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry({ source_key: "generic-no-outage" }), "2026-07-10T08:00:00.000Z");
     const parserFailure = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry({ source_key: "spa-shell" }), "2026-07-10T08:00:00.000Z");
     const unreachable = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry({ source_key: "http-503" }), "2026-07-10T08:00:00.000Z");
     const deepNoOutage = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry({ source_key: "deep-no-outage" }), "2026-07-10T08:00:00.000Z");
     const attrNoOutage = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry({ source_key: "attr-no-outage" }), "2026-07-10T08:00:00.000Z");
 
     expect(noOutage.error).toBeNull();
+    expect(noOutage.transportStatus).toBe("ok");
+    expect(noOutage.parserStatus).toBe("no_current_outage");
     expect(noOutage.observations[0].canonicalStatus).toBe("irrelevant");
     expect(noOutage.observations[0].locationText).toBeNull();
     expect(parserFailure.error).toContain("parser_empty_content");
+    expect(parserFailure.parserStatus).toBe("error");
     expect(parserFailure.observations).toHaveLength(0);
     expect(unreachable.error).toBe("HTTP 503");
+    expect(unreachable.transportStatus).toBe("error");
     expect(unreachable.observations).toHaveLength(0);
     expect(deepNoOutage.observations[0].canonicalStatus).toBe("irrelevant");
     expect(attrNoOutage.observations[0].canonicalStatus).toBe("irrelevant");
   });
 
-  it("blocks generic positive HTML pages unless the source explicitly allows them", async () => {
+  it("blocks generic positive HTML pages even when legacy config allowed whole-page positives", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -272,17 +282,114 @@ describe("source registry observations", () => {
         )
     );
 
-    const blocked = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry(), "2026-07-10T08:00:00.000Z");
+    const blocked = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, registry({ source_key: "generic-positive" }), "2026-07-10T08:00:00.000Z");
     const allowed = await fetchSourceObservations(
       { FIRECRAWL_API_KEY: undefined },
-      registry({ adapter_config_json: '{"allow_generic_positive":true}' }),
+      registry({ source_key: "generic-positive-legacy", adapter_config_json: '{"allow_generic_positive":true}' }),
       "2026-07-10T08:00:00.000Z"
     );
 
     expect(blocked.error).toContain("parser_needs_adapter");
     expect(blocked.observations).toHaveLength(0);
-    expect(allowed.error).toBeNull();
-    expect(allowed.observations[0].canonicalStatus).toBe("unplanned");
+    expect(blocked.parserStatus).toBe("needs_adapter");
+    expect(allowed.error).toContain("parser_needs_adapter");
+    expect(allowed.observations).toHaveLength(0);
+  });
+
+  it.each([
+    ["bkw-outage", "BKW", bkwFixture, "https://api-outage.bkw.ch/api/services/supplyZone/state", "unplanned", "3011 Bern"],
+    ["sak-netzstatus", "SAK", sakFixture, "https://netzstatus.sak.ch/api/v1/failures", "planned", "Herrentoebeli"],
+    ["primeo-netzstatus", "Primeo Energie", primeoFixture, "https://www.primeo-energie.ch/magnolia/.rest/primeo/v1/gridStatus.json?limit=20", "unplanned", "Liestal"]
+  ])("parses the verified %s operator API contract", async (sourceKey, operatorName, payload, apiUrl, status, location) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(payload, { status: 200 })));
+    const source = registry({
+      source_key: sourceKey,
+      operator_name: operatorName,
+      adapter_config_json: JSON.stringify({ api_url: apiUrl })
+    });
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      source,
+      "2026-07-15T09:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.transportStatus).toBe("ok");
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].canonicalStatus).toBe(status);
+    expect(result.observations[0].locationText).toContain(location);
+  });
+
+  it("parses Romande Energie geometry but withholds publication when the live contract has no locality", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(romandeFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "romande-energie-pannes",
+        operator_name: "Romande Energie",
+        adapter_config_json: '{"api_url":"https://www.romande-energie.ch/re_infopannes/data"}'
+      }),
+      "2026-07-15T09:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].canonicalStatus).toBe("planned");
+    expect(result.observations[0].locationText).toBeNull();
+  });
+
+  it("parses the live ewz incident component and recognizes its real no-current message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(new Response(ewzFixture, { status: 200 }))
+        .mockResolvedValueOnce(new Response(ewzNoCurrentFixture, { status: 200 }))
+    );
+    const source = registry({ source_key: "ewz-stoerungen", operator_name: "ewz" });
+
+    const positive = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, source, "2026-07-15T09:00:00.000Z");
+    const negative = await fetchSourceObservations({ FIRECRAWL_API_KEY: undefined }, source, "2026-07-15T09:00:00.000Z");
+
+    expect(positive.parserStatus).toBe("ready");
+    expect(positive.observations).toHaveLength(1);
+    expect(positive.observations[0].locationText).toBe("Zürich");
+    expect(negative.parserStatus).toBe("no_current_outage");
+    expect(negative.observations).toHaveLength(0);
+  });
+
+  it("fails closed when a verified operator API changes schema", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"unexpected":true}', { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "bkw-outage",
+        adapter_config_json: '{"api_url":"https://api-outage.bkw.ch/api/services/supplyZone/state"}'
+      }),
+      "2026-07-15T09:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("needs_adapter");
+    expect(result.observations).toHaveLength(0);
+    expect(result.error).toContain("schema_changed");
+  });
+
+  it.each([
+    ["bkw-outage", "https://api-outage.bkw.ch/api/services/supplyZone/state", '[{"supplyState":"MAINTENANCE","city":"Bern"}]'],
+    ["sak-netzstatus", "https://netzstatus.sak.ch/api/v1/failures", '[{"title":"Netzstörung Bern","status":9,"category":0,"start_date":"2026-07-15T08:00:00Z"}]'],
+    ["romande-energie-pannes", "https://www.romande-energie.ch/re_infopannes/data", '[{"genre":"information","date_debut":"2026-07-15T08:00:00Z","geojson":{"type":"FeatureCollection","features":[]}}]'],
+    ["primeo-netzstatus", "https://www.primeo-energie.ch/magnolia/.rest/primeo/v1/gridStatus.json?limit=20", '{"current":[{"status":"ACKNOWLEDGED","title":"Liestal"}],"done":[]}']
+  ])("fails closed on unknown %s operator enums", async (sourceKey, apiUrl, payload) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(payload, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({ source_key: sourceKey, adapter_config_json: JSON.stringify({ api_url: apiUrl }) }),
+      "2026-07-15T09:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("needs_adapter");
+    expect(result.observations).toHaveLength(0);
+    expect(result.error).toContain("schema_changed");
   });
 
   it("keeps single non-official discoveries below public corroboration while official sources pass", () => {

@@ -3,316 +3,216 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 ---
 
 <RadarLayout
-  title="Stromausfall Schweiz aktuell | outage.ch"
-  description="Stromausfall Radar für die Schweiz: aktuelle öffentliche Hinweise zu Stromausfällen, Netzunterbrüchen, Status, Ursache, Ort und Quellenlage."
+  title="Letzte Stromausfall-Meldungen Schweiz | outage.ch"
+  description="Die zuletzt eingegangenen, bestätigten Stromausfall-Meldungen für die Schweiz – chronologisch und mit Originalquelle."
 >
-  <section class="grid gap-4 pb-28 pt-3 lg:pb-10">
-    <div class="hero-surface rounded-md p-4 sm:p-6">
-      <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-        <div>
-          <p class="section-label text-accent">Schweiz · öffentliche Hinweise</p>
-          <h1 class="mt-2 max-w-4xl font-display text-3xl font-bold leading-tight sm:text-5xl">
-            Wo ist Strom ausgefallen?
-          </h1>
-          <p class="mt-3 max-w-2xl text-base leading-7 text-muted">
-            outage.ch verdichtet öffentliche Meldungen zu Stromausfällen und Netzunterbrüchen. Entscheidend sind Ort, Status, Art, Ursache und wie gut die Quellenlage ist.
-          </p>
-        </div>
-        <div class="rounded-md border border-rule bg-surface/90 p-3">
-          <label class="section-label text-muted" for="event-search">Ort oder Quelle suchen</label>
-          <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <div class="relative">
-              <svg class="icon absolute left-3 top-1/2 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="7"/></svg>
-              <input id="event-search" class="h-11 w-full rounded-md border border-rule bg-surface pl-10 pr-3 text-base text-ink placeholder:text-faint" placeholder="z.B. Belp, Zürich, EW" />
-            </div>
-            <button id="refresh-button" class="control-button bg-ink px-4 py-2 font-semibold text-surface" type="button">
-              Aktualisieren
-            </button>
-          </div>
-        </div>
-      </div>
+  <section class="feed-page">
+    <header class="feed-intro">
+      <p class="section-label text-accent">Schweiz · bestätigt</p>
+      <h1>Letzte Stromausfall-Meldungen</h1>
+      <p>Chronologisch nach Eingang. Gezeigt werden nur Meldungen mit offizieller Quelle oder unabhängiger Bestätigung.</p>
+    </header>
 
-      <div id="public-metrics" class="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4">
-        {["Aktuelle Hinweise", "Aktiv oder unklar", "Gut belegt", "Behoben"].map((label) => (
-          <div class="loading-stripe h-20 rounded-md border border-rule bg-surface/70 p-3">
-            <span class="section-label text-muted">{label}</span>
-          </div>
-        ))}
-      </div>
+    <div class="feed-tools" aria-label="Meldungen filtern und aktualisieren">
+      <label class="search-field">
+        <span class="sr-only">Ort suchen</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input id="event-search" type="search" placeholder="Ort suchen" autocomplete="off" />
+      </label>
+      <button id="refresh-button" type="button">Aktualisieren</button>
     </div>
 
-    <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <main class="panel overflow-hidden rounded-md">
-        <div class="grid gap-3 border-b border-rule p-3 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div>
-            <p class="section-label text-muted">Chronologisch</p>
-            <h2 class="mt-1 font-display text-xl font-bold">Gemeldete Stromausfälle</h2>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <select id="status-filter" class="h-11 rounded-md border border-rule bg-surface px-3 text-base text-ink">
-              <option value="public">Aktuelle Ereignisse</option>
-              <option value="active">Aktiv / unklar</option>
-              <option value="resolved">Behoben</option>
-              <option value="all">Alle sichtbaren Ereignisse</option>
-            </select>
-            <span id="event-count" class="grid h-11 place-items-center rounded-md border border-rule bg-surface2 px-3 text-sm font-semibold text-muted">-</span>
-          </div>
-        </div>
-        <div id="events-list" class="event-timeline grid gap-2 p-2 sm:p-3">
-          <div class="loading-stripe h-36 rounded-md bg-surface2"></div>
-          <div class="loading-stripe h-36 rounded-md bg-surface2"></div>
-        </div>
-      </main>
+    <main class="feed-shell" aria-live="polite" aria-busy="true">
+      <div id="events-list" class="feed-list">
+        <div class="feed-loading"></div>
+        <div class="feed-loading"></div>
+        <div class="feed-loading"></div>
+      </div>
+      <div class="feed-footer">
+        <button id="load-more" type="button" hidden>Weitere laden</button>
+        <p id="feed-note">Meldungen werden geladen …</p>
+      </div>
+    </main>
 
-      <aside class="grid h-fit gap-4">
-        <section class="panel rounded-md p-4">
-          <p class="section-label text-muted">Aktivität</p>
-          <h2 class="mt-1 font-display text-lg font-bold">Letzte 28 Tage</h2>
-          <div id="activity-strip" class="mt-4 grid grid-cols-14 gap-1" aria-label="Aktivität der letzten 28 Tage">
-            {Array.from({ length: 28 }).map(() => <span class="h-5 rounded-sm bg-surface2"></span>)}
-          </div>
-          <p class="mt-3 text-sm leading-6 text-muted">Dunklere Felder bedeuten mehr erkannte Ereignisse an diesem Tag.</p>
-        </section>
-
-        <section class="panel rounded-md p-4">
-          <p class="section-label text-muted">Lesart</p>
-          <div class="mt-3 grid gap-3 text-sm leading-6 text-muted">
-            <p><strong class="text-ink">Quellenlage:</strong> schwach, mittel oder stark statt interner Bewertungen.</p>
-            <p><strong class="text-ink">Dauer:</strong> nur sichtbar, wenn Beginn und Ende aus Quellen ableitbar sind.</p>
-            <p><strong class="text-ink">Hinweis:</strong> Dies ist kein offizieller Störungsmelder.</p>
-          </div>
-        </section>
-      </aside>
-    </section>
+    <p class="public-note">outage.ch ist ein unabhängiger öffentlicher Radar und kein offizieller Notfallkanal.</p>
   </section>
 
-  <nav class="fixed inset-x-2 bottom-2 z-40 grid gap-2 rounded-md border border-rule bg-surface/96 p-2 shadow-panel backdrop-blur lg:hidden">
-    <input id="mobile-search" class="h-11 rounded-md border border-rule bg-surface2 px-3 text-base text-ink placeholder:text-faint" placeholder="Ort suchen" />
-    <div class="grid grid-cols-[1fr_auto] gap-2">
-      <select id="mobile-status-filter" class="min-w-0 rounded-md border border-rule bg-surface2 px-3 py-2 text-base text-ink">
-        <option value="public">Aktuell</option>
-        <option value="active">Aktiv / unklar</option>
-        <option value="resolved">Behoben</option>
-        <option value="all">Alle</option>
-      </select>
-      <button id="mobile-refresh" class="control-button bg-ink px-4 py-2 font-semibold text-surface" type="button">Neu</button>
-    </div>
-  </nav>
-
   <script>
-    const fmt = new Intl.DateTimeFormat("de-CH", {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "Europe/Zurich"
-    });
-    const dayFmt = new Intl.DateTimeFormat("de-CH", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "Europe/Zurich" });
-
-    const viewState = { events: [], status: "public", query: "", data: null };
-
-    const labels = {
-      status: { active: "Aktiv", resolved: "Behoben", unknown: "Unklar", needs_review: "Zu prüfen", corroborated: "Mehrfach belegt" },
-      nature: { planned: "Geplant", unplanned: "Ungeplant", unknown: "Unklar" },
-      cause: {
-        planned_maintenance: "Wartung",
-        weather: "Wetter",
-        tree_or_overhead_line: "Baum / Freileitung",
-        construction_damage: "Bauarbeiten",
-        cable_damage: "Kabelschaden",
-        transformer_or_substation: "Trafostation",
-        technical_fault: "Technische Störung",
-        fire: "Brand",
-        overload: "Überlast",
-        third_party_damage: "Dritteinwirkung",
-        water_or_flooding: "Wasser",
-        unknown: "Unbekannt"
-      }
+    type PublicItem = {
+      id: number;
+      location: string;
+      received_at: string;
+      started_at: string | null;
+      resolved_at: string | null;
+      status: "active" | "resolved" | null;
+      summary: string;
+      trust: "official" | "corroborated";
+      source: { publisher: string; url: string; domain: string };
     };
 
-    const escapeHtml = (value) => String(value ?? "")
+    const state: { items: PublicItem[]; nextCursor: string | null; query: string; loading: boolean; generatedAt: string | null } = {
+      items: [],
+      nextCursor: null,
+      query: "",
+      loading: false,
+      generatedAt: null
+    };
+    const list = document.querySelector<HTMLElement>("#events-list")!;
+    const shell = document.querySelector<HTMLElement>(".feed-shell")!;
+    const note = document.querySelector<HTMLElement>("#feed-note")!;
+    const loadMore = document.querySelector<HTMLButtonElement>("#load-more")!;
+    const refresh = document.querySelector<HTMLButtonElement>("#refresh-button")!;
+
+    const escapeHtml = (value: unknown) => String(value ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;");
-    const label = (group, value) => labels[group]?.[value] ?? value ?? "-";
 
-    const icons = {
-      arrow: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>`,
-      zap: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z"/></svg>`,
-      check: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
-      clock: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
-      source: `<svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>`
-    };
-
-    function parseFactSheet(event) {
-      try { return event.fact_sheet_json ? JSON.parse(event.fact_sheet_json) : null; } catch { return null; }
-    }
-    function formatDate(value) {
-      if (!value) return "-";
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? value : fmt.format(date);
-    }
-    function dayKey(value) {
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return "";
-      return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-    }
-    function incidentStatus(event) {
-      const fact = parseFactSheet(event);
-      if (event.status === "resolved" || fact?.status === "resolved") return "resolved";
-      if (fact?.status === "active") return "active";
-      if (event.status === "needs_review") return "needs_review";
-      return "unknown";
-    }
-    function sourceQualityLabel(event) {
-      if (event.evidence_level === "official" || event.evidence_level === "corroborated") return "stark";
-      if (event.evidence_level === "plausible" || Number(event.source_count ?? 0) >= 2) return "mittel";
-      return "schwach";
-    }
-    function certaintyLabel(event) {
-      if (event.evidence_level === "official" || event.evidence_level === "corroborated") return "Gut belegt";
-      if (event.evidence_level === "plausible" || Number(event.source_count ?? 0) >= 2) return "Wahrscheinlich";
-      return "Unklar";
-    }
-    function sourceLabel(event) {
-      if (event.evidence_level === "official") return "offizielle Quelle";
-      if (Number(event.source_count ?? 0) >= 2) return "mehrere Quellen";
-      if (Number(event.source_count ?? 0) === 1) return "1 Quelle";
-      return "keine Quelle";
-    }
-    function eventDate(event) {
-      return event.started_at_estimate || event.first_seen_at || event.last_seen_at;
-    }
-    function summaryText(event) {
-      const fact = parseFactSheet(event);
-      return fact?.summary_de || event.research_summary_de || event.summary || event.primary_source_title || "Noch keine belastbare Kurzfassung vorhanden.";
-    }
-    function durationText(event) {
-      if (!event.started_at_estimate || !event.resolved_at_estimate) return "Dauer nicht belegt";
-      return `${formatDate(event.started_at_estimate)} bis ${formatDate(event.resolved_at_estimate)}`;
-    }
-    function badgeClass(kind, value) {
-      if (kind === "status" && value === "active") return "badge-warn";
-      if (kind === "status" && value === "resolved") return "badge-ok";
-      if (kind === "quality" && value === "stark") return "badge-ok";
-      if (kind === "quality" && value === "mittel") return "badge-blue";
-      if (kind === "certainty" && value === "Gut belegt") return "badge-ok";
-      if (kind === "certainty" && value === "Wahrscheinlich") return "badge-blue";
-      return "badge-muted";
-    }
-    function statusIcon(status) {
-      if (status === "resolved") return icons.check;
-      if (status === "active") return icons.zap;
-      return icons.clock;
-    }
-    function visibleEvents() {
-      const query = viewState.query.toLowerCase();
-      return (viewState.events ?? [])
-        .filter((event) => {
-          if (viewState.status === "active" && incidentStatus(event) === "resolved") return false;
-          if (viewState.status === "resolved" && incidentStatus(event) !== "resolved") return false;
-          const haystack = `${event.location_text ?? ""} ${event.primary_source_title ?? ""} ${event.cause_category ?? ""} ${summaryText(event)}`.toLowerCase();
-          return haystack.includes(query);
-        })
-        .sort((a, b) => new Date(eventDate(b)).getTime() - new Date(eventDate(a)).getTime());
-    }
-    function renderMetrics(data) {
-      const events = data.events ?? [];
-      const active = events.filter((event) => incidentStatus(event) !== "resolved").length;
-      const strong = events.filter((event) => sourceQualityLabel(event) === "stark").length;
-      const resolved = events.filter((event) => incidentStatus(event) === "resolved").length;
-      const metrics = [
-        ["Aktuelle Hinweise", events.length, "sichtbar"],
-        ["Aktiv oder unklar", active, "prüfen"],
-        ["Gut belegt", strong, "Quellenlage stark"],
-        ["Behoben", resolved, "belegt"]
-      ];
-      document.querySelector("#public-metrics").innerHTML = metrics.map(([name, value, hint]) => `
-        <div class="rounded-md border border-rule bg-surface/90 p-3">
-          <span class="section-label text-muted">${escapeHtml(name)}</span>
-          <div class="mt-2 flex items-end justify-between gap-3">
-            <strong class="metric-value font-display text-3xl font-bold">${escapeHtml(value)}</strong>
-            <span class="text-right text-sm text-muted">${escapeHtml(hint)}</span>
-          </div>
-        </div>
-      `).join("");
-    }
-    function renderActivity(data) {
-      const activity = data.activity ?? [];
-      const max = Math.max(1, ...activity.map((row) => Number(row.events ?? 0)));
-      document.querySelector("#activity-strip").innerHTML = activity.slice(-28).map((row) => {
-        const count = Number(row.events ?? 0);
-        const level = count === 0 ? 0 : Math.max(1, Math.ceil((count / max) * 4));
-        const title = `${row.day}: ${count} Ereignis${count === 1 ? "" : "se"}`;
-        const date = new Date(`${row.day}T12:00:00Z`);
-        return `<span class="activity-cell level-${level}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${escapeHtml(dayFmt.format(date).slice(0, 1))}</span>`;
-      }).join("");
-    }
-    function renderEvents() {
-      const rows = visibleEvents();
-      document.querySelector("#event-count").textContent = `${rows.length} Ereignisse`;
-      document.querySelector("#events-list").innerHTML = rows.map((event) => {
-        const status = incidentStatus(event);
-        const quality = sourceQualityLabel(event);
-        const certainty = certaintyLabel(event);
-        return `
-          <article class="event-card result-card rounded-md p-3 sm:p-4">
-            <div class="grid gap-3 md:grid-cols-[42px_minmax(0,1fr)_150px] md:items-start">
-              <div class="status-dot ${badgeClass("status", status)}">${statusIcon(status)}</div>
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2 text-sm">
-                  <span class="pill ${badgeClass("status", status)}">${escapeHtml(label("status", status))}</span>
-                  <span class="pill badge-muted">${escapeHtml(label("nature", event.outage_nature || "unknown"))}</span>
-                  <span class="pill badge-muted">${escapeHtml(label("cause", event.cause_category || "unknown"))}</span>
-                  <span class="pill ${badgeClass("quality", quality)}">Quellenlage ${escapeHtml(quality)}</span>
-                </div>
-                <h3 class="clamp-title mt-3 font-display text-2xl font-bold leading-tight">${escapeHtml(event.location_text || "Ort unklar")}</h3>
-                <p class="mt-2 text-base leading-7 text-muted">${escapeHtml(summaryText(event))}</p>
-                <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-                  <div><dt class="section-label text-muted">Erkannt</dt><dd class="mt-1 font-semibold">${escapeHtml(formatDate(eventDate(event)))}</dd></div>
-                  <div><dt class="section-label text-muted">Dauer</dt><dd class="mt-1 font-semibold">${escapeHtml(durationText(event))}</dd></div>
-                  <div><dt class="section-label text-muted">Sicherheit</dt><dd class="mt-1 font-semibold">${escapeHtml(certainty)} · ${escapeHtml(sourceLabel(event))}</dd></div>
-                </dl>
-              </div>
-              <a href="/events/${event.id}" class="control-button min-h-11 bg-ink px-3 py-2 font-semibold text-surface" aria-label="Details zu ${escapeHtml(event.location_text || "Ereignis")} öffnen">
-                Details ${icons.arrow}
-              </a>
-            </div>
-          </article>
-        `;
-      }).join("") || `<div class="rounded-md border border-rule bg-surface p-6 text-base text-muted">Keine passenden Ereignisse gefunden.</div>`;
-    }
-    async function loadRadar() {
-      document.querySelector("#events-list").classList.add("opacity-60");
-      const response = await fetch("/api/public/status", { cache: "no-store" });
-      if (!response.ok) throw new Error("Daten konnten nicht geladen werden");
-      const data = await response.json();
-      viewState.data = data;
-      viewState.events = data.events ?? [];
-      renderMetrics(data);
-      renderActivity(data);
-      renderEvents();
-      document.querySelector("#events-list").classList.remove("opacity-60");
-    }
-    function setQuery(value) {
-      viewState.query = value ?? "";
-      document.querySelector("#event-search").value = viewState.query;
-      document.querySelector("#mobile-search").value = viewState.query;
-      renderEvents();
-    }
-    function setStatus(value) {
-      viewState.status = value;
-      document.querySelector("#status-filter").value = value;
-      document.querySelector("#mobile-status-filter").value = value;
-      renderEvents();
-    }
-    document.querySelector("#event-search").addEventListener("input", (event) => setQuery(event.target.value));
-    document.querySelector("#mobile-search").addEventListener("input", (event) => setQuery(event.target.value));
-    document.querySelector("#status-filter").addEventListener("change", (event) => setStatus(event.target.value));
-    document.querySelector("#mobile-status-filter").addEventListener("change", (event) => setStatus(event.target.value));
-    document.querySelector("#refresh-button").addEventListener("click", () => loadRadar());
-    document.querySelector("#mobile-refresh").addEventListener("click", () => loadRadar());
-    loadRadar().catch((error) => {
-      document.querySelector("#events-list").innerHTML = `<div class="rounded-md border border-danger bg-dangersoft p-6 text-danger">${escapeHtml(error.message)}</div>`;
+    const dateFormatter = new Intl.DateTimeFormat("de-CH", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Zurich"
     });
+    const timeFormatter = new Intl.DateTimeFormat("de-CH", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Zurich"
+    });
+    const dayKey = (value: Date) => new Intl.DateTimeFormat("en-CA", {
+      year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Europe/Zurich"
+    }).format(value);
+
+    function receivedLabel(value: string): { day: string; time: string; full: string } {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return { day: "Eingang", time: value, full: value };
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 86400000);
+      const key = dayKey(date);
+      const day = key === dayKey(now) ? "Heute" : key === dayKey(yesterday) ? "Gestern" : dateFormatter.format(date).split(",")[0];
+      return { day, time: timeFormatter.format(date), full: dateFormatter.format(date) };
+    }
+
+    function visibleItems(): PublicItem[] {
+      const query = state.query.trim().toLocaleLowerCase("de-CH");
+      if (!query) return state.items;
+      return state.items.filter((item) => `${item.location} ${item.summary} ${item.source.publisher}`.toLocaleLowerCase("de-CH").includes(query));
+    }
+
+    function render(): void {
+      const items = visibleItems();
+      list.innerHTML = items.map((item) => {
+        const received = receivedLabel(item.received_at);
+        const trust = item.trust === "official" ? "Offizielle Quelle" : "Unabhängig bestätigt";
+        return `<a class="feed-row" href="/events/${item.id}" aria-label="Stromausfall-Meldung für ${escapeHtml(item.location)}, eingegangen ${escapeHtml(received.full)}">
+          <time datetime="${escapeHtml(item.received_at)}" title="${escapeHtml(received.full)}">
+            <span>${escapeHtml(received.day)}</span>
+            <strong>${escapeHtml(received.time)}</strong>
+          </time>
+          <span class="feed-copy">
+            <strong class="feed-location">${escapeHtml(item.location)}</strong>
+            <span class="feed-summary">${escapeHtml(item.summary)}</span>
+            <span class="feed-source">${escapeHtml(item.source.publisher)} · ${trust}</span>
+          </span>
+          <svg class="row-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </a>`;
+      }).join("");
+
+      if (!items.length) {
+        list.innerHTML = `<div class="feed-empty"><strong>${state.query ? "Kein passender Ort" : "Keine bestätigten Meldungen"}</strong><span>${state.query ? "Versuche einen anderen Suchbegriff." : "Sobald eine sauber belegte Meldung eingeht, erscheint sie hier."}</span></div>`;
+      }
+      loadMore.hidden = !state.nextCursor || Boolean(state.query);
+      note.textContent = state.query
+        ? `${items.length} Treffer in ${state.items.length} geladenen Meldungen`
+        : `${state.items.length} Meldung${state.items.length === 1 ? "" : "en"} geladen${state.generatedAt ? ` · Stand ${timeFormatter.format(new Date(state.generatedAt))}` : ""}`;
+      shell.setAttribute("aria-busy", "false");
+    }
+
+    async function load(reset = false): Promise<void> {
+      if (state.loading) return;
+      state.loading = true;
+      refresh.disabled = true;
+      loadMore.disabled = true;
+      try {
+        const cursor = reset ? null : state.nextCursor;
+        const params = new URLSearchParams({ limit: "10" });
+        if (cursor) params.set("before", cursor);
+        const response = await fetch(`/api/public/events?${params}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Die Meldungen konnten nicht geladen werden.");
+        const data = await response.json();
+        state.items = reset ? (data.items ?? []) : [...state.items, ...(data.items ?? [])];
+        state.nextCursor = data.next_cursor ?? null;
+        state.generatedAt = data.generated_at ?? state.generatedAt;
+        render();
+      } catch (error) {
+        list.innerHTML = `<div class="feed-error">${escapeHtml(error instanceof Error ? error.message : String(error))}</div>`;
+        list.insertAdjacentHTML("beforeend", `<button class="feed-retry" type="button">Wiederholen</button>`);
+        list.querySelector<HTMLButtonElement>(".feed-retry")?.addEventListener("click", () => load(true));
+        note.textContent = "Bitte später erneut versuchen.";
+        shell.setAttribute("aria-busy", "false");
+      } finally {
+        state.loading = false;
+        refresh.disabled = false;
+        loadMore.disabled = false;
+      }
+    }
+
+    document.querySelector<HTMLInputElement>("#event-search")!.addEventListener("input", (event) => {
+      state.query = (event.currentTarget as HTMLInputElement).value;
+      render();
+    });
+    refresh.addEventListener("click", () => load(true));
+    loadMore.addEventListener("click", () => load(false));
+    load(true);
   </script>
+
+  <style is:global>
+    .feed-page { margin: 0 auto; max-width: 960px; padding: clamp(2.75rem, 7vw, 6rem) 0 4rem; }
+    .feed-intro { max-width: 760px; }
+    .feed-intro h1 { font-family: var(--font-display); font-size: clamp(2.25rem, 6vw, 4.25rem); font-weight: 800; letter-spacing: -0.045em; line-height: .98; margin: .75rem 0 0; }
+    .feed-intro > p:last-child { color: var(--color-muted); font-size: clamp(1rem, 2vw, 1.15rem); line-height: 1.65; margin: 1.25rem 0 0; max-width: 680px; }
+    .feed-tools { align-items: center; display: flex; gap: .65rem; justify-content: space-between; margin: 2.5rem 0 .75rem; }
+    .search-field { align-items: center; background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-md); color: var(--color-muted); display: flex; gap: .65rem; max-width: 320px; padding: 0 .85rem; width: 100%; }
+    .search-field input { background: transparent; border: 0; color: var(--color-ink); font: inherit; height: 2.75rem; min-width: 0; outline: 0; width: 100%; }
+    .feed-tools button, .feed-footer button { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-md); color: var(--color-ink); font-size: .875rem; font-weight: 600; min-height: 2.75rem; padding: .65rem 1rem; }
+    .feed-tools button:hover, .feed-footer button:hover { border-color: var(--color-rule-strong); background: var(--color-surface-2); }
+    .feed-shell { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .75rem; box-shadow: 0 18px 50px color-mix(in oklch, var(--color-ink) 7%, transparent); overflow: hidden; }
+    .feed-list { display: grid; }
+    .feed-row { align-items: center; border-bottom: 1px solid var(--color-rule); color: inherit; display: grid; gap: 1.25rem; grid-template-columns: 116px minmax(0, 1fr) 24px; min-height: 132px; padding: 1.35rem 1.5rem; text-decoration: none; }
+    .feed-row:hover { background: color-mix(in oklch, var(--color-accent-soft) 34%, var(--color-surface)); }
+    .feed-row time { display: grid; font-variant-numeric: tabular-nums; gap: .2rem; }
+    .feed-row time span { color: var(--color-muted); font-family: var(--font-mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+    .feed-row time strong { font-family: var(--font-display); font-size: 1.35rem; }
+    .feed-copy { display: grid; gap: .4rem; min-width: 0; }
+    .feed-location { font-family: var(--font-display); font-size: clamp(1.2rem, 2.6vw, 1.6rem); letter-spacing: -.025em; line-height: 1.15; }
+    .feed-summary { color: var(--color-muted); display: -webkit-box; font-size: .98rem; line-height: 1.55; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .feed-source { color: var(--color-faint); font-family: var(--font-mono); font-size: .68rem; letter-spacing: .025em; }
+    .row-arrow { height: 1.25rem; stroke: var(--color-faint); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 1.25rem; }
+    .feed-row:hover .row-arrow { stroke: var(--color-accent); transform: translateX(2px); }
+    .feed-footer { align-items: center; display: flex; justify-content: space-between; min-height: 62px; padding: .65rem 1rem; }
+    .feed-footer p { color: var(--color-faint); font-size: .78rem; margin-left: auto; }
+    .feed-loading { animation: pulse 1.4s ease-in-out infinite; background: linear-gradient(90deg, var(--color-surface), var(--color-surface-2), var(--color-surface)); border-bottom: 1px solid var(--color-rule); height: 132px; }
+    .feed-empty, .feed-error { display: grid; gap: .5rem; padding: 4rem 1.5rem; text-align: center; }
+    .feed-empty span { color: var(--color-muted); }
+    .feed-error { color: var(--color-danger); }
+    .feed-retry { background: var(--color-ink); border: 0; border-radius: var(--radius-md); color: var(--color-surface); justify-self: center; margin: 0 0 2rem; min-height: 2.75rem; padding: .65rem 1rem; }
+    .public-note { color: var(--color-faint); font-size: .78rem; line-height: 1.6; margin: 1rem .25rem 0; }
+    @keyframes pulse { 50% { opacity: .58; } }
+    @media (max-width: 640px) {
+      .feed-page { padding-top: 2.5rem; }
+      .feed-tools { align-items: stretch; flex-direction: column; margin-top: 2rem; }
+      .search-field { max-width: none; }
+      .feed-tools button { width: 100%; }
+      .feed-row { align-items: start; gap: .85rem; grid-template-columns: minmax(0, 1fr) 18px; min-height: 0; padding: 1.15rem; }
+      .feed-row time { display: flex; gap: .45rem; grid-column: 1 / -1; }
+      .feed-row time strong { font-family: var(--font-mono); font-size: .72rem; }
+      .feed-summary { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+      .row-arrow { align-self: center; }
+      .feed-footer { align-items: stretch; flex-direction: column; gap: .65rem; }
+      .feed-footer p { margin: 0; text-align: center; }
+    }
+  </style>
 </RadarLayout>
