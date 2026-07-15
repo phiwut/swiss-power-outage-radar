@@ -115,6 +115,36 @@ describe("public event publication", () => {
     expect(decision.reasons).toContain("no_concrete_swiss_location");
   });
 
+  it("keeps a specifically named local region while rejecting generic coverage areas", () => {
+    const decision = evaluatePublicEvent(
+      event({
+        location_text: "Nordosten von Wohlen",
+        normalized_location: "nordosten von wohlen",
+        location_granularity: "region"
+      }),
+      [source()],
+      [outageFact()],
+      { authorityHosts: new Set(["ai.ch"]) }
+    );
+
+    expect(decision.publishable).toBe(true);
+  });
+
+  it.each(["Grossraum Zürich", "Region Zürich", "Gebiet", "Umgebung"])(
+    "rejects the diffuse region label %s without a specific affected place",
+    (location) => {
+      const decision = evaluatePublicEvent(
+        event({ location_text: location, location_granularity: "region" }),
+        [source()],
+        [outageFact()],
+        { authorityHosts: new Set(["ai.ch"]) }
+      );
+
+      expect(decision.publishable).toBe(false);
+      expect(decision.reasons).toContain("no_concrete_swiss_location");
+    }
+  );
+
   it("publishes a concrete evidenced outage from an exact verified authority host", () => {
     const decision = evaluatePublicEvent(event(), [source()], [outageFact()], {
       authorityHosts: new Set(["ai.ch"])
@@ -124,6 +154,18 @@ describe("public event publication", () => {
     expect(decision.trust).toBe("official");
     expect(decision.primary_source?.domain).toBe("ai.ch");
     expect(decision.primary_source?.url).toBe("https://www.ai.ch/feuerschaugemeinde/news/stoerung");
+  });
+
+  it("keeps legacy evidence when its candidate alert matches the event source", () => {
+    const decision = evaluatePublicEvent(
+      event(),
+      [source({ alert_item_id: 11 })],
+      [outageFact({ outage_source_id: null, alert_item_id: 11 })],
+      { authorityHosts: new Set(["ai.ch"]) }
+    );
+
+    expect(decision.publishable).toBe(true);
+    expect(decision.trust).toBe("official");
   });
 
   it("does not grant official trust when the authority registry disables the host", () => {
@@ -205,7 +247,31 @@ describe("public event publication", () => {
     expect(contradictory.reasons).toContain("contradictory_evidence");
   });
 
-  it("requires two different credible publishers when no official source exists", () => {
+  it("rejects French and Italian advice or retrospective articles", () => {
+    const media = source({
+      source_url: "https://www.lejdj.ch/articles/retour-panne",
+      source_name: "Le Journal du Jura",
+      source_kind: "local_media",
+      is_official: 0
+    });
+    const french = evaluatePublicEvent(
+      event({ summary: "Retour sur la panne de courant de 2024." }),
+      [media],
+      [outageFact({ outage_source_id: media.id, evidence_excerpt: "Retour sur la panne de courant de 2024." })]
+    );
+    const italian = evaluatePublicEvent(
+      event({ summary: "Guida: cosa fare in caso di blackout." }),
+      [media],
+      [outageFact({ outage_source_id: media.id, evidence_excerpt: "Guida: cosa fare in caso di blackout." })]
+    );
+
+    expect(french.publishable).toBe(false);
+    expect(french.reasons).toContain("no_positive_outage_evidence");
+    expect(italian.publishable).toBe(false);
+    expect(italian.reasons).toContain("no_positive_outage_evidence");
+  });
+
+  it("distinguishes one media report from two independent publishers", () => {
     const neo = source({
       source_url: "https://neo1.ch/news/stromausfall-appenzell",
       source_name: "neo1",
@@ -227,13 +293,33 @@ describe("public event publication", () => {
       is_official: 0
     });
 
-    expect(evaluatePublicEvent(event(), [neo, duplicate], [outageFact()]).publishable).toBe(false);
+    const singlyReported = evaluatePublicEvent(event(), [neo, duplicate], [outageFact()]);
+    expect(singlyReported.publishable).toBe(true);
+    expect(singlyReported.trust).toBe("reported");
     const corroborated = evaluatePublicEvent(event(), [neo, secondPublisher], [
       outageFact({ outage_source_id: neo.id }),
       outageFact({ id: 8, outage_source_id: secondPublisher.id })
     ]);
     expect(corroborated.publishable).toBe(true);
     expect(corroborated.trust).toBe("corroborated");
+  });
+
+  it("shows a concrete outage reported by one established local publisher", () => {
+    const localReport = source({
+      source_url: "https://www.radiomunot.ch/p/Stromausfall-im-Breite-Quartier",
+      source_name: "Radio Munot",
+      source_kind: "other",
+      is_official: 0,
+      independence_key: "radiomunot.ch"
+    });
+    const decision = evaluatePublicEvent(
+      event({ location_text: "Breite-Quartier, Schaffhausen" }),
+      [localReport],
+      [outageFact({ outage_source_id: localReport.id })]
+    );
+
+    expect(decision.publishable).toBe(true);
+    expect(decision.trust).toBe("reported");
   });
 
   it("exposes only the compact public feed contract", () => {

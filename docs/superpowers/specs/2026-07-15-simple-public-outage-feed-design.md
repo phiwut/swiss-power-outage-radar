@@ -17,7 +17,7 @@ Ein Ereignis ist öffentlich, wenn alle Bedingungen erfüllt sind:
 1. Konkreter Schweizer Ort; leere, landesweite oder generische Orte sind ausgeschlossen.
 2. Beleg für einen tatsächlichen, geplanten oder behobenen Stromunterbruch; negative, historische und beiläufige Erwähnungen sind ausgeschlossen.
 3. Verständliche, nicht widersprüchliche Kurzfassung.
-4. Entweder eine exakt verifizierte offizielle Ursprungsdomain oder mindestens zwei voneinander unabhängige glaubwürdige Ursprungsdomains.
+4. Eine exakt verifizierte offizielle Ursprungsdomain oder eine etablierte glaubwürdige Medienquelle; zwei unabhängige Medienquellen werden zusätzlich als bestätigt gekennzeichnet.
 5. Keine schwache Evidenz und kein nur intern prüfbarer Kandidatenstatus.
 
 Google Alerts ist Transport und Discovery, niemals selbst Evidenz. Google-Redirects werden auf die eingebettete Original-URL kanonisiert. Offizielle Identität wird nicht aus Wörtern wie `energie`, `stadt` oder `gemeinde` abgeleitet.
@@ -35,7 +35,7 @@ Der öffentliche Feed liefert höchstens zehn `PublicFeedItem`-Objekte:
 - optional `resolved_at`
 - `summary`
 - optional `status` mit ausschließlich belegten Werten
-- `trust`: `official` oder `corroborated`
+- `trust`: `official`, `corroborated` oder `reported`
 - `source`: Publishername, kanonische Original-URL und Domain
 
 Nicht enthalten sind interne Event-Scores, Quality-Gründe, `unknown`, `needs_review`, QA-Metriken, Merge-Suggestions, Roh-Facts oder komplette Snapshots.
@@ -85,4 +85,3 @@ Pflichtfälle: Marktbericht, negative Kein-Störung-Seite, Selectra- und Nau-Fal
 - Architektur, Datenvertrag und Oberfläche verwenden dieselbe Publikationsinvariante.
 - Scope bleibt auf öffentlicher Datenqualität und Feed-Erfahrung begrenzt.
 - „Neueste“ bedeutet ausdrücklich Eingang bei `outage.ch`, nicht vermuteter Ereignisbeginn.
-

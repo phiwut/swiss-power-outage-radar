@@ -1491,10 +1491,11 @@ export async function getOutageEventFacts(
 ): Promise<OutageFact[]> {
   const result = await db
     .prepare(
-      `SELECT *
-       FROM outage_facts
-       WHERE outage_event_id = ?
-       ORDER BY confidence DESC, id ASC`
+      `SELECT fact.*, candidate.alert_item_id
+       FROM outage_facts fact
+       LEFT JOIN outage_candidates candidate ON candidate.id = fact.candidate_id
+       WHERE fact.outage_event_id = ?
+       ORDER BY fact.confidence DESC, fact.id ASC`
     )
     .bind(eventId)
     .all<OutageFact>();
@@ -1632,7 +1633,13 @@ export async function getPublicationEvidenceForEvents(
       .bind(...eventIds)
       .all<OutageSource>(),
     db
-      .prepare(`SELECT * FROM outage_facts WHERE outage_event_id IN (${placeholders}) ORDER BY confidence DESC, id ASC`)
+      .prepare(
+        `SELECT fact.*, candidate.alert_item_id
+         FROM outage_facts fact
+         LEFT JOIN outage_candidates candidate ON candidate.id = fact.candidate_id
+         WHERE fact.outage_event_id IN (${placeholders})
+         ORDER BY fact.confidence DESC, fact.id ASC`
+      )
       .bind(...eventIds)
       .all<OutageFact>()
   ]);
@@ -1683,7 +1690,7 @@ export async function getPublicFeedItems(
       limit
     )
     .all<OutageEvent & {
-      publication_trust: "official" | "corroborated";
+      publication_trust: "official" | "corroborated" | "reported";
       publication_summary: string;
       primary_source_publisher: string;
       primary_source_url: string;
@@ -1729,7 +1736,7 @@ export async function getPublicFeedItem(db: D1Database, eventId: number): Promis
     )
     .bind(eventId)
     .first<OutageEvent & {
-      publication_trust: "official" | "corroborated";
+      publication_trust: "official" | "corroborated" | "reported";
       publication_summary: string;
       primary_source_publisher: string;
       primary_source_url: string;

@@ -129,7 +129,7 @@ export type SourceKind = "official" | "local_media" | "national_media" | "operat
 export type PublicStatus = "hidden" | "public_auto" | "public_verified";
 export type VerificationLevel = "auto_analyzed" | "official_source" | "admin_verified";
 export type EventQualityState = "candidate_only" | "publishable" | "needs_review" | "rejected";
-export type PublicTrust = "official" | "corroborated";
+export type PublicTrust = "official" | "corroborated" | "reported";
 export type GeoPlaceType = "canton" | "district" | "municipality" | "locality" | "postcode" | "street";
 export type EventPlaceRole = "affected" | "possibly_affected" | "context" | "operator_area" | "dismissed";
 export type LocationGranularity =
@@ -400,6 +400,8 @@ export interface OutageFact {
   source_role: string | null;
   verified_by: VerificationLevel | "auto" | null;
   source_observation_id?: number | null;
+  /** Legacy provenance resolved through candidate -> alert item. */
+  alert_item_id?: number | null;
   observed_at?: string | null;
   extractor_version?: string | null;
   created_at: string;

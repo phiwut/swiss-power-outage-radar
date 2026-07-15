@@ -4,13 +4,13 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
 <RadarLayout
   title="Letzte Stromausfall-Meldungen Schweiz | outage.ch"
-  description="Die zuletzt eingegangenen, bestätigten Stromausfall-Meldungen für die Schweiz – chronologisch und mit Originalquelle."
+  description="Die zuletzt eingegangenen Stromausfall-Meldungen für die Schweiz – chronologisch und mit Originalquelle."
 >
   <section class="feed-page">
     <header class="feed-intro">
-      <p class="section-label text-accent">Schweiz · bestätigt</p>
+      <p class="section-label text-accent">Schweiz · letzte Eingänge</p>
       <h1>Letzte Stromausfall-Meldungen</h1>
-      <p>Chronologisch nach Eingang. Gezeigt werden nur Meldungen mit offizieller Quelle oder unabhängiger Bestätigung.</p>
+      <p>Chronologisch nach Eingang – mit Originalquelle und klarer Kennzeichnung, ob eine Meldung offiziell, bestätigt oder erst einmal gemeldet ist.</p>
     </header>
 
     <div class="feed-tools" aria-label="Meldungen filtern und aktualisieren">
@@ -46,7 +46,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       resolved_at: string | null;
       status: "active" | "resolved" | null;
       summary: string;
-      trust: "official" | "corroborated";
+      trust: "official" | "corroborated" | "reported";
       source: { publisher: string; url: string; domain: string };
     };
 
@@ -106,7 +106,11 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       const items = visibleItems();
       list.innerHTML = items.map((item) => {
         const received = receivedLabel(item.received_at);
-        const trust = item.trust === "official" ? "Offizielle Quelle" : "Unabhängig bestätigt";
+        const trust = item.trust === "official"
+          ? "Offizielle Quelle"
+          : item.trust === "corroborated"
+            ? "Unabhängig bestätigt"
+            : "Gemeldet";
         return `<a class="feed-row" href="/events/${item.id}" aria-label="Stromausfall-Meldung für ${escapeHtml(item.location)}, eingegangen ${escapeHtml(received.full)}">
           <time datetime="${escapeHtml(item.received_at)}" title="${escapeHtml(received.full)}">
             <span>${escapeHtml(received.day)}</span>
@@ -122,7 +126,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       }).join("");
 
       if (!items.length) {
-        list.innerHTML = `<div class="feed-empty"><strong>${state.query ? "Kein passender Ort" : "Keine bestätigten Meldungen"}</strong><span>${state.query ? "Versuche einen anderen Suchbegriff." : "Sobald eine sauber belegte Meldung eingeht, erscheint sie hier."}</span></div>`;
+        list.innerHTML = `<div class="feed-empty"><strong>${state.query ? "Kein passender Ort" : "Keine Meldungen"}</strong><span>${state.query ? "Versuche einen anderen Suchbegriff." : "Sobald eine Meldung aus einer nachvollziehbaren Quelle eingeht, erscheint sie hier."}</span></div>`;
       }
       loadMore.hidden = !state.nextCursor || Boolean(state.query);
       note.textContent = state.query

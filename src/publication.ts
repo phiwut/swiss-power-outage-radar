@@ -33,7 +33,11 @@ const NON_INCIDENT_EVIDENCE = [
   /\b(?:r[uü]ckblick|historisch|archiv|marktbericht|marktanalyse|ratgeber)\b/i,
   /\bwas\s+tun\s+bei\s+einem\s+stromausfall\b/i,
   /\bnach\s+dem\s+letzten\s+stromausfall\b/i,
-  /\bim\s+jahr\s+20\d{2}\b/i
+  /\bim\s+jahr\s+20\d{2}\b/i,
+  /\b(?:retour|r[eé]trospective|historique|archives?|analyse du march[eé]|conseils?)\b/i,
+  /\bque faire (?:en cas|lors) (?:de|d['’]une?) panne de courant\b/i,
+  /\b(?:retrospettiva|storico|archivio|analisi di mercato|guida)\b/i,
+  /\bcosa fare in caso di (?:interruzione|blackout)\b/i
 ];
 
 function concreteSwissLocation(event: OutageEvent): boolean {
@@ -41,8 +45,8 @@ function concreteSwissLocation(event: OutageEvent): boolean {
   return (
     event.country === "CH" &&
     !NON_CONCRETE_LOCATIONS.has(location) &&
-    !/netzgebiet|versorgungsgebiet|westschweiz|ostschweiz|nordwestschweiz|zentralschweiz|schweizweit/i.test(location) &&
-    ["address", "street", "municipality", "district"].includes(event.location_granularity || "unknown")
+    !/netzgebiet|versorgungsgebiet|westschweiz|ostschweiz|nordwestschweiz|zentralschweiz|schweizweit|^(?:grossraum|r[eé]gion\b|regione\b|gebiet$|umgebung$)/i.test(location) &&
+    ["address", "street", "municipality", "district", "region"].includes(event.location_granularity || "unknown")
   );
 }
 
@@ -140,16 +144,25 @@ export function evaluatePublicEvent(
   const evidencedObservationIds = new Set(positiveFacts.flatMap((fact) =>
     typeof fact.source_observation_id === "number" ? [fact.source_observation_id] : []
   ));
+  const evidencedAlertItemIds = new Set(positiveFacts.flatMap((fact) =>
+    typeof fact.alert_item_id === "number" ? [fact.alert_item_id] : []
+  ));
   const evidencedSources = credibleSources.filter((source) => {
     const original = sources.find((item) => item.id === source.sourceId);
     return evidencedSourceIds.has(source.sourceId) || (
       typeof original?.source_observation_id === "number" &&
       evidencedObservationIds.has(original.source_observation_id)
-    );
+    ) || evidencedAlertItemIds.has(original?.alert_item_id ?? -1);
   });
   const official = evidencedSources.find((source) => source.trust === "official");
   const independentDomains = new Set(evidencedSources.map((source) => source.independenceKey));
-  const trust: PublicTrust | null = official ? "official" : independentDomains.size >= 2 ? "corroborated" : null;
+  const trust: PublicTrust | null = official
+    ? "official"
+    : independentDomains.size >= 2
+      ? "corroborated"
+      : evidencedSources.length === 1
+        ? "reported"
+        : null;
   if (!trust) reasons.push("insufficient_source_authority");
 
   const primary = official || evidencedSources.find((candidate) => {

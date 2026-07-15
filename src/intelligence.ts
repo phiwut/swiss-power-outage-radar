@@ -77,7 +77,15 @@ export function classifySource(input: {
     "neo1.ch",
     "freiburger-nachrichten.ch",
     "baernerbaer.ch",
-    "march24.ch"
+    "march24.ch",
+    "wohleranzeiger.ch",
+    "bremgarterbezirksanzeiger.ch",
+    "derfreiaemter.ch",
+    "zofingertagblatt.ch",
+    "radiomunot.ch",
+    "lejdj.ch",
+    "frapp.ch",
+    "pomona.ch"
   ]);
   const nationalMediaHosts = new Set(["srf.ch", "20min.ch", "blick.ch", "watson.ch", "tagesanzeiger.ch"]);
   const operatorHost = operatorHosts.has(host);

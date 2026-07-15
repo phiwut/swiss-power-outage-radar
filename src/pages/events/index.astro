@@ -4,7 +4,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
 
 <RadarLayout
   title="Stromausfall-Meldung | outage.ch"
-  description="Bestätigte Stromausfall-Meldung mit bekannten Fakten und Originalquelle."
+  description="Stromausfall-Meldung mit bekannten Fakten, Quellenstatus und Originalquelle."
 >
   <section class="detail-page">
     <a class="back-link" href="/">
@@ -39,7 +39,11 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       const data = await response.json();
       const item = data.item;
       const facts = Array.isArray(data.known_facts) ? data.known_facts : [];
-      const trust = item.trust === "official" ? "Offizielle Quelle" : "Durch unabhängige Quellen bestätigt";
+      const trust = item.trust === "official"
+        ? "Offizielle Quelle"
+        : item.trust === "corroborated"
+          ? "Durch unabhängige Quellen bestätigt"
+          : "Von dieser Quelle gemeldet";
       shell.innerHTML = `<article class="detail-card">
         <header>
           <p class="section-label text-accent">Eingegangen ${escapeHtml(formatDate(item.received_at))}</p>
