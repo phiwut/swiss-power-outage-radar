@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildPublicEventDetail, choosePublicLocation } from "../src/public-detail";
+import { buildPublicEventDetail, choosePublicLocation, publicLocationQuery } from "../src/public-detail";
 import type { OutageEvent, OutageFact, OutageSource, PublicFeedItem } from "../src/types";
 
 describe("public event detail", () => {
+  it("reduces compound incident labels to a geocodable municipality", () => {
+    expect(publicLocationQuery("Bettwil, Region Oberfreiamt, Schweiz")).toBe("Bettwil");
+    expect(publicLocationQuery("Feuerschaugemeinde, Appenzell")).toBe("Appenzell");
+  });
+
   it("chooses the official Swiss municipality for a prefixed incident location", () => {
     const location = choosePublicLocation("in Lostorf", [
       {
