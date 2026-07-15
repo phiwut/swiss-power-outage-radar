@@ -135,7 +135,7 @@ function validIso(value: string): boolean {
   return Boolean(value) && Number.isFinite(new Date(value).getTime());
 }
 
-function publicFacts(event: OutageEvent, facts: OutageFact[]): PublicDetailFact[] {
+function publicFacts(facts: OutageFact[]): PublicDetailFact[] {
   const output: PublicDetailFact[] = [];
   const start = concreteFact(facts, "start_time");
   const end = concreteFact(facts, "end_time");
@@ -150,7 +150,7 @@ function publicFacts(event: OutageEvent, facts: OutageFact[]): PublicDetailFact[
   if (end && validIso(end.value_text)) {
     output.push({ key: "end_time", label: "Behoben", value: end.value_text, format: "datetime" });
   }
-  const natureValue = normalizePlaceText(nature?.value_text ?? event.outage_nature);
+  const natureValue = normalizePlaceText(nature?.value_text);
   if (natureValue === "planned" || natureValue === "geplant") {
     output.push({ key: "nature", label: "Art", value: "Geplant", format: "text" });
   } else if (natureValue === "unplanned" || natureValue === "ungeplant") {
@@ -163,11 +163,11 @@ function publicFacts(event: OutageEvent, facts: OutageFact[]): PublicDetailFact[
     output.push({ key: "status", label: "Status", value: "Behoben", format: "text" });
   }
   if (area) output.push({ key: "affected_area", label: "Betroffen", value: area.value_text, format: "text" });
-  const causeValue = cause?.value_text.trim() || event.cause_text?.trim();
+  const causeValue = cause?.value_text.trim();
   if (causeValue && !HIDDEN_FACT_VALUES.has(normalizePlaceText(causeValue))) {
     output.push({ key: "cause", label: "Ursache", value: causeValue, format: "text" });
   }
-  return output.slice(0, 4);
+  return output;
 }
 
 function publicSources(item: PublicFeedItem, sources: OutageSource[], facts: OutageFact[]): PublicDetailSource[] {
@@ -192,9 +192,14 @@ function publicSources(item: PublicFeedItem, sources: OutageSource[], facts: Out
     }];
   });
   if (!output.some((source) => source.url === item.source.url)) {
+    const intel = classifySource({
+      url: item.source.url,
+      title: item.summary,
+      sourceName: item.source.publisher
+    });
     output.unshift({
       ...item.source,
-      role: item.trust === "official" ? "authority" : "media"
+      role: intel.source_kind === "operator" ? "operator" : intel.source_kind === "official" ? "authority" : "media"
     });
   }
   return output.filter((source, index, all) =>
@@ -210,7 +215,7 @@ export function buildPublicEventDetail(input: {
   location: PublicEventLocation | null;
   operator: PublicDetailOperator | null;
 }): PublicEventDetail {
-  const facts = publicFacts(input.event, input.facts);
+  const facts = publicFacts(input.facts);
   const timeline: PublicTimelineEntry[] = [{
     key: "received_at",
     label: "Bei outage.ch eingegangen",
@@ -220,6 +225,11 @@ export function buildPublicEventDetail(input: {
     if (fact.key === "start_time") timeline.push({ key: "start_time", label: "Gemeldeter Beginn", value: fact.value });
     if (fact.key === "end_time") timeline.push({ key: "end_time", label: "Als behoben gemeldet", value: fact.value });
   }
+  timeline.sort((a, b) => {
+    const timeDifference = new Date(a.value).getTime() - new Date(b.value).getTime();
+    if (timeDifference !== 0) return timeDifference;
+    return a.key.localeCompare(b.key);
+  });
   return {
     item: input.item,
     map: input.location,
@@ -239,6 +249,38 @@ async function cachedPublicLocation(db: D1Database, eventId: number): Promise<Pu
     )
     .bind(eventId)
     .first<PublicEventLocation>();
+}
+
+async function cachedPublicLocationMiss(
+  db: D1Database,
+  eventId: number,
+  query: string,
+  now = new Date()
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT query_text, retry_after
+       FROM event_public_location_misses
+       WHERE outage_event_id = ?`
+    )
+    .bind(eventId)
+    .first<{ query_text: string; retry_after: string }>();
+  return Boolean(row && row.query_text === query && new Date(row.retry_after).getTime() > now.getTime());
+}
+
+async function cachePublicLocationMiss(db: D1Database, eventId: number, query: string): Promise<void> {
+  const retryAfter = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
+  await db
+    .prepare(
+      `INSERT INTO event_public_location_misses (outage_event_id, query_text, retry_after, attempted_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(outage_event_id) DO UPDATE SET
+         query_text = excluded.query_text,
+         retry_after = excluded.retry_after,
+         attempted_at = excluded.attempted_at`
+    )
+    .bind(eventId, query, retryAfter, new Date().toISOString())
+    .run();
 }
 
 async function cachePublicLocation(db: D1Database, eventId: number, location: PublicEventLocation): Promise<void> {
@@ -267,6 +309,7 @@ async function cachePublicLocation(db: D1Database, eventId: number, location: Pu
       new Date().toISOString()
     )
     .run();
+  await db.prepare("DELETE FROM event_public_location_misses WHERE outage_event_id = ?").bind(eventId).run();
 }
 
 export async function resolvePublicEventLocation(
@@ -274,23 +317,34 @@ export async function resolvePublicEventLocation(
   event: Pick<OutageEvent, "id" | "location_text">,
   fetcher: typeof fetch = fetch
 ): Promise<PublicEventLocation | null> {
-  const cached = await cachedPublicLocation(db, event.id);
-  if (cached) return cached;
   const query = publicLocationQuery(event.location_text);
   if (!query) return null;
+  const cached = await cachedPublicLocation(db, event.id);
+  if (cached?.query === query) return cached;
+  if (await cachedPublicLocationMiss(db, event.id, query)) return null;
   try {
     const url = new URL("https://api3.geo.admin.ch/rest/services/ech/SearchServer");
     url.searchParams.set("searchText", query);
     url.searchParams.set("type", "locations");
     url.searchParams.set("limit", "8");
-    const response = await fetcher(url, { headers: { Accept: "application/json" } });
-    if (!response.ok) return null;
+    const response = await fetcher(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(2500)
+    });
+    if (!response.ok) {
+      await cachePublicLocationMiss(db, event.id, query);
+      return null;
+    }
     const payload = await response.json() as { results?: GeoAdminSearchResult[] };
     const location = choosePublicLocation(query, payload.results ?? []);
-    if (!location) return null;
+    if (!location) {
+      await cachePublicLocationMiss(db, event.id, query);
+      return null;
+    }
     await cachePublicLocation(db, event.id, location);
     return location;
   } catch {
+    await cachePublicLocationMiss(db, event.id, query).catch(() => undefined);
     return null;
   }
 }
@@ -303,8 +357,12 @@ async function getPublicOperator(db: D1Database, eventId: number): Promise<Publi
               decision.primary_source_url, decision.primary_source_domain
        FROM publication_decisions decision
        LEFT JOIN source_authorities authority
-         ON authority.hostname = decision.primary_source_domain AND authority.enabled = 1
-       LEFT JOIN source_registry registry ON registry.id = authority.source_registry_id
+         ON authority.hostname = decision.primary_source_domain
+        AND authority.enabled = 1
+        AND authority.trust_level = 'official'
+        AND authority.authority_kind = 'operator'
+       INNER JOIN source_registry registry
+         ON registry.id = authority.source_registry_id AND registry.trust_level = 'official'
        WHERE decision.outage_event_id = ? AND decision.publishable = 1
        LIMIT 1`
     )

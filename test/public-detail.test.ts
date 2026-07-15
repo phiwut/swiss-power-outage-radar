@@ -147,7 +147,7 @@ describe("public event detail", () => {
         outage_nature: "unknown",
         cause_text: "unklar",
         cause_category: "unknown"
-      } as OutageEvent,
+      } as unknown as OutageEvent,
       facts: [{ fact_type: "cause", value_text: "unknown", confidence: 0.96 }] as OutageFact[],
       sources: [],
       location: null,
@@ -158,5 +158,50 @@ describe("public event detail", () => {
     expect(detail.operator).toBeNull();
     expect(detail.timeline).toHaveLength(1);
     expect(detail.sources).toEqual([{ ...item.source, role: "media" }]);
+  });
+
+  it("does not fall back to event guesses and keeps every concrete fact", () => {
+    const item = {
+      id: 61,
+      location: "Bettwil",
+      received_at: "2026-07-15T12:00:00.000Z",
+      started_at: null,
+      resolved_at: null,
+      status: null,
+      summary: "Stromausfall in Bettwil",
+      trust: "official",
+      source: {
+        publisher: "AEW Energie AG",
+        url: "https://www.aew.ch/netzstatus",
+        domain: "aew.ch"
+      }
+    } satisfies PublicFeedItem;
+    const facts = [
+      { fact_type: "start_time", value_text: "2026-07-15T10:00:00.000Z", confidence: 0.9 },
+      { fact_type: "end_time", value_text: "2026-07-15T11:00:00.000Z", confidence: 0.9 },
+      { fact_type: "planned_nature", value_text: "planned", confidence: 0.9 },
+      { fact_type: "status", value_text: "resolved", confidence: 0.9 },
+      { fact_type: "affected_area", value_text: "Dorfzentrum", confidence: 0.9 },
+      { fact_type: "cause", value_text: "Defektes Kabel", confidence: 0.9 }
+    ] as OutageFact[];
+
+    const detail = buildPublicEventDetail({
+      item,
+      event: {
+        id: 61,
+        outage_nature: "unplanned",
+        cause_text: "AI-Vermutung",
+        cause_category: "technical"
+      } as unknown as OutageEvent,
+      facts,
+      sources: [],
+      location: null,
+      operator: null
+    });
+
+    expect(detail.facts).toHaveLength(6);
+    expect(detail.facts.map((fact) => fact.value)).not.toContain("AI-Vermutung");
+    expect(detail.sources[0]?.role).toBe("operator");
+    expect(detail.timeline.map((entry) => entry.key)).toEqual(["start_time", "end_time", "received_at"]);
   });
 });
