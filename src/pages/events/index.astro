@@ -43,6 +43,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
         trust: Trust;
       };
       map: null | {
+        query: string;
         label: string;
         latitude: number;
         longitude: number;
@@ -201,7 +202,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
           <div class="hero-wash" aria-hidden="true"></div>
           <div class="hero-copy">
             <div class="hero-meta"><span class="trust-mark"><i aria-hidden="true"></i>${escapeHtml(trustText(data.item.trust))}</span><span>Eingang ${escapeHtml(formatDate(data.item.received_at))}</span></div>
-            <h1>${escapeHtml(data.item.location)}</h1>
+            <h1>${escapeHtml(data.map?.query || data.item.location)}</h1>
             <p>${escapeHtml(data.item.summary)}</p>
           </div>
           ${hasMap ? `<span class="map-place">${escapeHtml(data.map!.label)}</span>` : ""}
