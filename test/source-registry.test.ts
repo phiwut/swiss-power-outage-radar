@@ -337,6 +337,12 @@ describe("source registry observations", () => {
     expect(result.observations).toHaveLength(1);
     expect(result.observations[0].canonicalStatus).toBe("planned");
     expect(result.observations[0].locationText).toBeNull();
+    const observation = stored(result.observations[0]);
+    const assessment = assessSourceObservation(observation);
+    expect(assessment.publishable).toBe(false);
+    expect(assessment.location_text).toBe("");
+    expect(assessment.facts.some((candidate) => candidate.fact_type === "location")).toBe(false);
+    expect(observationToClassification(observation).location_text).toBe("");
   });
 
   it("parses the live ewz incident component and recognizes its real no-current message", async () => {

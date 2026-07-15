@@ -41,6 +41,7 @@ function concreteSwissLocation(event: OutageEvent): boolean {
   return (
     event.country === "CH" &&
     !NON_CONCRETE_LOCATIONS.has(location) &&
+    !/netzgebiet|versorgungsgebiet|westschweiz|ostschweiz|nordwestschweiz|zentralschweiz|schweizweit/i.test(location) &&
     ["address", "street", "municipality", "district"].includes(event.location_granularity || "unknown")
   );
 }

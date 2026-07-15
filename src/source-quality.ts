@@ -37,6 +37,9 @@ function eventTypeForStatus(status: CanonicalObservationStatus): AiClassificatio
 
 function locationGranularity(location: string | null): CandidateAssessment["location_granularity"] {
   if (!location) return "unknown";
+  if (/netzgebiet|versorgungsgebiet|westschweiz|ostschweiz|nordwestschweiz|zentralschweiz|schweizweit/i.test(location)) {
+    return "region";
+  }
   if (/strasse|straße|weg|gasse|platz|route|rue|via/i.test(location)) return "street";
   if (/kanton|canton/i.test(location)) return "canton";
   if (/region|bezirk|district/i.test(location)) return "region";
@@ -69,7 +72,8 @@ export function observationToClassification(observation: SourceObservation): AiC
     is_relevant: relevant,
     confidence: observation.confidence,
     country: "CH",
-    location_text: observation.location_text || observation.area_text || "",
+    // area_text is only the operator's coverage, never the incident location.
+    location_text: observation.location_text?.trim() || "",
     event_type: eventTypeForStatus(status),
     summary: observation.title,
     reason: `Netzbetreiber-Beobachtung ${observation.source_key}: ${status}`
@@ -78,8 +82,11 @@ export function observationToClassification(observation: SourceObservation): AiC
 
 export function assessSourceObservation(observation: SourceObservation): CandidateAssessment {
   const status = observation.canonical_status;
-  const publishable = status === "planned" || status === "unplanned" || status === "resolved";
-  const location = observation.location_text || observation.area_text || "";
+  const positiveStatus = status === "planned" || status === "unplanned" || status === "resolved";
+  const location = observation.location_text?.trim() || "";
+  const granularity = locationGranularity(location);
+  const hasConcreteLocation = granularity === "street" || granularity === "municipality";
+  const publishable = positiveStatus && hasConcreteLocation;
   const facts: CandidateFactInput[] = [];
 
   if (location) facts.push(fact(observation, "location", location, 0.9));
@@ -97,15 +104,19 @@ export function assessSourceObservation(observation: SourceObservation): Candida
 
   return {
     publishable,
-    needs_admin: !publishable && status === "unverified",
-    is_ch_incident: publishable || status === "unverified",
+    needs_admin: (!publishable && status === "unverified") || (positiveStatus && !hasConcreteLocation),
+    is_ch_incident: positiveStatus || status === "unverified",
     location_text: location,
-    location_granularity: locationGranularity(location),
+    location_granularity: granularity,
     event_type: eventTypeForStatus(status),
     relevance_role: roleForStatus(status),
-    quality_score: publishable ? 95 : status === "unverified" ? 35 : 0,
+    quality_score: publishable ? 95 : positiveStatus ? 45 : status === "unverified" ? 35 : 0,
     quality_reasons: [`source_registry:${observation.source_key}`, `status:${status}`],
-    rejection_reason: publishable ? null : `Nicht öffentliche Quellenbeobachtung: ${status}`,
+    rejection_reason: publishable
+      ? null
+      : positiveStatus && !hasConcreteLocation
+        ? "Keine konkrete Ortsangabe in der Quellenbeobachtung."
+        : `Nicht öffentliche Quellenbeobachtung: ${status}`,
     outage_nature: statusNature(status),
     status: observationLifecycle(status),
     summary_de: observation.title,

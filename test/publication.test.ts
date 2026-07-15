@@ -94,6 +94,27 @@ function outageFact(patch: Partial<OutageFact> = {}): OutageFact {
 }
 
 describe("public event publication", () => {
+  it("rejects an operator coverage area even when legacy granularity says municipality", () => {
+    const decision = evaluatePublicEvent(
+      event({
+        location_text: "Romande Energie Netzgebiet in der Westschweiz",
+        normalized_location: "romande energie netzgebiet in der westschweiz",
+        location_granularity: "municipality"
+      }),
+      [source({
+        source_url: "https://www.romande-energie.ch/infos-pannes",
+        source_name: "Romande Energie",
+        independence_key: "romande-energie.ch",
+        is_official: 1
+      })],
+      [outageFact({ fact_type: "planned_outage_notice", value_text: "true" })],
+      { authorityHosts: new Set(["romande-energie.ch"]) }
+    );
+
+    expect(decision.publishable).toBe(false);
+    expect(decision.reasons).toContain("no_concrete_swiss_location");
+  });
+
   it("publishes a concrete evidenced outage from an exact verified authority host", () => {
     const decision = evaluatePublicEvent(event(), [source()], [outageFact()], {
       authorityHosts: new Set(["ai.ch"])
