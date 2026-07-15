@@ -40,6 +40,15 @@ const NON_INCIDENT_EVIDENCE = [
   /\bcosa fare in caso di (?:interruzione|blackout)\b/i
 ];
 
+const LOW_VALUE_UNCERTAINTY = [
+  /\bkeine (?:klaren|konkreten|weiteren) informationen\b/i,
+  /\b(?:angaben|lage).{0,80}\b(?:unklar|unbest[aä]tigt|nicht best[aä]tigt)\b/i,
+  /\b(?:ursache|status|dauer|umfang|details?|informationen).{0,100}\b(?:unklar|unbekannt|nicht (?:vollst[aä]ndig )?(?:klar|bekannt|detailliert|angegeben|beschrieben))\b/i,
+  /\b(?:details?|cause|status|duration|extent|information).{0,100}\b(?:unclear|unknown|not (?:fully )?(?:clear|known|provided|specified|described))\b/i,
+  /\b(?:cause|statut|dur[eé]e|d[eé]tails?|informations?).{0,100}\b(?:inconnu|incertain|pas (?:claire?|connue?|pr[eé]cis[eé]e?|indiqu[eé]e?))\b/i,
+  /\b(?:causa|stato|durata|dettagli|informazioni).{0,100}\b(?:sconosciut[ao]|incert[ao]|non (?:chiar[ao]|not[ao]|specificat[ao]))\b/i
+];
+
 function concreteSwissLocation(event: OutageEvent): boolean {
   const location = normalizeLocation(event.location_text);
   return (
@@ -105,7 +114,12 @@ function publicSummary(event: OutageEvent): string | null {
     NEGATIVE_EVIDENCE.some((pattern) => pattern.test(summary)) ||
     NON_INCIDENT_EVIDENCE.some((pattern) => pattern.test(summary))
   ) return null;
-  const sentences = summary.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(" ");
+  const sentences = summary
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence && !LOW_VALUE_UNCERTAINTY.some((pattern) => pattern.test(sentence)))
+    .slice(0, 2)
+    .join(" ");
+  if (!sentences) return null;
   return sentences.length <= 320 ? sentences : `${sentences.slice(0, 317).trimEnd()}…`;
 }
 

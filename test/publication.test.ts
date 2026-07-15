@@ -271,6 +271,20 @@ describe("public event publication", () => {
     expect(italian.reasons).toContain("no_positive_outage_evidence");
   });
 
+  it("removes sentences that only list unknown cause or status", () => {
+    const decision = evaluatePublicEvent(
+      event({
+        summary: "In Wohlen wurde ein Stromausfall gemeldet. Die genaue Ursache und der aktuelle Status sind unklar. Die Angaben sind unklar und nicht bestätigt."
+      }),
+      [source()],
+      [outageFact()],
+      { authorityHosts: new Set(["ai.ch"]) }
+    );
+
+    expect(decision.publishable).toBe(true);
+    expect(decision.summary).toBe("In Wohlen wurde ein Stromausfall gemeldet.");
+  });
+
   it("distinguishes one media report from two independent publishers", () => {
     const neo = source({
       source_url: "https://neo1.ch/news/stromausfall-appenzell",
