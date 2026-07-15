@@ -322,6 +322,24 @@ describe("public event publication", () => {
     expect(decision.trust).toBe("reported");
   });
 
+  it("rejects a one-source media story that only mentions an outage incidentally", () => {
+    const fireStory = source({
+      source_url: "https://www.blick.ch/fr/suisse/valais-incendie-entreprise-id22084540.html",
+      source_title: "Valais: Pompiers mobilisés par l'incendie d'une entreprise",
+      source_name: "Blick",
+      source_kind: "national_media",
+      is_official: 0
+    });
+    const decision = evaluatePublicEvent(
+      event({ location_text: "Monthey, VS" }),
+      [fireStory],
+      [outageFact({ outage_source_id: fireStory.id, evidence_excerpt: "Coupure de courant." })]
+    );
+
+    expect(decision.publishable).toBe(false);
+    expect(decision.reasons).toContain("insufficient_source_authority");
+  });
+
   it("exposes only the compact public feed contract", () => {
     const outageEvent = event();
     const decision = evaluatePublicEvent(outageEvent, [source()], [outageFact()]);

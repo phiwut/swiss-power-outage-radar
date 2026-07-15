@@ -86,6 +86,18 @@ function canonicalPublicSource(source: OutageSource, authorityHosts?: ReadonlySe
   };
 }
 
+function outageCenteredSource(source: OutageSource): boolean {
+  const canonicalUrl = canonicalSourceUrl(source.source_url) ?? source.source_url;
+  let decodedUrl = canonicalUrl;
+  try {
+    decodedUrl = decodeURIComponent(canonicalUrl);
+  } catch {
+    // Keep the original URL when malformed percent encoding cannot be decoded.
+  }
+  const text = normalizeLocation(`${source.source_title} ${decodedUrl}`);
+  return /\b(?:stromausfall|stromunterbruch|netzunterbruch|ohne strom|kappt strom|panne de courant|coupure de courant|privees delectricite|blackout|interruzione di corrente|senza corrente|power outage)\b/.test(text);
+}
+
 function publicSummary(event: OutageEvent): string | null {
   const summary = event.research_summary_de?.trim() || event.summary?.trim() || null;
   if (
@@ -156,11 +168,15 @@ export function evaluatePublicEvent(
   });
   const official = evidencedSources.find((source) => source.trust === "official");
   const independentDomains = new Set(evidencedSources.map((source) => source.independenceKey));
+  const centeredReport = evidencedSources.find((source) => {
+    const original = sources.find((item) => item.id === source.sourceId);
+    return original ? outageCenteredSource(original) : false;
+  });
   const trust: PublicTrust | null = official
     ? "official"
     : independentDomains.size >= 2
       ? "corroborated"
-      : evidencedSources.length === 1
+      : evidencedSources.length === 1 && centeredReport
         ? "reported"
         : null;
   if (!trust) reasons.push("insufficient_source_authority");
