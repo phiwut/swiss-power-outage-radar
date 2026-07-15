@@ -1,0 +1,162 @@
+import { describe, expect, it } from "vitest";
+import { buildPublicEventDetail, choosePublicLocation } from "../src/public-detail";
+import type { OutageEvent, OutageFact, OutageSource, PublicFeedItem } from "../src/types";
+
+describe("public event detail", () => {
+  it("chooses the official Swiss municipality for a prefixed incident location", () => {
+    const location = choosePublicLocation("in Lostorf", [
+      {
+        id: 860,
+        weight: 100,
+        attrs: {
+          detail: "lostorf so",
+          label: "<b>Lostorf (SO)</b>",
+          lat: 47.3895874,
+          lon: 7.9314265,
+          origin: "gg25",
+          rank: 2
+        }
+      },
+      {
+        id: 44135,
+        weight: 100,
+        attrs: {
+          detail: "lostorf giesshuebel 300m lostorf",
+          label: "<i>Gebaeude</i> <b>Lostorf Giesshübel 300m</b> (SO)",
+          lat: 47.3876572,
+          lon: 7.9555287,
+          origin: "gazetteer",
+          rank: 6
+        }
+      }
+    ]);
+
+    expect(location).toEqual({
+      query: "Lostorf",
+      label: "Lostorf (SO)",
+      latitude: 47.3895874,
+      longitude: 7.9314265,
+      precision: "municipality",
+      provider: "geo.admin.ch"
+    });
+  });
+
+  it("builds a rich detail using only concrete public facts", () => {
+    const item = {
+      id: 56,
+      location: "Lostorf",
+      received_at: "2026-07-15T11:30:30.337Z",
+      started_at: null,
+      resolved_at: null,
+      status: null,
+      summary: "Stromausfall in Lostorf (Froburgstrasse)",
+      trust: "official",
+      source: {
+        publisher: "Primeo Energie",
+        url: "https://www.primeo-energie.ch/en/netzstatus.html",
+        domain: "primeo-energie.ch"
+      }
+    } satisfies PublicFeedItem;
+    const event = {
+      id: 56,
+      outage_nature: "unplanned",
+      cause_text: null,
+      cause_category: "unknown"
+    } as OutageEvent;
+    const facts = [
+      {
+        fact_type: "start_time",
+        value_text: "2026-07-16T06:00:35.000Z",
+        confidence: 0.82,
+        outage_source_id: 97
+      },
+      { fact_type: "planned_nature", value_text: "unplanned", confidence: 0.78, outage_source_id: 97 },
+      { fact_type: "cause", value_text: "unknown", confidence: 0.99, outage_source_id: 97 }
+    ] as OutageFact[];
+    const sources = [{
+      id: 97,
+      outage_event_id: 56,
+      source_url: item.source.url,
+      source_title: "Stromausfall in Lostorf (Froburgstrasse)",
+      source_name: "Primeo Energie",
+      source_kind: "operator",
+      is_official: 1,
+      is_primary: 1
+    }] as OutageSource[];
+
+    const detail = buildPublicEventDetail({
+      item,
+      event,
+      facts,
+      sources,
+      location: {
+        query: "Lostorf",
+        label: "Lostorf (SO)",
+        latitude: 47.3895874,
+        longitude: 7.9314265,
+        precision: "municipality",
+        provider: "geo.admin.ch"
+      },
+      operator: {
+        name: "Primeo Energie",
+        role: "Netzbetreiber",
+        area: "Primeo Netzgebiet Nordwestschweiz",
+        url: item.source.url,
+        domain: "primeo-energie.ch"
+      }
+    });
+
+    expect(detail.facts).toEqual([
+      { key: "start_time", label: "Beginn", value: "2026-07-16T06:00:35.000Z", format: "datetime" },
+      { key: "nature", label: "Art", value: "Ungeplant", format: "text" }
+    ]);
+    expect(detail.facts.some((fact) => fact.value.toLowerCase().includes("unknown"))).toBe(false);
+    expect(detail.operator?.name).toBe("Primeo Energie");
+    expect(detail.sources).toEqual([
+      {
+        publisher: "Primeo Energie",
+        url: item.source.url,
+        domain: "primeo-energie.ch",
+        role: "operator"
+      }
+    ]);
+    expect(detail.timeline.map((entry) => entry.key)).toEqual(["received_at", "start_time"]);
+  });
+
+  it("keeps a sparse media report concise instead of rendering empty detail fields", () => {
+    const item = {
+      id: 50,
+      location: "Winterthur",
+      received_at: "2026-07-14T08:10:00.000Z",
+      started_at: null,
+      resolved_at: null,
+      status: null,
+      summary: "Hinweis auf einen Stromausfall in Winterthur",
+      trust: "reported",
+      source: {
+        publisher: "Nau",
+        url: "https://www.nau.ch/news/schweiz/stromausfall-in-winterthur-67000000",
+        domain: "nau.ch"
+      }
+    } satisfies PublicFeedItem;
+
+    const detail = buildPublicEventDetail({
+      item,
+      event: {
+        id: 50,
+        outage_nature: "unknown",
+        cause_text: "unklar",
+        cause_category: "unknown"
+      } as OutageEvent,
+      facts: [{ fact_type: "cause", value_text: "unknown", confidence: 0.96 }] as OutageFact[],
+      sources: [],
+      location: null,
+      operator: null
+    });
+
+    expect(detail.facts).toEqual([]);
+    expect(detail.operator).toBeNull();
+    expect(detail.timeline).toHaveLength(1);
+    expect(detail.sources).toEqual([{ ...item.source, role: "media" }]);
+  });
+});

@@ -8,7 +8,6 @@ import {
   getOutageEventFacts,
   getOutageEventSources,
   getOutageEventSnapshots,
-  getPublicFeedItem,
   getPublicFeedItems,
   getPublicStatus,
   getRecentItems,
@@ -22,6 +21,7 @@ import { generateMergeSuggestions, refreshEventIntelligence } from "./event-inte
 import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
 import { ingestFirecrawlWebhook, revalidatePublicEvents, runAlertCheck } from "./runner";
+import { loadPublicEventDetail } from "./public-detail";
 import { isBearerAuthorized } from "./auth";
 import type { CheckAlertFeedsParams, Env } from "./types";
 
@@ -336,13 +336,9 @@ export default {
     const publicEventMatch = url.pathname.match(/^\/api\/public\/events\/(\d+)$/);
     if (publicEventMatch && request.method === "GET") {
       const eventId = Number(publicEventMatch[1]);
-      const item = await getPublicFeedItem(env.DB, eventId);
-      if (!item) return json({ error: "Not found" }, { status: 404 });
-      return json({
-        item,
-        known_facts: [],
-        sources: [item.source]
-      });
+      const detail = await loadPublicEventDetail(env, eventId);
+      if (!detail) return json({ error: "Not found" }, { status: 404 });
+      return json(detail);
     }
 
     if (url.pathname === "/" && request.method === "GET") {

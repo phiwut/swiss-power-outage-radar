@@ -1,22 +1,65 @@
 ---
+import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import RadarLayout from "../../layouts/RadarLayout.astro";
 ---
 
 <RadarLayout
   title="Stromausfall-Meldung | outage.ch"
-  description="Stromausfall-Meldung mit bekannten Fakten, Quellenstatus und Originalquelle."
+  description="Stromausfall-Meldung mit Karte, bekannten Fakten, Netzbetreiber und Originalquellen."
 >
+  <link slot="head" rel="stylesheet" href={maplibreCss} />
   <section class="detail-page">
     <a class="back-link" href="/">
       <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
       Alle Meldungen
     </a>
     <main id="event-shell" aria-live="polite" aria-busy="true">
-      <div class="detail-loading"></div>
+      <div class="detail-loading" aria-label="Meldung wird geladen">
+        <span></span><span></span><span></span>
+      </div>
     </main>
   </section>
 
   <script>
+    type Trust = "official" | "corroborated" | "reported";
+    type DetailFact = {
+      key: string;
+      label: string;
+      value: string;
+      format: "text" | "datetime";
+    };
+    type DetailSource = {
+      publisher: string;
+      url: string;
+      domain: string;
+      role: "operator" | "authority" | "media";
+    };
+    type DetailResponse = {
+      item: {
+        id: number;
+        location: string;
+        received_at: string;
+        summary: string;
+        trust: Trust;
+      };
+      map: null | {
+        label: string;
+        latitude: number;
+        longitude: number;
+        precision: "address" | "locality" | "municipality" | "district" | "region";
+      };
+      facts: DetailFact[];
+      timeline: Array<{ key: string; label: string; value: string }>;
+      operator: null | {
+        name: string;
+        role: "Netzbetreiber" | "Behörde";
+        area: string | null;
+        url: string;
+        domain: string;
+      };
+      sources: DetailSource[];
+    };
+
     const eventId = location.pathname.match(/\/events\/(\d+)/)?.[1];
     const shell = document.querySelector<HTMLElement>("#event-shell")!;
     const escapeHtml = (value: unknown) => String(value ?? "")
@@ -31,32 +74,148 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? value : fmt.format(date);
     };
+    const trustText = (trust: Trust) => trust === "official"
+      ? "Offiziell gemeldet"
+      : trust === "corroborated"
+        ? "Unabhängig bestätigt"
+        : "Öffentlich gemeldet";
+    const sourceRole = (role: DetailSource["role"]) => role === "operator"
+      ? "Netzbetreiber"
+      : role === "authority"
+        ? "Behörde"
+        : "Medienquelle";
+    const zoomFor = (precision: NonNullable<DetailResponse["map"]>["precision"]) =>
+      precision === "address" ? 14.2 : precision === "locality" ? 13 : precision === "municipality" ? 11.8 : 10.2;
+
+    function factMarkup(facts: DetailFact[]): string {
+      if (!facts.length) return "";
+      return `<section class="fact-strip" aria-labelledby="facts-heading">
+        <h2 id="facts-heading">Was bekannt ist</h2>
+        <dl>${facts.map((fact) => `<div>
+          <dt>${escapeHtml(fact.label)}</dt>
+          <dd>${escapeHtml(fact.format === "datetime" ? formatDate(fact.value) : fact.value)}</dd>
+        </div>`).join("")}</dl>
+      </section>`;
+    }
+
+    function timelineMarkup(entries: DetailResponse["timeline"]): string {
+      if (entries.length < 2) return "";
+      return `<section class="timeline-block" aria-labelledby="timeline-heading">
+        <div class="section-heading"><span>Verlauf</span><h2 id="timeline-heading">Zeitliche Einordnung</h2></div>
+        <ol>${entries.map((entry) => `<li>
+          <span class="timeline-mark" aria-hidden="true"></span>
+          <div><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(formatDate(entry.value))}</strong></div>
+        </li>`).join("")}</ol>
+      </section>`;
+    }
+
+    function operatorMarkup(operator: DetailResponse["operator"]): string {
+      if (!operator) return "";
+      return `<aside class="operator-block" aria-labelledby="operator-heading">
+        <div class="operator-symbol" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none"><path d="M27 5 13 27h11l-2 16 14-24H26l1-14Z"/></svg>
+        </div>
+        <div class="operator-copy">
+          <span>${escapeHtml(operator.role)}</span>
+          <h2 id="operator-heading">${escapeHtml(operator.name)}</h2>
+          ${operator.area ? `<p>${escapeHtml(operator.area)}</p>` : ""}
+          <small>${escapeHtml(operator.domain)}</small>
+        </div>
+        <a href="${escapeHtml(operator.url)}" target="_blank" rel="noreferrer">Beim Betreiber öffnen
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        </a>
+      </aside>`;
+    }
+
+    function sourcesMarkup(sources: DetailSource[]): string {
+      if (!sources.length) return "";
+      return `<section class="sources-block" aria-labelledby="sources-heading">
+        <div class="section-heading"><span>Nachvollziehbar</span><h2 id="sources-heading">Meldung & Quellen</h2></div>
+        <div class="source-list">${sources.map((source, index) => `<a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">
+          <span class="source-index">${String(index + 1).padStart(2, "0")}</span>
+          <span class="source-copy"><small>${escapeHtml(sourceRole(source.role))}</small><strong>${escapeHtml(source.publisher)}</strong><span>${escapeHtml(source.domain)}</span></span>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </a>`).join("")}</div>
+      </section>`;
+    }
+
+    async function initializeMap(data: DetailResponse): Promise<void> {
+      if (!data.map) return;
+      const container = document.querySelector<HTMLElement>("#event-map");
+      if (!container) return;
+      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try {
+        const { default: maplibregl } = await import("maplibre-gl");
+        const map = new maplibregl.Map({
+          container,
+          style: "https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json",
+          center: [data.map.longitude, data.map.latitude],
+          zoom: zoomFor(data.map.precision),
+          interactive: false,
+          attributionControl: false,
+          fadeDuration: reduceMotion ? 0 : 350
+        });
+        map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+        map.once("load", () => {
+          map.addSource("outage-location", {
+            type: "geojson",
+            data: {
+              type: "Feature",
+              properties: {},
+              geometry: { type: "Point", coordinates: [data.map!.longitude, data.map!.latitude] }
+            }
+          });
+          map.addLayer({
+            id: "outage-halo",
+            type: "circle",
+            source: "outage-location",
+            paint: { "circle-radius": 23, "circle-color": "#f5a24a", "circle-opacity": 0.16 }
+          });
+          map.addLayer({
+            id: "outage-point",
+            type: "circle",
+            source: "outage-location",
+            paint: {
+              "circle-radius": 7,
+              "circle-color": "#e87524",
+              "circle-stroke-color": "#fffaf3",
+              "circle-stroke-width": 3
+            }
+          });
+        });
+        map.on("error", () => container.classList.add("map-failed"));
+      } catch {
+        container.classList.add("map-failed");
+      }
+    }
 
     async function load(): Promise<void> {
       if (!eventId) throw new Error("Meldung nicht gefunden.");
       const response = await fetch(`/api/public/events/${eventId}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Diese Meldung ist nicht mehr öffentlich verfügbar.");
-      const data = await response.json();
-      const item = data.item;
-      const facts = Array.isArray(data.known_facts) ? data.known_facts : [];
-      const trust = item.trust === "official"
-        ? "Offizielle Quelle"
-        : item.trust === "corroborated"
-          ? "Durch unabhängige Quellen bestätigt"
-          : "Von dieser Quelle gemeldet";
-      shell.innerHTML = `<article class="detail-card">
-        <header>
-          <p class="section-label text-accent">Eingegangen ${escapeHtml(formatDate(item.received_at))}</p>
-          <h1>${escapeHtml(item.location)}</h1>
-          <p class="summary">${escapeHtml(item.summary)}</p>
+      const data = await response.json() as DetailResponse;
+      const hasMap = Boolean(data.map);
+      shell.innerHTML = `<article class="event-brief">
+        <header class="event-hero ${hasMap ? "has-map" : "no-map"}">
+          ${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(data.map!.label)}"></div>` : ""}
+          <div class="hero-wash" aria-hidden="true"></div>
+          <div class="hero-copy">
+            <div class="hero-meta"><span class="trust-mark"><i aria-hidden="true"></i>${escapeHtml(trustText(data.item.trust))}</span><span>Eingang ${escapeHtml(formatDate(data.item.received_at))}</span></div>
+            <h1>${escapeHtml(data.item.location)}</h1>
+            <p>${escapeHtml(data.item.summary)}</p>
+          </div>
+          ${hasMap ? `<span class="map-place">${escapeHtml(data.map!.label)}</span>` : ""}
         </header>
-        ${facts.length ? `<section class="known-facts"><h2>Bekannte Fakten</h2><dl>${facts.map((fact: { label: string; value: string }) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.label === "Beginn" || fact.label === "Behoben" ? formatDate(fact.value) : fact.value)}</dd></div>`).join("")}</dl></section>` : ""}
-        <section class="source-block">
-          <div><span>${escapeHtml(trust)}</span><strong>${escapeHtml(item.source.publisher)}</strong><small>${escapeHtml(item.source.domain)}</small></div>
-          <a href="${escapeHtml(item.source.url)}" target="_blank" rel="noreferrer">Originalquelle öffnen <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a>
-        </section>
+        ${factMarkup(data.facts)}
+        <div class="detail-flow">
+          ${operatorMarkup(data.operator)}
+          ${timelineMarkup(data.timeline)}
+          ${sourcesMarkup(data.sources)}
+        </div>
+        <footer class="detail-note">outage.ch bündelt öffentliche Meldungen. Für Notfälle gelten die Hinweise der lokalen Behörden und Netzbetreiber.</footer>
       </article>`;
       shell.setAttribute("aria-busy", "false");
+      void initializeMap(data);
     }
 
     load().catch((error) => {
@@ -66,33 +225,93 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
   </script>
 
   <style is:global>
-    .detail-page { margin: 0 auto; max-width: 860px; padding: 2rem 0 5rem; }
-    .back-link { align-items: center; color: var(--color-muted); display: inline-flex; font-size: .875rem; font-weight: 600; gap: .4rem; margin-bottom: 2rem; text-decoration: none; }
-    .back-link:hover { color: var(--color-ink); }
-    .detail-card { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .75rem; box-shadow: 0 18px 50px color-mix(in oklch, var(--color-ink) 7%, transparent); overflow: hidden; }
-    .detail-card > header { padding: clamp(1.5rem, 5vw, 3.5rem); }
-    .detail-card h1 { font-family: var(--font-display); font-size: clamp(2.1rem, 7vw, 4.25rem); font-weight: 800; hyphens: auto; letter-spacing: -.045em; line-height: 1; margin: .8rem 0 0; overflow-wrap: anywhere; }
-    .summary { color: var(--color-muted); font-size: clamp(1.05rem, 2vw, 1.25rem); line-height: 1.7; margin: 1.5rem 0 0; max-width: 680px; }
-    .known-facts { border-top: 1px solid var(--color-rule); padding: clamp(1.5rem, 4vw, 2.5rem); }
-    .known-facts h2 { font-family: var(--font-display); font-size: 1.15rem; margin: 0 0 1rem; }
-    .known-facts dl { display: grid; gap: 0; margin: 0; }
-    .known-facts dl div { border-top: 1px solid var(--color-rule); display: grid; gap: 1rem; grid-template-columns: 120px 1fr; padding: .9rem 0; }
-    .known-facts dt { color: var(--color-muted); font-family: var(--font-mono); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; }
-    .known-facts dd { margin: 0; }
-    .source-block { align-items: center; background: var(--color-surface-2); border-top: 1px solid var(--color-rule); display: flex; gap: 1rem; justify-content: space-between; padding: 1.25rem clamp(1.5rem, 4vw, 2.5rem); }
-    .source-block div { display: grid; gap: .2rem; }
-    .source-block span, .source-block small { color: var(--color-muted); font-size: .72rem; }
-    .source-block a { align-items: center; background: var(--color-ink); border-radius: var(--radius-md); color: var(--color-surface); display: inline-flex; font-size: .85rem; font-weight: 600; gap: .45rem; min-height: 2.75rem; padding: .65rem 1rem; text-decoration: none; }
-    .detail-loading { animation: pulse 1.4s ease-in-out infinite; background: var(--color-surface-2); border-radius: .75rem; height: 420px; }
+    .detail-page { margin: 0 auto; max-width: 1040px; padding: 1.5rem 0 5rem; }
+    .back-link { align-items: center; color: var(--color-muted); display: inline-flex; font-size: .85rem; font-weight: 600; gap: .4rem; margin: .25rem 0 1.4rem; text-decoration: none; }
+    .back-link:hover { color: var(--color-ink); transform: translateX(-2px); }
+    .event-brief { animation: brief-in .45s var(--ease-out) both; }
+    .event-hero { background: #dce8e3; border-radius: 1rem 1rem .35rem .35rem; color: #fffdf8; min-height: clamp(430px, 56vw, 620px); overflow: hidden; position: relative; box-shadow: 0 26px 70px color-mix(in oklch, #19332d 20%, transparent); }
+    #event-map { inset: 0; position: absolute; }
+    #event-map.map-failed { background: radial-gradient(circle at 72% 28%, #d8e6df, #b9cdc5); }
+    .event-hero.no-map { background: radial-gradient(circle at 78% 22%, #54746b, #17352f 58%, #0f2924); }
+    .event-hero.no-map::before { background-image: linear-gradient(#fff1 1px, transparent 1px), linear-gradient(90deg, #fff1 1px, transparent 1px); background-size: 44px 44px; content: ""; inset: 0; opacity: .34; position: absolute; }
+    .hero-wash { background: linear-gradient(90deg, rgba(8, 31, 27, .94) 0%, rgba(8, 31, 27, .78) 38%, rgba(8, 31, 27, .18) 72%, transparent 100%), linear-gradient(0deg, rgba(8, 31, 27, .4), transparent 46%); inset: 0; pointer-events: none; position: absolute; }
+    .hero-copy { bottom: clamp(2rem, 6vw, 4.5rem); left: clamp(1.4rem, 6vw, 4.5rem); max-width: 660px; position: absolute; right: clamp(1.4rem, 7vw, 5rem); z-index: 2; }
+    .hero-meta { align-items: center; color: rgba(255,255,255,.72); display: flex; flex-wrap: wrap; font-family: var(--font-mono); font-size: .66rem; gap: .65rem 1rem; letter-spacing: .055em; margin-bottom: 1.15rem; text-transform: uppercase; }
+    .trust-mark { align-items: center; color: #fff; display: inline-flex; font-weight: 600; gap: .5rem; }
+    .trust-mark i { background: #f29a42; border: 4px solid rgba(242,154,66,.2); border-radius: 50%; box-sizing: content-box; height: .4rem; width: .4rem; }
+    .event-hero h1 { font-family: var(--font-display); font-size: clamp(2.6rem, 8vw, 5.9rem); font-weight: 800; hyphens: auto; letter-spacing: -.06em; line-height: .94; margin: 0; max-width: 800px; overflow-wrap: anywhere; text-wrap: balance; }
+    .event-hero .hero-copy > p { color: rgba(255,255,255,.82); font-size: clamp(1rem, 2vw, 1.22rem); line-height: 1.62; margin: 1.35rem 0 0; max-width: 640px; text-wrap: pretty; }
+    .map-place { background: rgba(255,255,255,.88); border: 1px solid rgba(255,255,255,.92); border-radius: .28rem; color: #28433d; font-family: var(--font-mono); font-size: .62rem; letter-spacing: .04em; padding: .45rem .6rem; position: absolute; right: 1rem; top: 1rem; z-index: 2; }
+    .maplibregl-ctrl-attrib { background: rgba(255,255,255,.78) !important; color: #47635c !important; font-size: 9px !important; }
+    .fact-strip { background: var(--color-surface); border-bottom: 1px solid var(--color-rule); display: grid; grid-template-columns: minmax(150px, .72fr) minmax(0, 2.3fr); padding: clamp(1.35rem, 3vw, 2rem) clamp(1.4rem, 5vw, 3.5rem); }
+    .fact-strip h2 { align-self: start; font-family: var(--font-display); font-size: .9rem; margin: .2rem 0 0; }
+    .fact-strip dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); margin: 0; }
+    .fact-strip dl div { border-left: 1px solid var(--color-rule); min-width: 0; padding: 0 1.1rem; }
+    .fact-strip dt { color: var(--color-faint); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .07em; margin-bottom: .4rem; text-transform: uppercase; }
+    .fact-strip dd { font-family: var(--font-display); font-size: .98rem; font-weight: 650; line-height: 1.3; margin: 0; overflow-wrap: anywhere; }
+    .detail-flow { display: grid; gap: clamp(3.5rem, 8vw, 6.5rem); padding: clamp(3.5rem, 8vw, 7rem) clamp(1.4rem, 6vw, 4.5rem); }
+    .operator-block { align-items: center; background: #17352f; border-radius: .35rem 1rem .35rem .35rem; color: #fff; display: grid; gap: 1.4rem; grid-template-columns: auto minmax(0, 1fr) auto; overflow: hidden; padding: clamp(1.4rem, 4vw, 2.4rem); position: relative; }
+    .operator-block::after { border: 1px solid rgba(255,255,255,.08); border-radius: 50%; content: ""; height: 240px; position: absolute; right: -90px; top: -120px; width: 240px; }
+    .operator-symbol { align-items: center; background: #f0a252; border-radius: .3rem; color: #17352f; display: flex; height: 4rem; justify-content: center; width: 4rem; }
+    .operator-symbol svg { height: 2.2rem; stroke: currentColor; stroke-linejoin: round; stroke-width: 2.4; width: 2.2rem; }
+    .operator-copy { min-width: 0; position: relative; z-index: 1; }
+    .operator-copy > span { color: rgba(255,255,255,.58); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .09em; text-transform: uppercase; }
+    .operator-copy h2 { font-family: var(--font-display); font-size: clamp(1.55rem, 4vw, 2.35rem); letter-spacing: -.035em; margin: .3rem 0 0; }
+    .operator-copy p { color: rgba(255,255,255,.7); margin: .5rem 0 .3rem; }
+    .operator-copy small { color: rgba(255,255,255,.45); font-family: var(--font-mono); }
+    .operator-block > a { align-items: center; background: #fffaf3; border-radius: .3rem; color: #17352f; display: inline-flex; font-size: .8rem; font-weight: 700; gap: .5rem; min-height: 2.8rem; padding: .7rem 1rem; position: relative; text-decoration: none; z-index: 1; }
+    .operator-block > a:hover { background: #f0a252; transform: translateY(-1px); }
+    .section-heading { display: grid; gap: .45rem; grid-template-columns: minmax(110px, .45fr) minmax(0, 1.5fr); margin-bottom: 1.6rem; }
+    .section-heading > span { color: var(--color-faint); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .08em; padding-top: .35rem; text-transform: uppercase; }
+    .section-heading h2 { font-family: var(--font-display); font-size: clamp(1.55rem, 4vw, 2.4rem); letter-spacing: -.035em; margin: 0; }
+    .timeline-block ol { list-style: none; margin: 0 0 0 min(23%, 160px); padding: 0; }
+    .timeline-block li { align-items: start; border-top: 1px solid var(--color-rule); display: grid; gap: 1rem; grid-template-columns: 18px 1fr; padding: 1rem 0; }
+    .timeline-mark { background: var(--color-surface); border: 2px solid #e58534; border-radius: 50%; height: .7rem; margin-top: .3rem; width: .7rem; }
+    .timeline-block li div { display: flex; flex-wrap: wrap; gap: .35rem 1rem; justify-content: space-between; }
+    .timeline-block li span:not(.timeline-mark) { color: var(--color-muted); font-size: .86rem; }
+    .timeline-block li strong { font-family: var(--font-mono); font-size: .76rem; font-weight: 600; }
+    .source-list { border-bottom: 1px solid var(--color-rule); }
+    .source-list > a { align-items: center; border-top: 1px solid var(--color-rule); color: inherit; display: grid; gap: 1rem; grid-template-columns: 44px minmax(0, 1fr) 20px; min-height: 88px; padding: 1rem .15rem; text-decoration: none; }
+    .source-list > a:hover { background: color-mix(in oklch, var(--color-accent-soft) 30%, transparent); padding-left: .75rem; padding-right: .75rem; }
+    .source-index { color: var(--color-faint); font-family: var(--font-mono); font-size: .7rem; }
+    .source-copy { display: grid; gap: .16rem; min-width: 0; }
+    .source-copy small { color: #b4682e; font-family: var(--font-mono); font-size: .58rem; letter-spacing: .075em; text-transform: uppercase; }
+    .source-copy strong { font-family: var(--font-display); font-size: 1rem; }
+    .source-copy > span { color: var(--color-faint); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .source-list .icon { color: var(--color-faint); }
+    .detail-note { border-top: 1px solid var(--color-rule); color: var(--color-faint); font-size: .72rem; line-height: 1.6; margin: 0 clamp(1.4rem, 6vw, 4.5rem); padding: 1.2rem 0 2rem; }
+    .detail-loading { background: #dbe7e2; border-radius: 1rem; display: grid; gap: 1rem; min-height: 560px; padding: 4rem; }
+    .detail-loading span { animation: pulse 1.4s ease-in-out infinite; background: rgba(255,255,255,.55); border-radius: .3rem; height: 1rem; max-width: 50%; }
+    .detail-loading span:nth-child(2) { height: 4.5rem; max-width: 75%; }
+    .detail-loading span:nth-child(3) { max-width: 62%; }
     .detail-error { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .75rem; display: grid; gap: .75rem; padding: 3rem; text-align: center; }
     .detail-error p { color: var(--color-muted); margin: 0; }
     .detail-error a { color: var(--color-accent); }
     @keyframes pulse { 50% { opacity: .58; } }
-    @media (max-width: 640px) {
-      .detail-page { padding-top: 1.25rem; }
-      .known-facts dl div { gap: .3rem; grid-template-columns: 1fr; }
-      .source-block { align-items: stretch; flex-direction: column; }
-      .source-block a { justify-content: center; }
+    @keyframes brief-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .event-brief { animation: none; } }
+    @media (max-width: 720px) {
+      .detail-page { padding-top: 1rem; }
+      .event-hero { border-radius: .7rem .7rem .25rem .25rem; min-height: 510px; }
+      .hero-wash { background: linear-gradient(0deg, rgba(8,31,27,.96) 0%, rgba(8,31,27,.72) 48%, rgba(8,31,27,.08) 82%); }
+      .hero-copy { bottom: 1.55rem; }
+      .event-hero h1 { font-size: clamp(2.5rem, 14vw, 4.1rem); }
+      .map-place { max-width: calc(100% - 2rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fact-strip { gap: 1.2rem; grid-template-columns: 1fr; }
+      .fact-strip dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .fact-strip dl div { border-left: 0; border-top: 1px solid var(--color-rule); padding: .8rem .5rem .3rem 0; }
+      .detail-flow { gap: 3.5rem; padding-top: 4rem; }
+      .operator-block { align-items: start; grid-template-columns: auto 1fr; }
+      .operator-block > a { grid-column: 1 / -1; justify-content: center; }
+      .section-heading { grid-template-columns: 1fr; }
+      .section-heading > span { padding: 0; }
+      .timeline-block ol { margin-left: 0; }
+    }
+    @media (max-width: 420px) {
+      .hero-meta { align-items: flex-start; flex-direction: column; }
+      .fact-strip dl { grid-template-columns: 1fr; }
+      .operator-symbol { height: 3.2rem; width: 3.2rem; }
+      .source-list > a { grid-template-columns: 34px minmax(0, 1fr) 16px; }
     }
   </style>
 </RadarLayout>
