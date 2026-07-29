@@ -18,13 +18,7 @@
   "observability": {
     "enabled": true
   },
-  "vars": {
-    "ALERT_FEED_DE": "https://www.google.ch/alerts/feeds/16558478364210538813/6551104678731419018",
-    "ALERT_FEED_FR": "https://www.google.ch/alerts/feeds/16558478364210538813/11946241330502781765",
-    "ALERT_FEED_IT": "https://www.google.ch/alerts/feeds/16558478364210538813/6819932838852918871",
-    "NOTIFY_EMAIL": "pw@bimex.ch",
-    "FROM_EMAIL": "alert@outage.ch"
-  },
+  "keep_vars": true,
   "triggers": {
     "crons": ["*/15 * * * *"]
   },
@@ -53,13 +47,6 @@
       "name": "EMAIL",
       "allowed_sender_addresses": ["alert@outage.ch"],
       "allowed_destination_addresses": ["pw@bimex.ch"]
-    }
-  ],
-  "workflows": [
-    {
-      "binding": "CHECK_ALERT_FEEDS",
-      "name": "check-alert-feeds",
-      "class_name": "CheckAlertFeedsWorkflow"
     }
   ]
 }

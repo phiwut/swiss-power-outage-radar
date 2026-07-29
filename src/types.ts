@@ -24,7 +24,6 @@ export interface Env {
   AI: Ai;
   BROWSER: BrowserRun;
   SNAPSHOTS: R2Bucket;
-  CHECK_ALERT_FEEDS: Workflow;
   EMAIL: SendEmail;
   ALERT_FEED_DE?: string;
   ALERT_FEED_FR?: string;
@@ -109,6 +108,7 @@ export interface IncidentValidity {
 
 export interface WorkflowRunSummary {
   runId: number;
+  skipped?: boolean;
   itemsSeen: number;
   itemsNew: number;
   itemsFiltered: number;
@@ -256,10 +256,17 @@ export interface PublicationDecision {
 export interface PublicFeedItem {
   id: number;
   location: string;
+  canton: string | null;
+  url: string;
   received_at: string;
   started_at: string | null;
   resolved_at: string | null;
-  status: "active" | "resolved" | null;
+  status: "upcoming" | "active" | "resolved" | null;
+  nature: OutageNature;
+  duration_minutes: number | null;
+  cause: string | null;
+  affected_area: string | null;
+  updated_at: string;
   summary: string;
   trust: PublicTrust;
   source: PublicCanonicalSource;

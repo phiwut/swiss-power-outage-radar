@@ -10,14 +10,34 @@ interface SnapshotTarget {
 
 interface ParsedMarkdown {
   markdown: string;
+  screenshot: Uint8Array | null;
   title: string | null;
   httpStatus: number | null;
   error: string | null;
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+async function sha256Hex(value: string | Uint8Array): Promise<string> {
+  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export function evidenceScreenshotKey(snapshotId: number): string {
+  return `evidence/snapshot-${snapshotId}.png`;
+}
+
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function decodeScreenshot(value: unknown): Uint8Array | null {
+  if (typeof value !== "string" || !value) return null;
+  try {
+    return decodeBase64(value);
+  } catch {
+    return null;
+  }
 }
 
 function excerpt(markdown: string): string {
@@ -58,7 +78,7 @@ async function parseBrowserMarkdownResponse(response: Response): Promise<ParsedM
     payload = await response.json();
   } catch {
     const text = await response.text().catch(() => "");
-    return { markdown: "", title: null, httpStatus, error: text || `HTTP ${httpStatus}` };
+    return { markdown: "", screenshot: null, title: null, httpStatus, error: text || `HTTP ${httpStatus}` };
   }
 
   const record = payload as Record<string, unknown>;
@@ -66,6 +86,18 @@ async function parseBrowserMarkdownResponse(response: Response): Promise<ParsedM
     const meta = record.meta as Record<string, unknown> | undefined;
     return {
       markdown: record.result,
+      screenshot: null,
+      title: typeof meta?.title === "string" ? meta.title : null,
+      httpStatus: typeof meta?.status === "number" ? meta.status : httpStatus,
+      error: null
+    };
+  }
+  if (record.success === true && record.result && typeof record.result === "object") {
+    const result = record.result as Record<string, unknown>;
+    const meta = record.meta as Record<string, unknown> | undefined;
+    return {
+      markdown: typeof result.markdown === "string" ? result.markdown : "",
+      screenshot: decodeScreenshot(result.screenshot),
       title: typeof meta?.title === "string" ? meta.title : null,
       httpStatus: typeof meta?.status === "number" ? meta.status : httpStatus,
       error: null
@@ -80,7 +112,7 @@ async function parseBrowserMarkdownResponse(response: Response): Promise<ParsedM
         })
         .join("; ")
     : `HTTP ${httpStatus}`;
-  return { markdown: "", title: null, httpStatus, error: errors };
+  return { markdown: "", screenshot: null, title: null, httpStatus, error: errors };
 }
 
 function titleFromMarkdown(markdown: string): string | null {
@@ -106,7 +138,7 @@ async function fetchJinaMarkdown(targetUrl: string): Promise<ParsedMarkdown> {
     const text = await response.text().catch(() => "");
     if (!response.ok) {
       return {
-        markdown: "",
+        markdown: "", screenshot: null,
         title: null,
         httpStatus: response.status,
         error: text || `Jina HTTP ${response.status}`
@@ -114,21 +146,21 @@ async function fetchJinaMarkdown(targetUrl: string): Promise<ParsedMarkdown> {
     }
     if (!text.trim()) {
       return {
-        markdown: "",
+        markdown: "", screenshot: null,
         title: null,
         httpStatus: response.status,
         error: "Jina markdown response was empty"
       };
     }
     return {
-      markdown: text,
+      markdown: text, screenshot: null,
       title: titleFromMarkdown(text),
       httpStatus: response.status,
       error: null
     };
   } catch (error) {
     return {
-      markdown: "",
+      markdown: "", screenshot: null,
       title: null,
       httpStatus: null,
       error: error instanceof Error ? error.message : String(error)
@@ -142,11 +174,15 @@ async function fetchCloudflareMarkdown(
   env: Pick<Env, "BROWSER" | "BROWSER_MOCK_MODE">,
   fetchUrl: string,
   sourceTitle: string,
-  sourceUrl: string
+  sourceUrl: string,
+  captureScreenshot = true
 ): Promise<ParsedMarkdown> {
   if (env.BROWSER_MOCK_MODE === "true") {
     return {
       markdown: `# ${sourceTitle}\n\nMock Markdown Snapshot for ${sourceUrl}`,
+      screenshot: captureScreenshot
+        ? decodeBase64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=")
+        : null,
       title: sourceTitle,
       httpStatus: 200,
       error: null
@@ -154,8 +190,15 @@ async function fetchCloudflareMarkdown(
   }
 
   return await parseBrowserMarkdownResponse(
-    await env.BROWSER.quickAction("markdown", {
+    await (env.BROWSER.quickAction as unknown as (
+      action: "snapshot" | "markdown",
+      options: Record<string, unknown>
+    ) => Promise<Response>)(captureScreenshot ? "snapshot" : "markdown", {
       url: fetchUrl,
+      ...(captureScreenshot ? {
+        formats: ["screenshot", "markdown"],
+        screenshotOptions: { fullPage: true }
+      } : {}),
       cacheTTL: 0,
       bestAttempt: true,
       gotoOptions: {
@@ -195,7 +238,8 @@ export async function createSourceSnapshot(
 
     if (parsed.error || !parsed.markdown.trim()) {
       fallbackError = parsed.error || "Cloudflare markdown response was empty";
-      parsed = await fetchJinaMarkdown(fetchUrl);
+      const screenshot = parsed.screenshot;
+      parsed = { ...await fetchJinaMarkdown(fetchUrl), screenshot };
       fetchMethod = "jina_markdown_fallback";
     }
 
@@ -239,6 +283,22 @@ export async function createSourceSnapshot(
       contentHash,
       error: null
     });
+    if (parsed.screenshot) {
+      try {
+        const imageHash = await sha256Hex(parsed.screenshot);
+        await env.SNAPSHOTS.put(evidenceScreenshotKey(snapshot.id), parsed.screenshot, {
+          httpMetadata: { contentType: "image/png" },
+          customMetadata: {
+            source_url: target.source.source_url,
+            captured_at: fetchedAt,
+            content_hash: imageHash,
+            compression: "lossless"
+          }
+        });
+      } catch {
+        // Evidence capture is supplementary and must never block event ingestion.
+      }
+    }
     await maybeDigestSnapshot(env, target, snapshot, parsed.markdown);
     return snapshot;
   } catch (error) {
@@ -299,7 +359,7 @@ export async function createAlertSnapshot(
   };
 
   try {
-    let parsed = await fetchCloudflareMarkdown(env, fetchUrl, alertItem.title, alertItem.url);
+    let parsed = await fetchCloudflareMarkdown(env, fetchUrl, alertItem.title, alertItem.url, false);
     let fetchMethod = base.fetchMethod;
     let fallbackError: string | null = null;
 

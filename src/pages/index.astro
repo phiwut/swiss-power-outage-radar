@@ -3,14 +3,14 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 ---
 
 <RadarLayout
-  title="Letzte Stromausfall-Meldungen Schweiz | outage.ch"
-  description="Die zuletzt eingegangenen Stromausfall-Meldungen für die Schweiz – chronologisch und mit Originalquelle."
+  title="Stromausfälle Schweiz: aktuell & geplant | outage.ch"
+  description="Aktuelle und geplante Stromausfälle in der Schweiz mit Ort, Beginn, Ende, Dauer, Ursache, betroffener Region und nachvollziehbaren Quellen."
 >
   <section class="feed-page">
     <header class="feed-intro">
-      <p class="section-label text-accent">Schweiz · letzte Eingänge</p>
-      <h1>Letzte Stromausfall-Meldungen</h1>
-      <p>Chronologisch nach Eingang – mit Originalquelle und klarer Kennzeichnung, ob eine Meldung offiziell, bestätigt oder erst einmal gemeldet ist.</p>
+      <p class="section-label text-accent">Schweiz · laufend aktualisiert</p>
+      <h1>Aktuelle und geplante Stromausfälle</h1>
+      <p>Durchsuche bestätigte Meldungen nach Ort, Art und Status. Geplante Unterbrüche erscheinen mit ihrem tatsächlichen Termin – auch wenn dieser in der Zukunft liegt.</p>
     </header>
 
     <div class="feed-tools" aria-label="Meldungen filtern und aktualisieren">
@@ -19,6 +19,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
         <input id="event-search" type="search" placeholder="Ort suchen" autocomplete="off" />
       </label>
+      <label class="filter-field"><span>Art</span><select id="nature-filter"><option value="">Alle</option><option value="planned">Geplant</option><option value="unplanned">Ungeplant</option></select></label>
+      <label class="filter-field"><span>Status</span><select id="status-filter"><option value="">Alle</option><option value="upcoming">Bevorstehend</option><option value="active">Aktiv</option><option value="resolved">Behoben</option></select></label>
       <button id="refresh-button" type="button">Aktualisieren</button>
     </div>
 
@@ -41,19 +43,28 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     type PublicItem = {
       id: number;
       location: string;
+      canton: string | null;
+      url: string;
       received_at: string;
       started_at: string | null;
       resolved_at: string | null;
-      status: "active" | "resolved" | null;
+      status: "upcoming" | "active" | "resolved" | null;
+      nature: "planned" | "unplanned" | "unknown";
+      duration_minutes: number | null;
+      cause: string | null;
+      affected_area: string | null;
+      updated_at: string;
       summary: string;
       trust: "official" | "corroborated" | "reported";
       source: { publisher: string; url: string; domain: string };
     };
 
-    const state: { items: PublicItem[]; nextCursor: string | null; query: string; loading: boolean; generatedAt: string | null } = {
+    const state: { items: PublicItem[]; nextCursor: string | null; query: string; nature: string; status: string; loading: boolean; generatedAt: string | null } = {
       items: [],
       nextCursor: null,
       query: "",
+      nature: "",
+      status: "",
       loading: false,
       generatedAt: null
     };
@@ -98,27 +109,44 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     function visibleItems(): PublicItem[] {
       const query = state.query.trim().toLocaleLowerCase("de-CH");
-      if (!query) return state.items;
-      return state.items.filter((item) => `${item.location} ${item.summary} ${item.source.publisher}`.toLocaleLowerCase("de-CH").includes(query));
+      return state.items.filter((item) => {
+        if (state.nature && item.nature !== state.nature) return false;
+        if (state.status && item.status !== state.status) return false;
+        return !query || `${item.location} ${item.canton ?? ""} ${item.affected_area ?? ""} ${item.cause ?? ""} ${item.summary} ${item.source.publisher}`.toLocaleLowerCase("de-CH").includes(query);
+      });
     }
 
     function render(): void {
       const items = visibleItems();
       list.innerHTML = items.map((item) => {
-        const received = receivedLabel(item.received_at);
+        const primaryTime = item.nature === "planned" && item.started_at ? item.started_at : item.received_at;
+        const received = receivedLabel(primaryTime);
         const trust = item.trust === "official"
           ? "Offizielle Quelle"
           : item.trust === "corroborated"
             ? "Unabhängig bestätigt"
             : "Gemeldet";
-        return `<a class="feed-row" href="/events/${item.id}" aria-label="Stromausfall-Meldung für ${escapeHtml(item.location)}, eingegangen ${escapeHtml(received.full)}">
-          <time datetime="${escapeHtml(item.received_at)}" title="${escapeHtml(received.full)}">
+        const nature = item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Art unklar";
+        const status = item.status === "upcoming" ? "Bevorstehend" : item.status === "resolved" ? "Behoben" : "Aktiv";
+        const duration = item.duration_minutes === null ? null : item.duration_minutes >= 60
+          ? `${Math.floor(item.duration_minutes / 60)} Std. ${item.duration_minutes % 60 ? `${item.duration_minutes % 60} Min.` : ""}`
+          : `${item.duration_minutes} Min.`;
+        return `<a class="feed-row" href="${escapeHtml(item.url)}" aria-label="Stromausfall-Meldung für ${escapeHtml(item.location)}, ${escapeHtml(received.full)}">
+          <time datetime="${escapeHtml(primaryTime)}" title="${escapeHtml(received.full)}">
             <span>${escapeHtml(received.day)}</span>
             <strong>${escapeHtml(received.time)}</strong>
           </time>
           <span class="feed-copy">
             <strong class="feed-location">${escapeHtml(item.location)}</strong>
+            <span class="feed-badges"><b class="badge nature-${item.nature}">${nature}</b><b class="badge status-${item.status}">${status}</b></span>
             <span class="feed-summary">${escapeHtml(item.summary)}</span>
+            <span class="feed-facts">${[
+              item.started_at ? `Start: ${dateFormatter.format(new Date(item.started_at))}` : null,
+              item.resolved_at ? `Ende: ${dateFormatter.format(new Date(item.resolved_at))}` : null,
+              duration ? `Dauer: ${duration}` : null,
+              item.affected_area ? `Region: ${item.affected_area}` : null,
+              item.cause ? `Ursache: ${item.cause}` : null
+            ].filter(Boolean).map((fact) => `<span>${escapeHtml(fact)}</span>`).join("")}</span>
             <span class="feed-source">${escapeHtml(item.source.publisher)} · ${trust}</span>
           </span>
           <svg class="row-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
@@ -128,8 +156,9 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (!items.length) {
         list.innerHTML = `<div class="feed-empty"><strong>${state.query ? "Kein passender Ort" : "Keine Meldungen"}</strong><span>${state.query ? "Versuche einen anderen Suchbegriff." : "Sobald eine Meldung aus einer nachvollziehbaren Quelle eingeht, erscheint sie hier."}</span></div>`;
       }
-      loadMore.hidden = !state.nextCursor || Boolean(state.query);
-      note.textContent = state.query
+      const filtered = Boolean(state.query || state.nature || state.status);
+      loadMore.hidden = !state.nextCursor || filtered;
+      note.textContent = filtered
         ? `${items.length} Treffer in ${state.items.length} geladenen Meldungen`
         : `${state.items.length} Meldung${state.items.length === 1 ? "" : "en"} geladen${state.generatedAt ? ` · Stand ${timeFormatter.format(new Date(state.generatedAt))}` : ""}`;
       shell.setAttribute("aria-busy", "false");
@@ -142,7 +171,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       loadMore.disabled = true;
       try {
         const cursor = reset ? null : state.nextCursor;
-        const params = new URLSearchParams({ limit: "10" });
+        const params = new URLSearchParams({ limit: "25" });
         if (cursor) params.set("before", cursor);
         const response = await fetch(`/api/public/events?${params}`, { cache: "no-store" });
         if (!response.ok) throw new Error("Die Meldungen konnten nicht geladen werden.");
@@ -168,6 +197,14 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       state.query = (event.currentTarget as HTMLInputElement).value;
       render();
     });
+    document.querySelector<HTMLSelectElement>("#nature-filter")!.addEventListener("change", (event) => {
+      state.nature = (event.currentTarget as HTMLSelectElement).value;
+      render();
+    });
+    document.querySelector<HTMLSelectElement>("#status-filter")!.addEventListener("change", (event) => {
+      state.status = (event.currentTarget as HTMLSelectElement).value;
+      render();
+    });
     refresh.addEventListener("click", () => load(true));
     loadMore.addEventListener("click", () => load(false));
     load(true);
@@ -178,7 +215,15 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     .feed-intro { max-width: 760px; }
     .feed-intro h1 { font-family: var(--font-display); font-size: clamp(2.25rem, 6vw, 4.25rem); font-weight: 800; letter-spacing: -0.045em; line-height: .98; margin: .75rem 0 0; }
     .feed-intro > p:last-child { color: var(--color-muted); font-size: clamp(1rem, 2vw, 1.15rem); line-height: 1.65; margin: 1.25rem 0 0; max-width: 680px; }
-    .feed-tools { align-items: center; display: flex; gap: .65rem; justify-content: space-between; margin: 2.5rem 0 .75rem; }
+    .feed-tools { align-items: end; display: flex; gap: .65rem; justify-content: space-between; margin: 2.5rem 0 .75rem; }
+    .filter-field { display: grid; gap: .25rem; color: var(--color-faint); font-family: var(--font-mono); font-size: .62rem; text-transform: uppercase; }
+    .filter-field select { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-md); color: var(--color-ink); font: inherit; min-height: 2.75rem; padding: 0 .7rem; text-transform: none; }
+    .feed-badges, .feed-facts { display: flex; flex-wrap: wrap; gap: .4rem .65rem; }
+    .badge { border: 1px solid var(--color-rule); border-radius: 999px; font-family: var(--font-mono); font-size: .58rem; font-weight: 600; padding: .2rem .45rem; text-transform: uppercase; }
+    .nature-planned, .status-upcoming { background: #fff3dc; color: #8b5515; }
+    .nature-unplanned, .status-active { background: #ffe7df; color: #9b3d26; }
+    .status-resolved { background: #e5f3e9; color: #28623b; }
+    .feed-facts { color: var(--color-muted); font-size: .72rem; }
     .search-field { align-items: center; background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-md); color: var(--color-muted); display: flex; gap: .65rem; max-width: 320px; padding: 0 .85rem; width: 100%; }
     .search-field input { background: transparent; border: 0; color: var(--color-ink); font: inherit; height: 2.75rem; min-width: 0; outline: 0; width: 100%; }
     .feed-tools button, .feed-footer button { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-md); color: var(--color-ink); font-size: .875rem; font-weight: 600; min-height: 2.75rem; padding: .65rem 1rem; }

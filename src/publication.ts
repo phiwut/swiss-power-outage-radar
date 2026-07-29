@@ -1,5 +1,6 @@
 import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { normalizeLocation } from "./events";
+import { publicEventPath } from "./public-url";
 import type {
   OutageEvent,
   OutageFact,
@@ -222,18 +223,68 @@ export function parsePublicFeedCursor(cursor: string | null | undefined): { rece
   return receivedAt && Number.isInteger(id) && id > 0 ? { receivedAt, id } : null;
 }
 
-export function toPublicFeedItem(event: OutageEvent, decision: PublicationDecision): PublicFeedItem | null {
+function concreteFact(facts: OutageFact[], type: OutageFact["fact_type"]): string | null {
+  const matches = facts
+    .filter((fact) => fact.fact_type === type && fact.confidence >= 0.7)
+    .map((fact) => fact.value_text.trim())
+    .filter((value) => value && !["unknown", "unclear", "unbekannt", "unklar", "null"].includes(normalizeLocation(value)));
+  const distinct = new Map(matches.map((value) => [normalizeLocation(value), value]));
+  return distinct.size === 1 ? [...distinct.values()][0] ?? null : null;
+}
+
+function isoOrNull(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
+}
+
+function publicNature(event: OutageEvent, facts: OutageFact[]): NonNullable<OutageEvent["outage_nature"]> {
+  const nature = normalizeLocation(concreteFact(facts, "planned_nature") ?? "");
+  if (nature === "planned" || nature === "geplant") return "planned";
+  if (nature === "unplanned" || nature === "ungeplant") return "unplanned";
+  return event.outage_nature ?? "unknown";
+}
+
+export function toPublicFeedItem(
+  event: OutageEvent,
+  decision: PublicationDecision,
+  facts: OutageFact[] = []
+): PublicFeedItem | null {
   if (!decision.publishable || !decision.trust || !decision.primary_source || !decision.summary || !event.received_at) {
     return null;
   }
 
+  const nature = publicNature(event, facts);
+  const startedAt = isoOrNull(concreteFact(facts, "start_time") ?? event.started_at_estimate);
+  const resolvedAt = isoOrNull(concreteFact(facts, "end_time") ?? event.resolved_at_estimate);
+  const now = Date.now();
+  const startMs = startedAt ? new Date(startedAt).getTime() : NaN;
+  const durationMinutes = startedAt && resolvedAt
+    ? Math.max(0, Math.round((new Date(resolvedAt).getTime() - startMs) / 60000))
+    : null;
+  const statusFact = normalizeLocation(concreteFact(facts, "status") ?? "");
+  const status = nature === "planned" && Number.isFinite(startMs) && startMs > now
+    ? "upcoming"
+    : statusFact === "resolved" || statusFact === "behoben" || event.status === "resolved"
+      ? "resolved"
+      : statusFact === "active" || statusFact === "aktiv" || !resolvedAt
+        ? "active"
+        : null;
+  const location = event.location_text?.trim() || "";
   return {
     id: event.id,
-    location: event.location_text?.trim() || "",
+    location,
+    canton: event.canton,
+    url: publicEventPath({ id: event.id, location }),
     received_at: event.received_at,
-    started_at: null,
-    resolved_at: null,
-    status: null,
+    started_at: startedAt,
+    resolved_at: resolvedAt,
+    status,
+    nature,
+    duration_minutes: durationMinutes,
+    cause: concreteFact(facts, "cause") ?? event.cause_text?.trim() ?? null,
+    affected_area: concreteFact(facts, "affected_area"),
+    updated_at: event.updated_at,
     summary: decision.summary,
     trust: decision.trust,
     source: decision.primary_source

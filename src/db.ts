@@ -30,19 +30,27 @@ import type {
 } from "./types";
 import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "./publication";
+import { publicEventPath } from "./public-url";
 
 function changes(result: D1Result<unknown>): number {
   const meta = result.meta as { changes?: number } | undefined;
   return meta?.changes ?? 0;
 }
 
-export async function createWorkflowRun(db: D1Database, now: string): Promise<number> {
+export async function createWorkflowRun(db: D1Database, now: string): Promise<number | null> {
+  const staleBefore = new Date(new Date(now).getTime() - 20 * 60 * 1000).toISOString();
   const result = await db
     .prepare(
-      "INSERT INTO workflow_runs (workflow_name, started_at, status) VALUES (?, ?, 'running')"
+      `INSERT INTO workflow_runs (workflow_name, started_at, status)
+       SELECT ?, ?, 'running'
+       WHERE NOT EXISTS (
+         SELECT 1 FROM workflow_runs
+         WHERE workflow_name = ? AND status = 'running' AND started_at >= ?
+       )`
     )
-    .bind("check-alert-feeds", now)
+    .bind("check-alert-feeds", now, "check-alert-feeds", staleBefore)
     .run();
+  if (changes(result) === 0) return null;
   const meta = result.meta as { last_row_id?: number } | undefined;
   if (typeof meta?.last_row_id === "number") return meta.last_row_id;
 
@@ -938,6 +946,29 @@ export async function getOutageEventSnapshots(
   return result.results;
 }
 
+export async function isPublicEvidenceSnapshot(db: D1Database, snapshotId: number): Promise<boolean> {
+  const row = await db.prepare(
+    `SELECT snapshot.id
+     FROM source_snapshots snapshot
+     INNER JOIN outage_events event ON event.id = snapshot.outage_event_id
+     INNER JOIN outage_sources source ON source.id = snapshot.outage_source_id
+     INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+     LEFT JOIN outage_facts fact
+       ON fact.outage_source_id = source.id AND fact.confidence >= 0.65
+     WHERE snapshot.id = ? AND decision.publishable = 1
+       AND event.status != 'dismissed' AND event.country = 'CH'
+       AND (
+         source.source_url = decision.primary_source_url
+         OR (
+           fact.id IS NOT NULL
+           AND source.source_kind IN ('official', 'operator', 'local_media', 'national_media')
+         )
+       )
+     LIMIT 1`
+  ).bind(snapshotId).first<{ id: number }>();
+  return Boolean(row);
+}
+
 export async function getLatestSourceSnapshot(
   db: D1Database,
   sourceId: number
@@ -1658,7 +1689,7 @@ export async function getPublicFeedItems(
   input: { limit?: number; before?: string | null } = {}
 ): Promise<{ items: PublicFeedItem[]; next_cursor: string | null }> {
   const requestedLimit = Number(input.limit ?? 10);
-  const limit = Math.max(1, Math.min(10, Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : 10)));
+  const limit = Math.max(1, Math.min(25, Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : 10)));
   const cursor = parsePublicFeedCursor(input.before);
   const result = await db
     .prepare(
@@ -1672,14 +1703,25 @@ export async function getPublicFeedItems(
          AND event.status != 'dismissed'
          AND event.country = 'CH'
          AND (
-           ? IS NULL
-           OR COALESCE(event.received_at, event.created_at, event.first_seen_at) < ?
+           (? IS NULL AND 1 = 1)
            OR (
+             NOT (event.outage_nature = 'planned' AND julianday(event.started_at_estimate) > julianday('now'))
+             AND COALESCE(event.received_at, event.created_at, event.first_seen_at) < ?
+           )
+           OR (
+             NOT (event.outage_nature = 'planned' AND julianday(event.started_at_estimate) > julianday('now'))
+             AND
              COALESCE(event.received_at, event.created_at, event.first_seen_at) = ?
              AND event.id < ?
            )
          )
-       ORDER BY COALESCE(event.received_at, event.created_at, event.first_seen_at) DESC, event.id DESC
+       ORDER BY
+         CASE WHEN event.outage_nature = 'planned'
+           AND julianday(event.started_at_estimate) > julianday('now') THEN 0 ELSE 1 END,
+         CASE WHEN event.outage_nature = 'planned'
+           AND julianday(event.started_at_estimate) > julianday('now') THEN event.started_at_estimate END ASC,
+         COALESCE(event.received_at, event.created_at, event.first_seen_at) DESC,
+         event.id DESC
        LIMIT ?`
     )
     .bind(
@@ -1698,6 +1740,7 @@ export async function getPublicFeedItems(
       reasons_json: string;
     }>();
 
+  const evidence = await getPublicationEvidenceForEvents(db, result.results.map((row) => row.id));
   const items = result.results.flatMap((row) => {
     const item = toPublicFeedItem(
       row,
@@ -1711,7 +1754,8 @@ export async function getPublicFeedItems(
           url: row.primary_source_url,
           domain: row.primary_source_domain
         }
-      }
+      },
+      evidence.facts.get(row.id) ?? []
     );
     return item ? [item] : [];
   });
@@ -1722,7 +1766,7 @@ export async function getPublicFeedItems(
 }
 
 export async function getPublicFeedItem(db: D1Database, eventId: number): Promise<PublicFeedItem | null> {
-  const row = await db
+  const [row, evidence] = await Promise.all([db
     .prepare(
       `SELECT event.*, decision.trust AS publication_trust,
               decision.public_summary AS publication_summary,
@@ -1741,7 +1785,7 @@ export async function getPublicFeedItem(db: D1Database, eventId: number): Promis
       primary_source_publisher: string;
       primary_source_url: string;
       primary_source_domain: string;
-    }>();
+    }>(), getPublicationEvidenceForEvents(db, [eventId])]);
   if (!row) return null;
   return toPublicFeedItem(row, {
     publishable: true,
@@ -1753,7 +1797,45 @@ export async function getPublicFeedItem(db: D1Database, eventId: number): Promis
       url: row.primary_source_url,
       domain: row.primary_source_domain
     }
-  });
+  }, evidence.facts.get(eventId) ?? []);
+}
+
+export async function getUnplannedEventsDueForResearchRefresh(
+  db: D1Database,
+  now: string,
+  limit = 1
+): Promise<OutageEvent[]> {
+  const staleBefore = new Date(new Date(now).getTime() - 6 * 60 * 60 * 1000).toISOString();
+  const dayBefore = new Date(new Date(now).getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const result = await db.prepare(
+    `SELECT event.*
+     FROM outage_events event
+     INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+     WHERE decision.publishable = 1
+       AND event.country = 'CH'
+       AND event.status NOT IN ('dismissed', 'resolved')
+       AND event.outage_nature = 'unplanned'
+       AND COALESCE(event.research_status, 'not_started') != 'running'
+       AND COALESCE(event.research_finished_at, event.auto_research_started_at, event.first_seen_at) < ?
+       AND (SELECT COUNT(*) FROM outage_events WHERE research_finished_at >= ?) < 8
+     ORDER BY COALESCE(event.research_finished_at, event.auto_research_started_at, event.first_seen_at) ASC
+     LIMIT ?`
+  ).bind(staleBefore, dayBefore, Math.max(1, Math.min(2, limit))).all<OutageEvent>();
+  return result.results;
+}
+
+export async function getPublicSitemapItems(db: D1Database): Promise<Array<{ url: string; updated_at: string }>> {
+  const result = await db.prepare(
+    `SELECT event.id, event.location_text, event.updated_at
+     FROM outage_events event
+     INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+     WHERE decision.publishable = 1 AND event.status != 'dismissed' AND event.country = 'CH'
+     ORDER BY event.updated_at DESC LIMIT 5000`
+  ).all<{ id: number; location_text: string; updated_at: string }>();
+  return result.results.map((event) => ({
+    url: publicEventPath({ id: event.id, location: event.location_text || "Schweiz" }),
+    updated_at: event.updated_at
+  }));
 }
 
 export async function createGeoSyncRun(

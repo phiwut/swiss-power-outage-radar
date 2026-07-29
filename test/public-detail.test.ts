@@ -50,10 +50,17 @@ describe("public event detail", () => {
     const item = {
       id: 56,
       location: "Lostorf",
+      canton: "SO",
+      url: "/stromausfall/lostorf-56",
       received_at: "2026-07-15T11:30:30.337Z",
       started_at: null,
       resolved_at: null,
       status: null,
+      nature: "unplanned",
+      duration_minutes: null,
+      cause: null,
+      affected_area: null,
+      updated_at: "2026-07-15T11:30:30.337Z",
       summary: "Stromausfall in Lostorf (Froburgstrasse)",
       trust: "official",
       source: {
@@ -132,10 +139,17 @@ describe("public event detail", () => {
     const item = {
       id: 50,
       location: "Winterthur",
+      canton: "ZH",
+      url: "/stromausfall/winterthur-50",
       received_at: "2026-07-14T08:10:00.000Z",
       started_at: null,
       resolved_at: null,
       status: null,
+      nature: "unknown",
+      duration_minutes: null,
+      cause: null,
+      affected_area: null,
+      updated_at: "2026-07-14T08:10:00.000Z",
       summary: "Hinweis auf einen Stromausfall in Winterthur",
       trust: "reported",
       source: {
@@ -169,10 +183,17 @@ describe("public event detail", () => {
     const item = {
       id: 61,
       location: "Bettwil",
+      canton: "AG",
+      url: "/stromausfall/bettwil-61",
       received_at: "2026-07-15T12:00:00.000Z",
       started_at: null,
       resolved_at: null,
       status: null,
+      nature: "planned",
+      duration_minutes: 60,
+      cause: "Defektes Kabel",
+      affected_area: "Dorfzentrum",
+      updated_at: "2026-07-15T12:00:00.000Z",
       summary: "Stromausfall in Bettwil",
       trust: "official",
       source: {
@@ -204,7 +225,8 @@ describe("public event detail", () => {
       operator: null
     });
 
-    expect(detail.facts).toHaveLength(6);
+    expect(detail.facts).toHaveLength(7);
+    expect(detail.facts).toContainEqual({ key: "duration", label: "Dauer", value: "1 Std.", format: "text" });
     expect(detail.facts.map((fact) => fact.value)).not.toContain("AI-Vermutung");
     expect(detail.sources[0]?.role).toBe("operator");
     expect(detail.timeline.map((entry) => entry.key)).toEqual(["start_time", "end_time", "received_at"]);

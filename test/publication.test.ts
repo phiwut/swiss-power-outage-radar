@@ -363,10 +363,17 @@ describe("public event publication", () => {
     expect(Object.keys(item!)).toEqual([
       "id",
       "location",
+      "canton",
+      "url",
       "received_at",
       "started_at",
       "resolved_at",
       "status",
+      "nature",
+      "duration_minutes",
+      "cause",
+      "affected_area",
+      "updated_at",
       "summary",
       "trust",
       "source"
@@ -380,5 +387,25 @@ describe("public event publication", () => {
     const cursor = publicFeedCursor({ id: 42, received_at: "2026-07-15T10:00:00.000Z" });
     expect(parsePublicFeedCursor(cursor)).toEqual({ receivedAt: "2026-07-15T10:00:00.000Z", id: 42 });
     expect(publicFeedCursor({ id: 41, received_at: "2026-07-15T10:00:00.000Z" })).not.toBe(cursor);
+  });
+
+  it("keeps a future planned interruption on its actual date", () => {
+    const outageEvent = event({
+      outage_nature: "planned",
+      started_at_estimate: "2099-08-12T06:00:00.000Z",
+      resolved_at_estimate: "2099-08-12T08:30:00.000Z"
+    });
+    const decision = evaluatePublicEvent(outageEvent, [source()], [outageFact({
+      fact_type: "planned_outage_notice",
+      value_text: "true"
+    })]);
+    const item = toPublicFeedItem(outageEvent, decision, [
+      outageFact({ fact_type: "planned_nature", value_text: "planned", confidence: 0.95 }),
+      outageFact({ fact_type: "start_time", value_text: "2099-08-12T06:00:00.000Z", confidence: 0.95 }),
+      outageFact({ fact_type: "end_time", value_text: "2099-08-12T08:30:00.000Z", confidence: 0.95 })
+    ]);
+    expect(item?.status).toBe("upcoming");
+    expect(item?.started_at).toBe("2099-08-12T06:00:00.000Z");
+    expect(item?.duration_minutes).toBe(150);
   });
 });

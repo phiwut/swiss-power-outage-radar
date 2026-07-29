@@ -1,7 +1,8 @@
 import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { normalizePlaceText } from "./places";
-import { getOutageEvent, getOutageEventFacts, getOutageEventSources, getPublicFeedItem } from "./db";
-import type { Env, OutageEvent, OutageFact, OutageSource, PublicFeedItem } from "./types";
+import { getOutageEvent, getOutageEventFacts, getOutageEventSnapshots, getOutageEventSources, getPublicFeedItem } from "./db";
+import { evidenceScreenshotKey } from "./snapshots";
+import type { Env, OutageEvent, OutageFact, OutageSource, PublicFeedItem, SourceSnapshot } from "./types";
 
 export interface GeoAdminSearchResult {
   id: string | number;
@@ -26,7 +27,7 @@ export interface PublicEventLocation {
 }
 
 export interface PublicDetailFact {
-  key: "start_time" | "end_time" | "nature" | "status" | "affected_area" | "cause";
+  key: "start_time" | "end_time" | "duration" | "nature" | "status" | "affected_area" | "cause";
   label: string;
   value: string;
   format: "text" | "datetime";
@@ -53,6 +54,16 @@ export interface PublicTimelineEntry {
   value: string;
 }
 
+export interface PublicEvidenceScreenshot {
+  snapshot_id: number;
+  image_url: string;
+  source_url: string;
+  publisher: string;
+  captured_at: string;
+  sha256: string;
+  format: "png";
+}
+
 export interface PublicEventDetail {
   item: PublicFeedItem;
   map: PublicEventLocation | null;
@@ -60,6 +71,7 @@ export interface PublicEventDetail {
   timeline: PublicTimelineEntry[];
   operator: PublicDetailOperator | null;
   sources: PublicDetailSource[];
+  evidence: PublicEvidenceScreenshot[];
 }
 
 export function publicLocationQuery(value: string | null | undefined): string {
@@ -149,11 +161,12 @@ function publicFacts(facts: OutageFact[]): PublicDetailFact[] {
   const area = concreteFact(facts, "affected_area");
   const cause = concreteFact(facts, "cause");
 
+  const isPlanned = ["planned", "geplant"].includes(normalizePlaceText(nature?.value_text));
   if (start && validIso(start.value_text)) {
-    output.push({ key: "start_time", label: "Beginn", value: start.value_text, format: "datetime" });
+    output.push({ key: "start_time", label: isPlanned ? "Geplanter Beginn" : "Beginn", value: start.value_text, format: "datetime" });
   }
   if (end && validIso(end.value_text)) {
-    output.push({ key: "end_time", label: "Behoben", value: end.value_text, format: "datetime" });
+    output.push({ key: "end_time", label: isPlanned ? "Geplantes Ende" : "Behoben", value: end.value_text, format: "datetime" });
   }
   const natureValue = normalizePlaceText(nature?.value_text);
   if (natureValue === "planned" || natureValue === "geplant") {
@@ -219,8 +232,19 @@ export function buildPublicEventDetail(input: {
   sources: OutageSource[];
   location: PublicEventLocation | null;
   operator: PublicDetailOperator | null;
+  evidence?: PublicEvidenceScreenshot[];
 }): PublicEventDetail {
   const facts = publicFacts(input.facts);
+  if (input.item.duration_minutes !== null) {
+    const hours = Math.floor(input.item.duration_minutes / 60);
+    const minutes = input.item.duration_minutes % 60;
+    facts.splice(Math.min(2, facts.length), 0, {
+      key: "duration",
+      label: "Dauer",
+      value: hours ? `${hours} Std.${minutes ? ` ${minutes} Min.` : ""}` : `${minutes} Min.`,
+      format: "text"
+    });
+  }
   const timeline: PublicTimelineEntry[] = [{
     key: "received_at",
     label: "Bei outage.ch eingegangen",
@@ -241,8 +265,40 @@ export function buildPublicEventDetail(input: {
     facts,
     timeline,
     operator: input.operator,
-    sources: publicSources(input.item, input.sources, input.facts)
+    sources: publicSources(input.item, input.sources, input.facts),
+    evidence: input.evidence ?? []
   };
+}
+
+async function publicEvidenceScreenshots(
+  bucket: R2Bucket,
+  sources: OutageSource[],
+  snapshots: SourceSnapshot[],
+  publicSources: PublicDetailSource[]
+): Promise<PublicEvidenceScreenshot[]> {
+  const publicUrls = new Set(publicSources.map((source) => source.url));
+  const publisherByUrl = new Map(publicSources.map((source) => [source.url, source.publisher]));
+  const candidates = snapshots.filter((snapshot) =>
+    snapshot.outage_source_id !== null &&
+    publicUrls.has(canonicalSourceUrl(snapshot.url) ?? snapshot.url)
+  ).slice(0, 5);
+  const output: PublicEvidenceScreenshot[] = [];
+  for (const snapshot of candidates) {
+    const object = await bucket.head(evidenceScreenshotKey(snapshot.id));
+    const hash = object?.customMetadata?.content_hash;
+    if (!object || !hash) continue;
+    const url = canonicalSourceUrl(snapshot.url) ?? snapshot.url;
+    output.push({
+      snapshot_id: snapshot.id,
+      image_url: `/api/public/evidence/${snapshot.id}.png`,
+      source_url: url,
+      publisher: publisherByUrl.get(url) ?? new URL(url).hostname.replace(/^www\./, ""),
+      captured_at: object.customMetadata?.captured_at ?? snapshot.fetched_at,
+      sha256: hash,
+      format: "png"
+    });
+  }
+  return output;
 }
 
 async function cachedPublicLocation(db: D1Database, eventId: number): Promise<PublicEventLocation | null> {
@@ -391,18 +447,21 @@ async function getPublicOperator(db: D1Database, eventId: number): Promise<Publi
 }
 
 export async function loadPublicEventDetail(
-  env: Pick<Env, "DB">,
+  env: Pick<Env, "DB" | "SNAPSHOTS">,
   eventId: number
 ): Promise<PublicEventDetail | null> {
   const item = await getPublicFeedItem(env.DB, eventId);
   if (!item) return null;
   const event = await getOutageEvent(env.DB, eventId);
   if (!event) return null;
-  const [facts, sources, location, operator] = await Promise.all([
+  const [facts, sources, snapshots, location, operator] = await Promise.all([
     getOutageEventFacts(env.DB, eventId),
     getOutageEventSources(env.DB, eventId),
+    getOutageEventSnapshots(env.DB, eventId),
     resolvePublicEventLocation(env.DB, event),
     getPublicOperator(env.DB, eventId)
   ]);
-  return buildPublicEventDetail({ item, event, facts, sources, location, operator });
+  const base = buildPublicEventDetail({ item, event, facts, sources, location, operator });
+  const evidence = await publicEvidenceScreenshots(env.SNAPSHOTS, sources, snapshots, base.sources);
+  return { ...base, evidence };
 }

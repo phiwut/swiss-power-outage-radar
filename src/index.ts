@@ -1,4 +1,3 @@
-import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import {
   dismissOutageEvent,
   getDebugStatus,
@@ -9,6 +8,8 @@ import {
   getOutageEventSources,
   getOutageEventSnapshots,
   getPublicFeedItems,
+  getPublicSitemapItems,
+  isPublicEvidenceSnapshot,
   getPublicStatus,
   getRecentItems,
   getSnapshotsNeedingPublicDigest,
@@ -20,10 +21,13 @@ import { summarizeSourceForPublic } from "./ai";
 import { generateMergeSuggestions, refreshEventIntelligence } from "./event-intelligence";
 import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
-import { ingestFirecrawlWebhook, revalidatePublicEvents, runAlertCheck } from "./runner";
+import { applyPublicationGate, ingestFirecrawlWebhook, revalidatePublicEvents, runAlertCheck } from "./runner";
 import { loadPublicEventDetail } from "./public-detail";
+import { publicEventIdFromPath } from "./public-url";
+import { evidenceScreenshotKey } from "./snapshots";
+import { renderSeoEventAsset } from "./seo-event-page";
 import { isBearerAuthorized } from "./auth";
-import type { CheckAlertFeedsParams, Env } from "./types";
+import type { Env } from "./types";
 
 function json(data: unknown, init?: ResponseInit): Response {
   return Response.json(data, {
@@ -280,57 +284,57 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
-async function startWorkflow(env: Env, params: CheckAlertFeedsParams) {
-  return await env.CHECK_ALERT_FEEDS.create({
-    id: `check-${crypto.randomUUID()}`,
-    params
-  });
-}
-
-export class CheckAlertFeedsWorkflow extends WorkflowEntrypoint<Env, CheckAlertFeedsParams> {
-  async run(event: WorkflowEvent<CheckAlertFeedsParams>, step: WorkflowStep): Promise<void> {
-    if (event.payload.revalidatePublicEvents) {
-      await step.do("revalidate public events", async () => {
-        const report = await revalidatePublicEvents(this.env, {
-          apply: event.payload.apply === true,
-          limit: event.payload.limit
-        });
-        console.log(JSON.stringify({ type: "public_revalidation", ...report }));
-      });
-      return;
-    }
-    await step.do(
-      "check google alert feeds",
-      {
-        retries: {
-          limit: 1,
-          delay: "10 seconds",
-          backoff: "constant"
-        },
-        timeout: "5 minutes"
-      },
-      async () => {
-        await runAlertCheck(this.env);
-      }
-    );
-  }
+function cachePublic(response: Response, request: Request, ctx: ExecutionContext, cacheControl: string): Response {
+  const cached = new Response(response.body, response);
+  cached.headers.set("Cache-Control", cacheControl);
+  if (response.ok) ctx.waitUntil(caches.default.put(request, cached.clone()));
+  return cached;
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const isPublicGet = request.method === "GET" && (
+      url.pathname === "/api/public/events" ||
+      /^\/api\/public\/events\/\d+$/.test(url.pathname) ||
+      /^\/api\/public\/evidence\/\d+\.png$/.test(url.pathname) ||
+      url.pathname.startsWith("/stromausfall/") ||
+      url.pathname === "/sitemap.xml" ||
+      url.pathname === "/robots.txt"
+    );
+    if (isPublicGet) {
+      const cached = await caches.default.match(request);
+      if (cached) return cached;
+    }
+
+    const legacyEvent = url.pathname.match(/^\/events\/(\d+)\/?$/);
+    if (legacyEvent) {
+      const detail = await loadPublicEventDetail(env, Number(legacyEvent[1]));
+      if (!detail) return new Response("Event nicht gefunden", { status: 404 });
+      return Response.redirect(new URL(detail.item.url, request.url).toString(), 301);
+    }
+
+    const seoId = publicEventIdFromPath(url.pathname);
+    if (seoId) {
+      const detail = await loadPublicEventDetail(env, seoId);
+      if (!detail) return new Response("Event nicht gefunden", { status: 404 });
+      if (url.pathname.replace(/\/$/, "") !== detail.item.url) {
+        return Response.redirect(new URL(detail.item.url, request.url).toString(), 301);
+      }
+      return cachePublic(await renderSeoEventAsset(env, request, detail), request, ctx, "public,max-age=60,s-maxage=300,stale-while-revalidate=1800");
+    }
 
     const asset = await assetResponse(env, request);
     if (asset) return asset;
 
     if ((url.pathname === "/api/public/events" || url.pathname === "/api/public/status") && request.method === "GET") {
       const requestedLimit = Number(url.searchParams.get("limit") ?? 10);
-      const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(10, Math.floor(requestedLimit))) : 10;
+      const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(25, Math.floor(requestedLimit))) : 10;
       const before = url.searchParams.get("before");
-      return json({
+      return cachePublic(json({
         ...(await getPublicFeedItems(env.DB, { limit, before })),
         generated_at: new Date().toISOString()
-      });
+      }), request, ctx, "public,max-age=60,s-maxage=120,stale-while-revalidate=600");
     }
 
     const publicEventMatch = url.pathname.match(/^\/api\/public\/events\/(\d+)$/);
@@ -338,7 +342,30 @@ export default {
       const eventId = Number(publicEventMatch[1]);
       const detail = await loadPublicEventDetail(env, eventId);
       if (!detail) return json({ error: "Not found" }, { status: 404 });
-      return json(detail);
+      return cachePublic(json(detail), request, ctx, "public,max-age=60,s-maxage=300,stale-while-revalidate=1800");
+    }
+
+    const evidenceMatch = url.pathname.match(/^\/api\/public\/evidence\/(\d+)\.png$/);
+    if (evidenceMatch && request.method === "GET") {
+      const snapshotId = Number(evidenceMatch[1]);
+      if (!await isPublicEvidenceSnapshot(env.DB, snapshotId)) return new Response("Not found", { status: 404 });
+      const object = await env.SNAPSHOTS.get(evidenceScreenshotKey(snapshotId));
+      if (!object) return new Response("Not found", { status: 404 });
+      return cachePublic(new Response(object.body, {
+        headers: { "Content-Type": "image/png", ETag: object.httpEtag }
+      }), request, ctx, "public,max-age=300,s-maxage=300");
+    }
+
+    if (url.pathname === "/sitemap.xml" && request.method === "GET") {
+      const items = await getPublicSitemapItems(env.DB);
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${url.origin}/</loc></url>${items.map((item) => `<url><loc>${url.origin}${item.url}</loc><lastmod>${item.updated_at}</lastmod></url>`).join("")}</urlset>`;
+      return cachePublic(new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8" } }), request, ctx, "public,max-age=300,s-maxage=3600");
+    }
+
+    if (url.pathname === "/robots.txt" && request.method === "GET") {
+      return cachePublic(new Response(`User-agent: *\nAllow: /\nSitemap: ${url.origin}/sitemap.xml\n`, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      }), request, ctx, "public,max-age=300,s-maxage=3600");
     }
 
     if (url.pathname === "/" && request.method === "GET") {
@@ -446,6 +473,7 @@ export default {
       if (!isAuthorized(request, env)) return unauthorized();
       try {
         const result = await researchOutageEvent(env, Number(adminResearchMatch[1]));
+        await applyPublicationGate(env, result.event);
         return json({
           ok: true,
           action: "research",
@@ -550,11 +578,7 @@ export default {
 
     if (url.pathname === "/run" && request.method === "POST") {
       if (!isAuthorized(request, env)) return unauthorized();
-      const instance = await startWorkflow(env, {
-        manual: true,
-        requestedAt: new Date().toISOString()
-      });
-      return json({ ok: true, instance_id: instance.id });
+      return json({ ok: true, result: await runAlertCheck(env) });
     }
 
     return json({ error: "Not found" }, { status: 404 });
@@ -562,10 +586,7 @@ export default {
 
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
-      startWorkflow(env, {
-        cron: event.cron,
-        scheduledTime: event.scheduledTime
-      })
+      runAlertCheck(env).then((result) => console.log(JSON.stringify({ cron: event.cron, ...result })))
     );
   }
 };

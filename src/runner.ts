@@ -20,6 +20,7 @@ import {
   getOutageEventFacts,
   getPendingOutageEventEmails,
   getPublicationEvidenceForEvents,
+  getUnplannedEventsDueForResearchRefresh,
   getUnlinkedRelevantItems,
   insertOutageCandidate,
   insertOutageFacts,
@@ -293,7 +294,7 @@ async function maybeAutoResearchHighConfidenceEvent(
   }
 }
 
-async function applyPublicationGate(env: Env, event: OutageEvent): Promise<OutageEvent> {
+export async function applyPublicationGate(env: Env, event: OutageEvent): Promise<OutageEvent> {
   const [sources, facts, authorityHosts] = await Promise.all([
     getOutageEventSources(env.DB, event.id),
     getOutageEventFacts(env.DB, event.id),
@@ -901,6 +902,18 @@ export async function revalidatePublicEvents(
 export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
   const startedAt = new Date().toISOString();
   const runId = await createWorkflowRun(env.DB, startedAt);
+  if (runId === null) {
+    return {
+      runId: 0,
+      skipped: true,
+      itemsSeen: 0,
+      itemsNew: 0,
+      itemsFiltered: 0,
+      itemsClassified: 0,
+      emailsSent: 0,
+      errors: []
+    };
+  }
   const summary: WorkflowRunSummary = {
     runId,
     itemsSeen: 0,
@@ -980,6 +993,18 @@ export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
 
     const intelligenceBackfill = await backfillEventIntelligence(env);
     summary.errors.push(...intelligenceBackfill.errors);
+
+    // Operator feeds are checked every run. Expensive research is incremental:
+    // refresh at most one stale, unresolved unplanned event per run and eight/day.
+    const refreshTargets = await getUnplannedEventsDueForResearchRefresh(env.DB, new Date().toISOString(), 1);
+    for (const target of refreshTargets) {
+      try {
+        const refreshed = await researchOutageEvent(env, target.id);
+        await applyPublicationGate(env, refreshed.event);
+      } catch (error) {
+        summary.errors.push(`refresh event ${target.id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
 
     const eventRetry = await retryPendingEventEmails(env);
     summary.emailsSent += eventRetry.emailsSent;

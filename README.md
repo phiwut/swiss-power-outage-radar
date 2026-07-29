@@ -1,8 +1,18 @@
 # Swiss Power Outage Radar
 
-Schlanker Cloudflare-MVP: ein Worker startet alle 15 Minuten den Workflow `check-alert-feeds`, prüft direkte Netzbetreiberquellen aus der `source_registry` und nutzt Google Alerts nur noch als Discovery-Quelle. Alle Funde werden als unveränderliche `source_observations` gespeichert und erst danach in die bestehende Pipeline aus `alert_items`, `outage_candidates`, `outage_facts`, Snapshots, OpenPLZ/Geo-Erkennung, Exa-Recherche, Event-Merging und Quality Gates eingespeist.
+Schlanker Cloudflare-MVP: ein Cron-Worker prüft alle 15 Minuten direkte Netzbetreiberquellen aus der `source_registry` und nutzt Google Alerts nur noch als Discovery-Quelle. Alle Funde werden als unveränderliche `source_observations` gespeichert und erst danach in die Pipeline aus `alert_items`, `outage_candidates`, `outage_facts`, Snapshots, OpenPLZ/Geo-Erkennung, Exa-Recherche, Event-Merging und Quality Gates eingespeist.
 
-Ein öffentliches `outage_event` entsteht automatisch nur, wenn mindestens eine offizielle Netzbetreiber-/Behördenquelle vorliegt oder mindestens zwei unabhängige glaubwürdige Quellen dasselbe Ereignis belegen. Alles andere bleibt Kandidat, Review-Fall oder nicht öffentliche Quellenbeobachtung. Relevante Quellen werden intern als Markdown-Snapshot in R2 gesichert; D1 speichert Metadaten, kurze Belegauszüge, Extraktorversionen und versionierte Event-Stände.
+Ein öffentliches `outage_event` entsteht automatisch nur, wenn mindestens eine offizielle Netzbetreiber-/Behördenquelle vorliegt oder mindestens zwei unabhängige glaubwürdige Quellen dasselbe Ereignis belegen. Alles andere bleibt Kandidat, Review-Fall oder nicht öffentliche Quellenbeobachtung. Relevante Quellen werden in einem Browser-Run-Aufruf als Markdown und verlustfreier Full-Page-PNG-Screenshot in R2 gesichert. Öffentliche Screenshots werden über `/api/public/evidence/:snapshotId.png` nur so lange ausgeliefert, wie das zugehörige Ereignis veröffentlicht ist.
+
+## Öffentliche Übersicht und pSEO
+
+Die Übersicht zeigt Art, Status, Beginn, Ende, Dauer, Ursache und betroffene Region und kann nach Ort, Art und Status gefiltert werden. Zukünftige geplante Unterbrüche werden nach ihrem tatsächlichen Starttermin angezeigt. Öffentliche Detailseiten verwenden kanonische URLs wie `/stromausfall/zuerich-42`, serverseitig auslesbare Inhalte, individuelle Titel und Beschreibungen, Breadcrumb- und Event-JSON-LD sowie eine dynamische Sitemap.
+
+Ungeplante, noch aktive Ereignisse werden inkrementell aktualisiert: frühestens alle sechs Stunden, höchstens ein Ereignis pro Cron-Lauf und höchstens acht Recherchen pro Tag. Quellenabfragen, Geocoding und öffentliche Antworten sind zusätzlich gecacht.
+
+## Cloudflare Free Tier
+
+Dieses Projekt bindet weder Durable Objects noch Cloudflare Workflows. Der frühere Workflow-Wrapper wurde entfernt; Cron und manueller Lauf rufen den idempotenten Worker direkt auf. Ein atomarer D1-Lock verhindert überlappende Läufe. Damit kann dieses Projekt keine Durable-Objects-Requests mehr erzeugen. Bei einer weiteren Durable-Objects-Warnung muss im Cloudflare-Dashboard nach anderen Workern, alten Deployments oder Apps im selben Account gesucht werden.
 
 ## Setup
 
@@ -36,7 +46,7 @@ npm run db:migrate:remote
 
 ## Secrets setzen
 
-Keine Secrets ins Repo committen. Die Feed-URLs und Mail-Adressen stehen als nicht geheime `vars` in `wrangler.jsonc`. Für Produktion werden diese Secrets benötigt:
+Keine Secrets, privaten Feed-URLs oder Mailvariablen ins Repo committen. `keep_vars: true` erhält die bereits im Cloudflare-Dashboard gesetzten Variablen bei Deployments. Für Produktion werden diese Secrets benötigt:
 
 ```bash
 npx wrangler secret put ADMIN_TOKEN

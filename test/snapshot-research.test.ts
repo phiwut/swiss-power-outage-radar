@@ -83,15 +83,15 @@ describe("source snapshots", () => {
   });
 
   it("stores markdown in R2 and D1 metadata only", async () => {
-    const puts: Array<{ key: string; value: string }> = [];
+    const puts: Array<{ key: string; value: unknown; options?: R2PutOptions }> = [];
     const snapshot = await createSourceSnapshot(
       {
         DB: fakeSnapshotDb(),
         BROWSER_MOCK_MODE: "true",
         BROWSER: {} as BrowserRun,
         SNAPSHOTS: {
-          async put(key: string, value: string) {
-            puts.push({ key, value });
+          async put(key: string, value: unknown, options?: R2PutOptions) {
+            puts.push({ key, value, options });
             return null;
           }
         } as unknown as R2Bucket
@@ -103,7 +103,10 @@ describe("source snapshots", () => {
     expect(snapshot.fetch_status).toBe("success");
     expect(snapshot.markdown_r2_key).toMatch(/^snapshots\/2026-06-30\/event-10\/source-20-/);
     expect(snapshot.markdown_excerpt).toContain("Mock Markdown Snapshot");
-    expect(puts).toHaveLength(1);
+    expect(puts).toHaveLength(2);
+    expect(puts[1]?.key).toBe(`evidence/snapshot-${snapshot.id}.png`);
+    expect((puts[1]?.options?.httpMetadata as R2HTTPMetadata | undefined)?.contentType).toBe("image/png");
+    expect(puts[1]?.options?.customMetadata?.compression).toBe("lossless");
   });
 
   it("creates a compact public source digest when AI is available", async () => {
