@@ -47,4 +47,22 @@ describe("SEO event page", () => {
     expect(html).toContain("Häufige Fragen zu diesem Vorfall");
     expect(html).toContain("/ratgeber/stromausfall-was-tun/");
   });
+
+  it("keeps the reported compound location while using a shorter map query", () => {
+    const compound = detail();
+    compound.item.location = "in Lufingen und Winkel";
+    compound.map = {
+      query: "Lufingen",
+      label: "Lufingen (ZH)",
+      latitude: 47.4818,
+      longitude: 8.5948,
+      precision: "municipality",
+      provider: "geo.admin.ch"
+    };
+
+    const seo = eventSeo(compound, "https://outage.ch");
+    expect(seo.title).toContain("Lufingen und Winkel");
+    expect(renderEventSeoMarkup(compound)).toContain("in Lufingen und Winkel</h1>");
+    expect(renderEventSeoMarkup(compound)).not.toContain("in in Lufingen");
+  });
 });

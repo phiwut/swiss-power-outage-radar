@@ -25,7 +25,8 @@ function statusText(detail: PublicEventDetail): string {
 }
 
 function eventLocation(detail: PublicEventDetail): string {
-  return detail.map?.query || detail.item.location.replace(/^\s*(?:in|im|bei)\s+/i, "").trim();
+  const reportedLocation = detail.item.location.replace(/^\s*(?:in|im|bei)\s+/i, "").trim();
+  return reportedLocation || detail.map?.query || "der Schweiz";
 }
 
 export function eventFaq(detail: PublicEventDetail): Array<{ question: string; answer: string }> {
