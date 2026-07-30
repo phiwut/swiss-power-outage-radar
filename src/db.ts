@@ -31,6 +31,7 @@ import type {
 import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "./publication";
 import { publicEventPath } from "./public-url";
+import type { HistoricalBackfillTarget } from "./historical-backfill";
 
 function changes(result: D1Result<unknown>): number {
   const meta = result.meta as { changes?: number } | undefined;
@@ -716,6 +717,80 @@ export async function insertOutageFacts(
       )
       .run();
   }
+}
+
+export async function getHistoricalBackfillTargets(
+  db: D1Database,
+  olderThan: string,
+  limit = 3
+): Promise<HistoricalBackfillTarget[]> {
+  const result = await db.prepare(
+    `SELECT event.*,
+            source.id AS backfill_source_id,
+            source.source_url AS backfill_source_url
+     FROM outage_events event
+     INNER JOIN publication_decisions decision
+       ON decision.outage_event_id = event.id AND decision.publishable = 1
+     INNER JOIN outage_sources source ON source.id = (
+       SELECT candidate.id
+       FROM outage_sources candidate
+       WHERE candidate.outage_event_id = event.id
+       ORDER BY candidate.is_primary DESC, candidate.relation_score DESC, candidate.id ASC
+       LIMIT 1
+     )
+     WHERE event.country = 'CH'
+       AND event.status != 'dismissed'
+       AND COALESCE(event.received_at, event.first_seen_at) < ?
+       AND NOT EXISTS (
+         SELECT 1 FROM outage_facts fact
+         WHERE fact.outage_event_id = event.id
+           AND fact.extractor_version = ?
+       )
+     ORDER BY COALESCE(event.received_at, event.first_seen_at) ASC, event.id ASC
+     LIMIT ?`
+  ).bind(olderThan, "historical-backfill/v1", Math.max(1, Math.min(5, limit))).all<HistoricalBackfillTarget>();
+  return result.results;
+}
+
+export async function insertHistoricalBackfillFacts(
+  db: D1Database,
+  target: HistoricalBackfillTarget,
+  facts: CandidateFactInput[]
+): Promise<number> {
+  if (facts.length === 0) return 0;
+  const statements = facts.map((fact) => db.prepare(
+    `INSERT INTO outage_facts (
+       candidate_id, outage_event_id, outage_source_id, snapshot_id,
+       fact_type, value_text, value_json, confidence, evidence_excerpt,
+       source_role, verified_by, source_observation_id, observed_at, extractor_version
+     )
+     SELECT NULL, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
+     WHERE NOT EXISTS (
+       SELECT 1 FROM outage_facts
+       WHERE outage_event_id = ?
+         AND fact_type = ?
+         AND value_text = ?
+         AND extractor_version = ?
+     )`
+  ).bind(
+    target.id,
+    target.backfill_source_id,
+    fact.fact_type,
+    fact.value_text,
+    fact.value_json ?? null,
+    fact.confidence,
+    fact.evidence_excerpt,
+    fact.source_role ?? null,
+    fact.verified_by ?? "auto",
+    fact.observed_at ?? null,
+    fact.extractor_version ?? null,
+    target.id,
+    fact.fact_type,
+    fact.value_text,
+    fact.extractor_version ?? null
+  ));
+  const results = await db.batch(statements);
+  return results.reduce((total, result) => total + changes(result), 0);
 }
 
 export async function linkCandidateToEvent(
@@ -1806,6 +1881,7 @@ export async function getUnplannedEventsDueForResearchRefresh(
   limit = 1
 ): Promise<OutageEvent[]> {
   const staleBefore = new Date(new Date(now).getTime() - 6 * 60 * 60 * 1000).toISOString();
+  const activeWindowStart = new Date(new Date(now).getTime() - 36 * 60 * 60 * 1000).toISOString();
   const dayBefore = new Date(new Date(now).getTime() - 24 * 60 * 60 * 1000).toISOString();
   const result = await db.prepare(
     `SELECT event.*
@@ -1815,12 +1891,13 @@ export async function getUnplannedEventsDueForResearchRefresh(
        AND event.country = 'CH'
        AND event.status NOT IN ('dismissed', 'resolved')
        AND event.outage_nature = 'unplanned'
+       AND COALESCE(event.started_at_estimate, event.received_at, event.first_seen_at) >= ?
        AND COALESCE(event.research_status, 'not_started') != 'running'
        AND COALESCE(event.research_finished_at, event.auto_research_started_at, event.first_seen_at) < ?
-       AND (SELECT COUNT(*) FROM outage_events WHERE research_finished_at >= ?) < 8
+       AND (SELECT COUNT(*) FROM outage_events WHERE research_finished_at >= ?) < 2
      ORDER BY COALESCE(event.research_finished_at, event.auto_research_started_at, event.first_seen_at) ASC
      LIMIT ?`
-  ).bind(staleBefore, dayBefore, Math.max(1, Math.min(2, limit))).all<OutageEvent>();
+  ).bind(activeWindowStart, staleBefore, dayBefore, Math.max(1, Math.min(2, limit))).all<OutageEvent>();
   return result.results;
 }
 

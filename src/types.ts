@@ -261,7 +261,7 @@ export interface PublicFeedItem {
   received_at: string;
   started_at: string | null;
   resolved_at: string | null;
-  status: "upcoming" | "active" | "resolved" | null;
+  status: "upcoming" | "active" | "resolved" | "historical" | null;
   nature: OutageNature;
   duration_minutes: number | null;
   cause: string | null;

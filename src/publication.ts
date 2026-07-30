@@ -226,9 +226,14 @@ export function parsePublicFeedCursor(cursor: string | null | undefined): { rece
 function concreteFact(facts: OutageFact[], type: OutageFact["fact_type"]): string | null {
   const matches = facts
     .filter((fact) => fact.fact_type === type && fact.confidence >= 0.7)
-    .map((fact) => fact.value_text.trim())
-    .filter((value) => value && !["unknown", "unclear", "unbekannt", "unklar", "null"].includes(normalizeLocation(value)));
-  const distinct = new Map(matches.map((value) => [normalizeLocation(value), value]));
+    .filter((fact) => fact.value_text.trim() && !["unknown", "unclear", "unbekannt", "unklar", "null"].includes(normalizeLocation(fact.value_text)))
+    .sort((left, right) => {
+      const backfillPriority = Number(right.extractor_version === "historical-backfill/v1") - Number(left.extractor_version === "historical-backfill/v1");
+      if (backfillPriority !== 0) return backfillPriority;
+      return right.confidence - left.confidence;
+    });
+  if (matches[0]?.extractor_version === "historical-backfill/v1") return matches[0].value_text.trim();
+  const distinct = new Map(matches.map((fact) => [normalizeLocation(fact.value_text), fact.value_text.trim()]));
   return distinct.size === 1 ? [...distinct.values()][0] ?? null : null;
 }
 
@@ -244,6 +249,8 @@ function publicNature(event: OutageEvent, facts: OutageFact[]): NonNullable<Outa
   if (nature === "unplanned" || nature === "ungeplant") return "unplanned";
   return event.outage_nature ?? "unknown";
 }
+
+const ACTIVE_EVENT_MAX_AGE_MS = 36 * 60 * 60 * 1000;
 
 export function toPublicFeedItem(
   event: OutageEvent,
@@ -263,13 +270,21 @@ export function toPublicFeedItem(
     ? Math.max(0, Math.round((new Date(resolvedAt).getTime() - startMs) / 60000))
     : null;
   const statusFact = normalizeLocation(concreteFact(facts, "status") ?? "");
+  const activityReference = Math.max(
+    ...[startedAt, event.last_seen_at, event.received_at, event.first_seen_at]
+      .map((value) => value ? new Date(value).getTime() : NaN)
+      .filter(Number.isFinite)
+  );
+  const recentlyObserved = Number.isFinite(activityReference) && now - activityReference <= ACTIVE_EVENT_MAX_AGE_MS;
   const status = nature === "planned" && Number.isFinite(startMs) && startMs > now
     ? "upcoming"
     : statusFact === "resolved" || statusFact === "behoben" || event.status === "resolved"
       ? "resolved"
-      : statusFact === "active" || statusFact === "aktiv" || !resolvedAt
-        ? "active"
-        : null;
+      : statusFact === "historical" || statusFact === "archiviert"
+        ? "historical"
+        : recentlyObserved && (statusFact === "active" || statusFact === "aktiv" || !resolvedAt)
+          ? "active"
+          : "historical";
   const location = event.location_text?.trim() || "";
   return {
     id: event.id,

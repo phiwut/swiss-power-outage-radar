@@ -143,7 +143,12 @@ function concreteFact(facts: OutageFact[], type: OutageFact["fact_type"]): Outag
   const matches = facts
     .filter((fact) => fact.fact_type === type && fact.confidence >= 0.7)
     .filter((fact) => !HIDDEN_FACT_VALUES.has(normalizePlaceText(fact.value_text)))
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort((left, right) => {
+      const backfillPriority = Number(right.extractor_version === "historical-backfill/v1") - Number(left.extractor_version === "historical-backfill/v1");
+      if (backfillPriority !== 0) return backfillPriority;
+      return right.confidence - left.confidence;
+    });
+  if (matches[0]?.extractor_version === "historical-backfill/v1") return matches[0];
   const distinct = new Set(matches.map((fact) => normalizePlaceText(fact.value_text)));
   return distinct.size === 1 ? matches[0] ?? null : null;
 }
@@ -152,12 +157,11 @@ function validIso(value: string): boolean {
   return Boolean(value) && Number.isFinite(new Date(value).getTime());
 }
 
-function publicFacts(facts: OutageFact[]): PublicDetailFact[] {
+function publicFacts(facts: OutageFact[], item: PublicFeedItem): PublicDetailFact[] {
   const output: PublicDetailFact[] = [];
   const start = concreteFact(facts, "start_time");
   const end = concreteFact(facts, "end_time");
   const nature = concreteFact(facts, "planned_nature");
-  const status = concreteFact(facts, "status");
   const area = concreteFact(facts, "affected_area");
   const cause = concreteFact(facts, "cause");
 
@@ -174,11 +178,14 @@ function publicFacts(facts: OutageFact[]): PublicDetailFact[] {
   } else if (natureValue === "unplanned" || natureValue === "ungeplant") {
     output.push({ key: "nature", label: "Art", value: "Ungeplant", format: "text" });
   }
-  const statusValue = normalizePlaceText(status?.value_text);
-  if (statusValue === "active" || statusValue === "aktiv") {
+  if (item.status === "active") {
     output.push({ key: "status", label: "Status", value: "Aktiv", format: "text" });
-  } else if (statusValue === "resolved" || statusValue === "behoben") {
+  } else if (item.status === "resolved") {
     output.push({ key: "status", label: "Status", value: "Behoben", format: "text" });
+  } else if (item.status === "historical") {
+    output.push({ key: "status", label: "Status", value: "Historische Meldung", format: "text" });
+  } else if (item.status === "upcoming") {
+    output.push({ key: "status", label: "Status", value: "Bevorstehend", format: "text" });
   }
   if (area) output.push({ key: "affected_area", label: "Betroffen", value: area.value_text, format: "text" });
   const causeValue = cause?.value_text.trim();
@@ -234,7 +241,7 @@ export function buildPublicEventDetail(input: {
   operator: PublicDetailOperator | null;
   evidence?: PublicEvidenceScreenshot[];
 }): PublicEventDetail {
-  const facts = publicFacts(input.facts);
+  const facts = publicFacts(input.facts, input.item);
   if (input.item.duration_minutes !== null) {
     const hours = Math.floor(input.item.duration_minutes / 60);
     const minutes = input.item.duration_minutes % 60;

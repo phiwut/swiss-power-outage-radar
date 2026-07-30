@@ -188,7 +188,7 @@ describe("public event detail", () => {
       received_at: "2026-07-15T12:00:00.000Z",
       started_at: null,
       resolved_at: null,
-      status: null,
+      status: "resolved",
       nature: "planned",
       duration_minutes: 60,
       cause: "Defektes Kabel",

@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "swiss-power-outage-radar",
   "main": "src/index.ts",
-  "compatibility_date": "2026-06-30",
+  "compatibility_date": "2026-07-30",
   "workers_dev": true,
   "assets": {
     "directory": "./dist",

@@ -21,7 +21,7 @@ export function eventSeo(detail: PublicEventDetail, origin: string) {
   const title = `${kind} in ${item.location}${date ? ` am ${date.split(" um ")[0]}` : ""} | outage.ch`;
   const description = [
     `${kind} in ${item.location}.`,
-    item.status === "upcoming" ? "Bevorstehend." : item.status === "resolved" ? "Behoben." : "Aktuelle Informationen.",
+    item.status === "upcoming" ? "Bevorstehend." : item.status === "resolved" ? "Behoben." : item.status === "historical" ? "Historische Meldung." : "Aktuelle Informationen.",
     item.cause ? `Ursache: ${item.cause}.` : "",
     item.affected_area ? `Betroffen: ${item.affected_area}.` : "",
     item.summary
@@ -69,7 +69,7 @@ export function renderEventSeoMarkup(detail: PublicEventDetail): string {
   const item = detail.item;
   const factRows = [
     ["Art", item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Noch unklar"],
-    ["Status", item.status === "upcoming" ? "Bevorstehend" : item.status === "resolved" ? "Behoben" : "Aktiv"],
+    ["Status", item.status === "upcoming" ? "Bevorstehend" : item.status === "resolved" ? "Behoben" : item.status === "historical" ? "Historische Meldung" : "Aktiv"],
     ["Beginn", formatDate(item.started_at)],
     ["Ende", formatDate(item.resolved_at)],
     ["Dauer", item.duration_minutes === null ? null : `${Math.floor(item.duration_minutes / 60)} Std. ${item.duration_minutes % 60} Min.`],

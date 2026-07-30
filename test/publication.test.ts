@@ -408,4 +408,18 @@ describe("public event publication", () => {
     expect(item?.started_at).toBe("2099-08-12T06:00:00.000Z");
     expect(item?.duration_minutes).toBe(150);
   });
+
+  it("does not present a stale unresolved report as an active outage", () => {
+    const outageEvent = event({
+      first_seen_at: "2025-01-01T08:00:00.000Z",
+      last_seen_at: "2025-01-01T08:15:00.000Z",
+      received_at: "2025-01-01T08:15:00.000Z",
+      updated_at: "2025-01-01T08:20:00.000Z"
+    });
+    const decision = evaluatePublicEvent(outageEvent, [source()], [outageFact()]);
+    const item = toPublicFeedItem(outageEvent, decision, [
+      outageFact({ fact_type: "status", value_text: "active", confidence: 0.95 })
+    ]);
+    expect(item?.status).toBe("historical");
+  });
 });

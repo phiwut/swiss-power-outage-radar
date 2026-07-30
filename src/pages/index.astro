@@ -20,7 +20,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         <input id="event-search" type="search" placeholder="Ort suchen" autocomplete="off" />
       </label>
       <label class="filter-field"><span>Art</span><select id="nature-filter"><option value="">Alle</option><option value="planned">Geplant</option><option value="unplanned">Ungeplant</option></select></label>
-      <label class="filter-field"><span>Status</span><select id="status-filter"><option value="">Alle</option><option value="upcoming">Bevorstehend</option><option value="active">Aktiv</option><option value="resolved">Behoben</option></select></label>
+      <label class="filter-field"><span>Status</span><select id="status-filter"><option value="">Alle</option><option value="upcoming">Bevorstehend</option><option value="active">Aktiv</option><option value="resolved">Behoben</option><option value="historical">Historisch</option></select></label>
       <button id="refresh-button" type="button">Aktualisieren</button>
     </div>
 
@@ -48,7 +48,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       received_at: string;
       started_at: string | null;
       resolved_at: string | null;
-      status: "upcoming" | "active" | "resolved" | null;
+      status: "upcoming" | "active" | "resolved" | "historical" | null;
       nature: "planned" | "unplanned" | "unknown";
       duration_minutes: number | null;
       cause: string | null;
@@ -127,7 +127,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
             ? "Unabhängig bestätigt"
             : "Gemeldet";
         const nature = item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Art unklar";
-        const status = item.status === "upcoming" ? "Bevorstehend" : item.status === "resolved" ? "Behoben" : "Aktiv";
+        const status = item.status === "upcoming" ? "Bevorstehend" : item.status === "resolved" ? "Behoben" : item.status === "historical" ? "Historisch" : "Aktiv";
         const duration = item.duration_minutes === null ? null : item.duration_minutes >= 60
           ? `${Math.floor(item.duration_minutes / 60)} Std. ${item.duration_minutes % 60 ? `${item.duration_minutes % 60} Min.` : ""}`
           : `${item.duration_minutes} Min.`;
@@ -223,6 +223,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     .nature-planned, .status-upcoming { background: #fff3dc; color: #8b5515; }
     .nature-unplanned, .status-active { background: #ffe7df; color: #9b3d26; }
     .status-resolved { background: #e5f3e9; color: #28623b; }
+    .status-historical { background: #edf0f2; color: #4d5961; }
     .feed-facts { color: var(--color-muted); font-size: .72rem; }
     .search-field { align-items: center; background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-md); color: var(--color-muted); display: flex; gap: .65rem; max-width: 320px; padding: 0 .85rem; width: 100%; }
     .search-field input { background: transparent; border: 0; color: var(--color-ink); font: inherit; height: 2.75rem; min-width: 0; outline: 0; width: 100%; }

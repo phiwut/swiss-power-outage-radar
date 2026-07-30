@@ -11,6 +11,7 @@ import {
   getAlertItemById,
   getEventsNeedingIntelligence,
   getEventsForPublicationRevalidation,
+  getHistoricalBackfillTargets,
   getEnabledSourceAuthorityHosts,
   getLatestAlertSnapshot,
   getLinkedRelevantItemsNeedingCandidate,
@@ -24,6 +25,7 @@ import {
   getUnlinkedRelevantItems,
   insertOutageCandidate,
   insertOutageFacts,
+  insertHistoricalBackfillFacts,
   insertAlertItem,
   insertSourceObservation,
   linkSourceObservationToAlert,
@@ -61,6 +63,7 @@ import {
 import { assessSourceObservation, observationToClassification } from "./source-quality";
 import { createAlertSnapshot, createSourceSnapshot } from "./snapshots";
 import { extractAndStoreSourcePlaces } from "./places";
+import { historicalBackfillFacts } from "./historical-backfill";
 import type {
   AiClassification,
   CandidateAssessment,
@@ -612,6 +615,27 @@ async function backfillEventIntelligence(env: Env): Promise<{ updated: number; e
   return { updated, errors };
 }
 
+async function backfillHistoricalPublicFacts(
+  env: Env
+): Promise<{ events: number; facts: number; errors: string[] }> {
+  const now = new Date();
+  const olderThan = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString();
+  const targets = await getHistoricalBackfillTargets(env.DB, olderThan, 3);
+  let events = 0;
+  let facts = 0;
+  const errors: string[] = [];
+  for (const target of targets) {
+    try {
+      const extracted = historicalBackfillFacts(target, now.toISOString());
+      facts += await insertHistoricalBackfillFacts(env.DB, target, extracted);
+      events += 1;
+    } catch (error) {
+      errors.push(`historical backfill ${target.id}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return { events, facts, errors };
+}
+
 async function processSourceObservation(
   env: Env,
   observation: SourceObservation
@@ -994,8 +1018,13 @@ export async function runAlertCheck(env: Env): Promise<WorkflowRunSummary> {
     const intelligenceBackfill = await backfillEventIntelligence(env);
     summary.errors.push(...intelligenceBackfill.errors);
 
+    // Historical details are backfilled first from already stored source material.
+    // This path performs no paid search and is intentionally limited to three events/run.
+    const historicalBackfill = await backfillHistoricalPublicFacts(env);
+    summary.errors.push(...historicalBackfill.errors);
+
     // Operator feeds are checked every run. Expensive research is incremental:
-    // refresh at most one stale, unresolved unplanned event per run and eight/day.
+    // refresh only genuinely current events, at most one/run and two/day.
     const refreshTargets = await getUnplannedEventsDueForResearchRefresh(env.DB, new Date().toISOString(), 1);
     for (const target of refreshTargets) {
       try {
