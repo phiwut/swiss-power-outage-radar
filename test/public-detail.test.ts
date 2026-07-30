@@ -84,9 +84,18 @@ describe("public event detail", () => {
         fact_type: "start_time",
         value_text: "2026-07-16T06:00:35.000Z",
         confidence: 0.82,
-        outage_source_id: 97
+        outage_source_id: 97,
+        evidence_excerpt: "Die Stromversorgung in der Froburgstrasse war am Morgen unterbrochen.",
+        extractor_version: "rules/v2"
       },
-      { fact_type: "planned_nature", value_text: "unplanned", confidence: 0.78, outage_source_id: 97 },
+      {
+        fact_type: "planned_nature",
+        value_text: "unplanned",
+        confidence: 0.99,
+        outage_source_id: 97,
+        evidence_excerpt: "Die Meldung liegt ausserhalb des 36-Stunden-Fensters für aktive Ereignisse.",
+        extractor_version: "historical-backfill/v1"
+      },
       { fact_type: "cause", value_text: "unknown", confidence: 0.99, outage_source_id: 97 }
     ] as OutageFact[];
     const sources = [{
@@ -136,7 +145,7 @@ describe("public event detail", () => {
         role: "operator",
         title: "Stromausfall in Lostorf (Froburgstrasse)",
         published_at: null,
-        excerpt: item.summary,
+        excerpt: "Die Stromversorgung in der Froburgstrasse war am Morgen unterbrochen.",
         facts: [
           { label: "Beginn", value: "2026-07-16T06:00:35.000Z", format: "datetime" },
           { label: "Art", value: "Ungeplant", format: "text" }

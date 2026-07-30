@@ -211,6 +211,13 @@ const SOURCE_FACT_LABELS: Partial<Record<OutageFact["fact_type"], string>> = {
   cause: "Ursache",
   affected_area: "Betroffen"
 };
+const SOURCE_FACT_ORDER: OutageFact["fact_type"][] = [
+  "start_time",
+  "end_time",
+  "planned_nature",
+  "affected_area",
+  "cause"
+];
 
 function conciseExcerpt(value: string | null | undefined, maxLength = 320): string | null {
   const cleaned = (value ?? "").replace(/\s+/g, " ").trim();
@@ -231,13 +238,16 @@ function factsForSource(source: OutageSource, facts: OutageFact[]): PublicDetail
   for (const fact of candidates) {
     if (!selected.has(fact.fact_type)) selected.set(fact.fact_type, fact);
   }
-  return [...selected.values()].slice(0, 5).map((fact) => ({
+  return [...selected.values()]
+    .sort((left, right) => SOURCE_FACT_ORDER.indexOf(left.fact_type) - SOURCE_FACT_ORDER.indexOf(right.fact_type))
+    .slice(0, 5)
+    .map((fact) => ({
     label: SOURCE_FACT_LABELS[fact.fact_type]!,
     value: fact.fact_type === "planned_nature"
       ? normalizePlaceText(fact.value_text) === "planned" ? "Geplant" : "Ungeplant"
       : fact.value_text,
     format: fact.fact_type === "start_time" || fact.fact_type === "end_time" ? "datetime" : "text"
-  }));
+    }));
 }
 
 function excerptForSource(
@@ -247,6 +257,10 @@ function excerptForSource(
 ): string | null {
   const linkedEvidence = facts
     .filter((fact) => fact.confidence >= 0.7 && (fact.evidence_excerpt ?? "").trim())
+    // Historical backfill facts describe our classification decision, not the
+    // publisher's article. Never present those internal notes as source copy.
+    .filter((fact) => fact.extractor_version !== "historical-backfill/v1")
+    .filter((fact) => !/(?:36-stunden-fenster|publikationsentscheid|publishable|nicht publiziert)/i.test(fact.evidence_excerpt ?? ""))
     .filter((fact) => fact.outage_source_id === source.id || fact.alert_item_id === source.alert_item_id)
     .sort((left, right) => right.confidence - left.confidence)
     .map((fact) => conciseExcerpt(fact.evidence_excerpt))
