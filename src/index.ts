@@ -26,6 +26,7 @@ import { loadPublicEventDetail } from "./public-detail";
 import { publicEventIdFromPath } from "./public-url";
 import { evidenceScreenshotKey } from "./snapshots";
 import { renderSeoEventAsset } from "./seo-event-page";
+import { knowledgeArticlePaths } from "./knowledge";
 import { isBearerAuthorized } from "./auth";
 import type { Env } from "./types";
 
@@ -358,7 +359,8 @@ export default {
 
     if (url.pathname === "/sitemap.xml" && request.method === "GET") {
       const items = await getPublicSitemapItems(env.DB);
-      const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${url.origin}/</loc></url>${items.map((item) => `<url><loc>${url.origin}${item.url}</loc><lastmod>${item.updated_at}</lastmod></url>`).join("")}</urlset>`;
+      const knowledgeUrls = knowledgeArticlePaths.map((path) => `<url><loc>${url.origin}${path}</loc><lastmod>2026-07-30</lastmod></url>`).join("");
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${url.origin}/</loc></url>${knowledgeUrls}${items.map((item) => `<url><loc>${url.origin}${item.url}</loc><lastmod>${item.updated_at}</lastmod></url>`).join("")}</urlset>`;
       return cachePublic(new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8" } }), request, ctx, "public,max-age=300,s-maxage=3600");
     }
 

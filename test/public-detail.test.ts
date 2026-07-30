@@ -133,7 +133,14 @@ describe("public event detail", () => {
         publisher: "Primeo Energie",
         url: item.source.url,
         domain: "primeo-energie.ch",
-        role: "operator"
+        role: "operator",
+        title: "Stromausfall in Lostorf (Froburgstrasse)",
+        published_at: null,
+        excerpt: item.summary,
+        facts: [
+          { label: "Beginn", value: "2026-07-16T06:00:35.000Z", format: "datetime" },
+          { label: "Art", value: "Ungeplant", format: "text" }
+        ]
       }
     ]);
     expect(detail.timeline.map((entry) => entry.key)).toEqual(["received_at", "start_time"]);
@@ -180,7 +187,14 @@ describe("public event detail", () => {
     expect(detail.facts).toEqual([]);
     expect(detail.operator).toBeNull();
     expect(detail.timeline).toHaveLength(1);
-    expect(detail.sources).toEqual([{ ...item.source, role: "media" }]);
+    expect(detail.sources).toEqual([{
+      ...item.source,
+      role: "media",
+      title: null,
+      published_at: null,
+      excerpt: item.summary,
+      facts: []
+    }]);
   });
 
   it("does not fall back to event guesses and keeps every concrete fact", () => {

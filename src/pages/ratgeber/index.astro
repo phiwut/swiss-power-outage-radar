@@ -1,0 +1,58 @@
+---
+import RadarLayout from "../../layouts/RadarLayout.astro";
+import { knowledgeArticles, knowledgeArticleUrl } from "../../knowledge";
+
+const canonical = "https://outage.ch/ratgeber/";
+---
+
+<RadarLayout
+  title="Stromausfall-Ratgeber Schweiz | outage.ch"
+  description="Verständliche Antworten zu Stromausfällen in der Schweiz: richtig handeln, Dauer und Ursachen einordnen, geplante Unterbrüche vorbereiten und Störungen melden."
+>
+  <link slot="head" rel="canonical" href={canonical} />
+  <meta slot="head" name="robots" content="index,follow,max-image-preview:large" />
+  <section class="knowledge-hub">
+    <header>
+      <p>Wissen · Schweiz</p>
+      <h1>Stromausfall verstehen und richtig handeln</h1>
+      <div>Die Vorfallsseiten zeigen, was an einem konkreten Ort bekannt ist. Hier finden Sie die Antworten auf die allgemeinen Fragen dahinter.</div>
+    </header>
+    <div class="knowledge-grid">
+      {knowledgeArticles.map((article, index) => (
+        <a href={knowledgeArticleUrl(article)}>
+          <span>{String(index + 1).padStart(2, "0")}</span>
+          <div>
+            <small>{article.readingMinutes} Minuten</small>
+            <h2>{article.shortTitle}</h2>
+            <p>{article.description}</p>
+          </div>
+          <strong aria-hidden="true">→</strong>
+        </a>
+      ))}
+    </div>
+    <a class="back-to-events" href="/">Aktuelle Stromausfälle ansehen</a>
+  </section>
+
+  <style>
+    .knowledge-hub { margin: 0 auto; max-width: 960px; padding: clamp(3rem, 8vw, 7rem) 0 6rem; }
+    header { border-bottom: 1px solid var(--color-rule); padding-bottom: clamp(2.5rem, 7vw, 5rem); }
+    header > p, small { color: #b4682e; font-family: var(--font-mono); font-size: .66rem; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { font-family: var(--font-display); font-size: clamp(2.8rem, 8vw, 6.2rem); letter-spacing: -.065em; line-height: .95; margin: .8rem 0 1.5rem; max-width: 900px; text-wrap: balance; }
+    header > div { color: var(--color-muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.7; max-width: 720px; }
+    .knowledge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .knowledge-grid > a { color: inherit; display: grid; gap: 1.2rem; grid-template-columns: 32px 1fr auto; min-height: 260px; padding: 2rem 1.5rem 2rem 0; text-decoration: none; }
+    .knowledge-grid > a:nth-child(odd) { border-right: 1px solid var(--color-rule); }
+    .knowledge-grid > a:nth-child(even) { padding-left: 1.5rem; }
+    .knowledge-grid > a:nth-child(n+3) { border-top: 1px solid var(--color-rule); }
+    .knowledge-grid > a > span { color: var(--color-faint); font-family: var(--font-mono); font-size: .7rem; }
+    .knowledge-grid h2 { font-family: var(--font-display); font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.035em; margin: .45rem 0 .7rem; }
+    .knowledge-grid p { color: var(--color-muted); line-height: 1.65; margin: 0; }
+    .knowledge-grid strong { align-self: end; color: #b4682e; font-size: 1.4rem; }
+    .knowledge-grid > a:hover { background: color-mix(in oklch, var(--color-accent-soft) 25%, transparent); }
+    .back-to-events { color: var(--color-ink); display: inline-flex; font-weight: 700; margin-top: 3rem; }
+    @media (max-width: 680px) {
+      .knowledge-grid { grid-template-columns: 1fr; }
+      .knowledge-grid > a, .knowledge-grid > a:nth-child(even) { border-left: 0; border-right: 0; border-top: 1px solid var(--color-rule); min-height: 0; padding: 1.7rem 0; }
+    }
+  </style>
+</RadarLayout>

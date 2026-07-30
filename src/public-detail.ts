@@ -46,6 +46,14 @@ export interface PublicDetailSource {
   url: string;
   domain: string;
   role: "operator" | "authority" | "media";
+  title: string | null;
+  published_at: string | null;
+  excerpt: string | null;
+  facts: Array<{
+    label: string;
+    value: string;
+    format: "text" | "datetime";
+  }>;
 }
 
 export interface PublicTimelineEntry {
@@ -196,6 +204,57 @@ function publicFacts(facts: OutageFact[], item: PublicFeedItem): PublicDetailFac
   return output;
 }
 
+const SOURCE_FACT_LABELS: Partial<Record<OutageFact["fact_type"], string>> = {
+  start_time: "Beginn",
+  end_time: "Ende",
+  planned_nature: "Art",
+  cause: "Ursache",
+  affected_area: "Betroffen"
+};
+
+function conciseExcerpt(value: string | null | undefined, maxLength = 320): string | null {
+  const cleaned = (value ?? "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  if (cleaned.length <= maxLength) return cleaned;
+  const shortened = cleaned.slice(0, maxLength);
+  return `${shortened.slice(0, shortened.lastIndexOf(" ")) || shortened}…`;
+}
+
+function factsForSource(source: OutageSource, facts: OutageFact[]): PublicDetailSource["facts"] {
+  const candidates = facts
+    .filter((fact) => fact.confidence >= 0.7)
+    .filter((fact) => fact.outage_source_id === source.id || fact.alert_item_id === source.alert_item_id)
+    .filter((fact) => Boolean(SOURCE_FACT_LABELS[fact.fact_type]))
+    .filter((fact) => !HIDDEN_FACT_VALUES.has(normalizePlaceText(fact.value_text)))
+    .sort((left, right) => right.confidence - left.confidence);
+  const selected = new Map<OutageFact["fact_type"], OutageFact>();
+  for (const fact of candidates) {
+    if (!selected.has(fact.fact_type)) selected.set(fact.fact_type, fact);
+  }
+  return [...selected.values()].slice(0, 5).map((fact) => ({
+    label: SOURCE_FACT_LABELS[fact.fact_type]!,
+    value: fact.fact_type === "planned_nature"
+      ? normalizePlaceText(fact.value_text) === "planned" ? "Geplant" : "Ungeplant"
+      : fact.value_text,
+    format: fact.fact_type === "start_time" || fact.fact_type === "end_time" ? "datetime" : "text"
+  }));
+}
+
+function excerptForSource(
+  item: PublicFeedItem,
+  source: OutageSource,
+  facts: OutageFact[]
+): string | null {
+  const linkedEvidence = facts
+    .filter((fact) => fact.confidence >= 0.7 && (fact.evidence_excerpt ?? "").trim())
+    .filter((fact) => fact.outage_source_id === source.id || fact.alert_item_id === source.alert_item_id)
+    .sort((left, right) => right.confidence - left.confidence)
+    .map((fact) => conciseExcerpt(fact.evidence_excerpt))
+    .find(Boolean);
+  if (linkedEvidence) return linkedEvidence;
+  return source.is_primary ? conciseExcerpt(item.summary) : null;
+}
+
 function publicSources(item: PublicFeedItem, sources: OutageSource[], facts: OutageFact[]): PublicDetailSource[] {
   const evidencedSourceIds = new Set(facts.filter((fact) => fact.confidence >= 0.65).flatMap((fact) =>
     typeof fact.outage_source_id === "number" ? [fact.outage_source_id] : []
@@ -214,7 +273,11 @@ function publicSources(item: PublicFeedItem, sources: OutageSource[], facts: Out
       publisher: source.source_name?.trim() || domain,
       url,
       domain,
-      role: intel.source_kind === "operator" ? "operator" : intel.source_kind === "official" ? "authority" : "media"
+      role: intel.source_kind === "operator" ? "operator" : intel.source_kind === "official" ? "authority" : "media",
+      title: source.source_title?.trim() || null,
+      published_at: source.published_at ?? null,
+      excerpt: excerptForSource(item, source, facts),
+      facts: factsForSource(source, facts)
     }];
   });
   if (!output.some((source) => source.url === item.source.url)) {
@@ -225,7 +288,11 @@ function publicSources(item: PublicFeedItem, sources: OutageSource[], facts: Out
     });
     output.unshift({
       ...item.source,
-      role: intel.source_kind === "operator" ? "operator" : intel.source_kind === "official" ? "authority" : "media"
+      role: intel.source_kind === "operator" ? "operator" : intel.source_kind === "official" ? "authority" : "media",
+      title: null,
+      published_at: null,
+      excerpt: conciseExcerpt(item.summary),
+      facts: []
     });
   }
   return output.filter((source, index, all) =>

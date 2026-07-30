@@ -26,6 +26,7 @@ const {
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="de_CH" />
     <meta name="twitter:card" content="summary" />
+    <slot name="head" />
     <title>{title}</title>
   </head>
   <body class="text-ink">
@@ -40,6 +41,10 @@ const {
             <span class="block truncate font-display text-xl font-bold leading-tight group-hover:text-accent">outage.ch</span>
           </span>
         </a>
+        <nav aria-label="Hauptnavigation" class="flex items-center gap-4 text-sm font-semibold">
+          <a href="/" class="text-muted no-underline hover:text-ink">Meldungen</a>
+          <a href="/ratgeber/" class="text-muted no-underline hover:text-ink">Ratgeber</a>
+        </nav>
       </header>
       <slot />
     </main>
