@@ -297,7 +297,7 @@ export function toPublicFeedItem(
     status,
     nature,
     duration_minutes: durationMinutes,
-    cause: concreteFact(facts, "cause") ?? event.cause_text?.trim() ?? null,
+    cause: concreteFact(facts, "cause") ?? (event.cause_text?.trim() || null),
     affected_area: concreteFact(facts, "affected_area"),
     updated_at: event.updated_at,
     summary: decision.summary,

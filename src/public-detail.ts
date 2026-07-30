@@ -80,8 +80,9 @@ export function publicLocationQuery(value: string | null | undefined): string {
     .replace(/,?\s*(?:schweiz|suisse|svizzera|switzerland)\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  const parts = cleaned.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length < 2) return cleaned;
+  const compoundFirst = cleaned.split(/\s+(?:und|et|e)\s+/i)[0]?.trim() || cleaned;
+  const parts = compoundFirst.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return compoundFirst;
   const first = normalizePlaceText(parts[0]);
   const genericFirst = /^(?:gemeinde|stadt|region|bezirk|feuerschaugemeinde)$/.test(first);
   return genericFirst ? parts[1] : parts[0];

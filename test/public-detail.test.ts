@@ -8,6 +8,10 @@ describe("public event detail", () => {
     expect(publicLocationQuery("Feuerschaugemeinde, Appenzell")).toBe("Appenzell");
   });
 
+  it("uses the first concrete municipality for a compound location map query", () => {
+    expect(publicLocationQuery("Lufingen und Winkel")).toBe("Lufingen");
+  });
+
   it("chooses the official Swiss municipality for a prefixed incident location", () => {
     const location = choosePublicLocation("in Lostorf", [
       {
