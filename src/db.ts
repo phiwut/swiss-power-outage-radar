@@ -789,8 +789,11 @@ export async function insertHistoricalBackfillFacts(
     fact.value_text,
     fact.extractor_version ?? null
   ));
-  const results = await db.batch(statements);
-  return results.reduce((total, result) => total + changes(result), 0);
+  const results = await db.batch([
+    ...statements,
+    db.prepare("UPDATE outage_events SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(target.id)
+  ]);
+  return results.slice(0, statements.length).reduce((total, result) => total + changes(result), 0);
 }
 
 export async function linkCandidateToEvent(
