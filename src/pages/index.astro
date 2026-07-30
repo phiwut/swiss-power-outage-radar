@@ -48,9 +48,16 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       received_at: string;
       started_at: string | null;
       resolved_at: string | null;
-      status: "upcoming" | "active" | "resolved" | "historical" | null;
+      status: "upcoming" | "active" | "resolved" | "stale_unconfirmed" | "historical" | null;
       nature: "planned" | "unplanned" | "unknown";
       duration_minutes: number | null;
+      active_since_at: string | null;
+      active_since_is_minimum: boolean;
+      last_confirmed_active_at: string | null;
+      expected_restore_at: string | null;
+      resolution_earliest_at: string | null;
+      resolution_latest_at: string | null;
+      time_confidence: "exact" | "reported" | "inferred" | "unknown";
       cause: string | null;
       affected_area: string | null;
       updated_at: string;
@@ -127,10 +134,29 @@ import RadarLayout from "../layouts/RadarLayout.astro";
             ? "Unabhängig bestätigt"
             : "Gemeldet";
         const nature = item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Art unklar";
-        const status = item.status === "upcoming" ? "Bevorstehend" : item.status === "resolved" ? "Behoben" : item.status === "historical" ? "Historisch" : "Aktiv";
+        const status = item.status === "upcoming"
+          ? "Bevorstehend"
+          : item.status === "resolved"
+            ? "Behoben"
+            : item.status === "historical"
+              ? "Historisch"
+              : item.status === "stale_unconfirmed"
+                ? "Status unbestätigt"
+                : "Noch aktiv";
         const duration = item.duration_minutes === null ? null : item.duration_minutes >= 60
           ? `${Math.floor(item.duration_minutes / 60)} Std. ${item.duration_minutes % 60 ? `${item.duration_minutes % 60} Min.` : ""}`
           : `${item.duration_minutes} Min.`;
+        const activeMinutes = item.active_since_at && item.status === "active"
+          ? Math.max(0, Math.floor((Date.now() - new Date(item.active_since_at).getTime()) / 60000))
+          : null;
+        const activeDuration = activeMinutes === null
+          ? null
+          : activeMinutes >= 60
+            ? `${Math.floor(activeMinutes / 60)} Std. ${activeMinutes % 60 ? `${activeMinutes % 60} Min.` : ""}`
+            : `${activeMinutes} Min.`;
+        const resolutionWindow = item.resolution_earliest_at && item.resolution_latest_at
+          ? `Vermutlich behoben: ${dateFormatter.format(new Date(item.resolution_earliest_at))}–${dateFormatter.format(new Date(item.resolution_latest_at))}`
+          : null;
         return `<a class="feed-row" href="${escapeHtml(item.url)}" aria-label="Stromausfall-Meldung für ${escapeHtml(item.location)}, ${escapeHtml(received.full)}">
           <time datetime="${escapeHtml(primaryTime)}" title="${escapeHtml(received.full)}">
             <span>${escapeHtml(received.day)}</span>
@@ -144,6 +170,12 @@ import RadarLayout from "../layouts/RadarLayout.astro";
               item.started_at ? `Start: ${dateFormatter.format(new Date(item.started_at))}` : null,
               item.resolved_at ? `Ende: ${dateFormatter.format(new Date(item.resolved_at))}` : null,
               duration ? `Dauer: ${duration}` : null,
+              activeDuration ? `${item.active_since_is_minimum ? "Seit mindestens" : "Seit"}: ${activeDuration}` : null,
+              item.expected_restore_at && item.status === "active" ? `Behebung erwartet: ${dateFormatter.format(new Date(item.expected_restore_at))}` : null,
+              resolutionWindow,
+              item.status === "stale_unconfirmed" && item.last_confirmed_active_at
+                ? `Zuletzt aktiv bestätigt: ${dateFormatter.format(new Date(item.last_confirmed_active_at))}`
+                : null,
               item.affected_area ? `Region: ${item.affected_area}` : null,
               item.cause ? `Ursache: ${item.cause}` : null
             ].filter(Boolean).map((fact) => `<span>${escapeHtml(fact)}</span>`).join("")}</span>
@@ -163,6 +195,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         : `${state.items.length} Meldung${state.items.length === 1 ? "" : "en"} geladen${state.generatedAt ? ` · Stand ${timeFormatter.format(new Date(state.generatedAt))}` : ""}`;
       shell.setAttribute("aria-busy", "false");
     }
+
+    window.setInterval(() => {
+      if (state.items.some((item) => item.status === "active" && item.active_since_at)) render();
+    }, 60_000);
 
     async function load(reset = false): Promise<void> {
       if (state.loading) return;

@@ -39,6 +39,8 @@ import {
   recordEventVersion,
   recordPublicationRevalidationRun,
   refreshOutageEventAfterSource,
+  recordEventSourcePresence,
+  reconcileSourcePresence,
   updateSourceRegistryHealth,
   updateOutageEventCandidateDetails,
   updateOutageEventMailDecision,
@@ -392,8 +394,25 @@ async function linkAlertToOutageEvent(
     reason: classification.reason,
     candidateStatus: options.assessment?.status ?? "unknown",
     resolvedAtEstimate:
-      options.assessment?.facts.find((fact) => fact.fact_type === "end_time")?.value_text ?? null
+      options.assessment?.facts.find((fact) => fact.fact_type === "end_time")?.value_text ?? null,
+    lastConfirmedActiveAt: options.assessment?.status === "active"
+      ? options.sourceObservation?.observed_at ?? item.fetched_at ?? now
+      : null,
+    expectedRestoreAt: options.assessment?.status === "active"
+      ? options.sourceObservation?.resolved_at ?? null
+      : null
   });
+  if (
+    options.sourceObservation?.source_registry_id &&
+    options.assessment?.status === "active"
+  ) {
+    await recordEventSourcePresence(
+      env.DB,
+      event.id,
+      options.sourceObservation.source_registry_id,
+      options.sourceObservation.observed_at
+    );
+  }
   const snapshot = await createSourceSnapshot(env, { event, source, alertItem: item });
   try {
     await extractAndStoreSourcePlaces(env, { event, source, alertItem: item, snapshot });
@@ -778,12 +797,31 @@ async function collectRegistrySources(env: Env): Promise<{
       lastObservationAt: fetched.observations.length > 0 ? checkedAt : null
     });
 
+    const presentEventIds = new Set<number>();
     for (const input of fetched.observations) {
       try {
         const stored = await insertSourceObservation(env.DB, input);
-        if (!stored.inserted) continue;
+        if (!stored.inserted) {
+          if (
+            stored.observation.outage_event_id &&
+            ["planned", "unplanned"].includes(stored.observation.canonical_status)
+          ) {
+            presentEventIds.add(stored.observation.outage_event_id);
+            await recordEventSourcePresence(
+              env.DB,
+              stored.observation.outage_event_id,
+              source.id,
+              checkedAt
+            );
+          }
+          continue;
+        }
         summary.observationsNew += 1;
         const result = await processSourceObservation(env, stored.observation);
+        const linked = await insertSourceObservation(env.DB, input);
+        if (linked.observation.outage_event_id && ["planned", "unplanned"].includes(linked.observation.canonical_status)) {
+          presentEventIds.add(linked.observation.outage_event_id);
+        }
         if (result.itemNew) summary.itemsNew += 1;
         if (result.filtered) summary.itemsFiltered += 1;
         if (result.classified) summary.itemsClassified += 1;
@@ -794,6 +832,7 @@ async function collectRegistrySources(env: Env): Promise<{
         );
       }
     }
+    await reconcileSourcePresence(env.DB, source.id, checkedAt, [...presentEventIds]);
   }
 
   return summary;

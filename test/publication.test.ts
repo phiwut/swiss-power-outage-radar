@@ -371,6 +371,13 @@ describe("public event publication", () => {
       "status",
       "nature",
       "duration_minutes",
+      "active_since_at",
+      "active_since_is_minimum",
+      "last_confirmed_active_at",
+      "expected_restore_at",
+      "resolution_earliest_at",
+      "resolution_latest_at",
+      "time_confidence",
       "cause",
       "affected_area",
       "updated_at",
@@ -409,6 +416,44 @@ describe("public event publication", () => {
     expect(item?.duration_minutes).toBe(150);
   });
 
+  it("distinguishes a running minimum duration from a reported restoration estimate", () => {
+    const outageEvent = event({
+      first_seen_at: "2099-07-15T08:00:00.000Z",
+      last_seen_at: "2099-07-15T08:15:00.000Z",
+      received_at: "2099-07-15T08:15:00.000Z",
+      last_confirmed_active_at: "2099-07-15T08:15:00.000Z",
+      expected_restore_at: "2099-07-15T10:00:00.000Z",
+      time_confidence: "reported"
+    });
+    const decision = evaluatePublicEvent(outageEvent, [source()], [outageFact()]);
+    const item = toPublicFeedItem(outageEvent, decision, [
+      outageFact({ fact_type: "status", value_text: "active", confidence: 0.95 })
+    ]);
+
+    expect(item?.status).toBe("active");
+    expect(item?.active_since_at).toBe("2099-07-15T08:00:00.000Z");
+    expect(item?.active_since_is_minimum).toBe(true);
+    expect(item?.expected_restore_at).toBe("2099-07-15T10:00:00.000Z");
+    expect(item?.duration_minutes).toBeNull();
+  });
+
+  it("exposes an inferred resolution as a time window, not an exact end", () => {
+    const outageEvent = event({
+      status: "resolved",
+      resolution_earliest_at: "2026-07-15T09:10:00.000Z",
+      resolution_latest_at: "2026-07-15T09:25:00.000Z",
+      time_confidence: "inferred"
+    });
+    const decision = evaluatePublicEvent(outageEvent, [source()], [outageFact()]);
+    const item = toPublicFeedItem(outageEvent, decision, []);
+
+    expect(item?.status).toBe("resolved");
+    expect(item?.resolved_at).toBeNull();
+    expect(item?.duration_minutes).toBeNull();
+    expect(item?.resolution_earliest_at).toBe("2026-07-15T09:10:00.000Z");
+    expect(item?.resolution_latest_at).toBe("2026-07-15T09:25:00.000Z");
+  });
+
   it("does not present a stale unresolved report as an active outage", () => {
     const outageEvent = event({
       first_seen_at: "2025-01-01T08:00:00.000Z",
@@ -420,6 +465,8 @@ describe("public event publication", () => {
     const item = toPublicFeedItem(outageEvent, decision, [
       outageFact({ fact_type: "status", value_text: "active", confidence: 0.95 })
     ]);
-    expect(item?.status).toBe("historical");
+    expect(item?.status).toBe("stale_unconfirmed");
+    expect(item?.last_confirmed_active_at).toBe("2025-01-01T08:15:00.000Z");
+    expect(item?.active_since_is_minimum).toBe(true);
   });
 });

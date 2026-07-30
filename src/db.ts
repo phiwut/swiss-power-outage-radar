@@ -879,6 +879,8 @@ export async function refreshOutageEventAfterSource(
     reason: string;
     resolvedAtEstimate?: string | null;
     candidateStatus?: "active" | "resolved" | "unknown";
+    lastConfirmedActiveAt?: string | null;
+    expectedRestoreAt?: string | null;
   }
 ): Promise<OutageEvent> {
   await db
@@ -900,6 +902,16 @@ export async function refreshOutageEventAfterSource(
              ELSE status
            END,
            resolved_at_estimate = COALESCE(resolved_at_estimate, ?),
+           last_confirmed_active_at = CASE
+             WHEN ? IS NOT NULL AND (last_confirmed_active_at IS NULL OR ? > last_confirmed_active_at)
+             THEN ? ELSE last_confirmed_active_at
+           END,
+           expected_restore_at = COALESCE(?, expected_restore_at),
+           time_confidence = CASE
+             WHEN ? = 'resolved' AND ? IS NOT NULL THEN 'reported'
+             WHEN ? IS NOT NULL THEN 'reported'
+             ELSE time_confidence
+           END,
            confidence = MAX(confidence, ?),
            summary = CASE WHEN LENGTH(COALESCE(summary, '')) = 0 THEN ? ELSE summary END,
            reason = CASE WHEN LENGTH(COALESCE(reason, '')) = 0 THEN ? ELSE reason END,
@@ -915,6 +927,13 @@ export async function refreshOutageEventAfterSource(
       patch.candidateStatus ?? "unknown",
       eventId,
       patch.resolvedAtEstimate ?? null,
+      patch.lastConfirmedActiveAt ?? null,
+      patch.lastConfirmedActiveAt ?? null,
+      patch.lastConfirmedActiveAt ?? null,
+      patch.expectedRestoreAt ?? null,
+      patch.candidateStatus ?? "unknown",
+      patch.resolvedAtEstimate ?? null,
+      patch.lastConfirmedActiveAt ?? null,
       patch.confidence,
       patch.summary,
       patch.reason,
@@ -925,6 +944,80 @@ export async function refreshOutageEventAfterSource(
   const event = await getOutageEvent(db, eventId);
   if (!event) throw new Error("Updated outage event could not be loaded");
   return event;
+}
+
+export async function recordEventSourcePresence(
+  db: D1Database,
+  eventId: number,
+  sourceRegistryId: number,
+  observedAt: string
+): Promise<void> {
+  await db.prepare(
+    `INSERT INTO outage_event_source_presence (
+       outage_event_id, source_registry_id, last_confirmed_at,
+       first_missing_at, consecutive_missing_checks, updated_at
+     ) VALUES (?, ?, ?, NULL, 0, CURRENT_TIMESTAMP)
+     ON CONFLICT(outage_event_id, source_registry_id) DO UPDATE SET
+       last_confirmed_at = excluded.last_confirmed_at,
+       first_missing_at = NULL,
+       consecutive_missing_checks = 0,
+       updated_at = CURRENT_TIMESTAMP`
+  ).bind(eventId, sourceRegistryId, observedAt).run();
+  await db.prepare(
+    `UPDATE outage_events
+     SET last_confirmed_active_at = CASE
+           WHEN last_confirmed_active_at IS NULL OR ? > last_confirmed_active_at THEN ?
+           ELSE last_confirmed_active_at
+         END,
+         status = CASE WHEN status = 'resolved' AND time_confidence = 'inferred' THEN 'corroborated' ELSE status END,
+         resolution_earliest_at = CASE WHEN time_confidence = 'inferred' THEN NULL ELSE resolution_earliest_at END,
+         resolution_latest_at = CASE WHEN time_confidence = 'inferred' THEN NULL ELSE resolution_latest_at END,
+         time_confidence = CASE WHEN time_confidence = 'inferred' THEN 'reported' ELSE time_confidence END,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`
+  ).bind(observedAt, observedAt, eventId).run();
+}
+
+export async function reconcileSourcePresence(
+  db: D1Database,
+  sourceRegistryId: number,
+  checkedAt: string,
+  presentEventIds: number[]
+): Promise<void> {
+  const placeholders = presentEventIds.map(() => "?").join(", ");
+  const exclusion = presentEventIds.length ? `AND outage_event_id NOT IN (${placeholders})` : "";
+  await db.prepare(
+    `UPDATE outage_event_source_presence
+     SET first_missing_at = COALESCE(first_missing_at, ?),
+         consecutive_missing_checks = consecutive_missing_checks + 1,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE source_registry_id = ? ${exclusion}`
+  ).bind(checkedAt, sourceRegistryId, ...presentEventIds).run();
+
+  await db.prepare(
+    `UPDATE outage_events
+     SET status = 'resolved',
+         resolution_earliest_at = (
+           SELECT MAX(last_confirmed_at) FROM outage_event_source_presence p
+           WHERE p.outage_event_id = outage_events.id
+         ),
+         resolution_latest_at = (
+           SELECT MAX(first_missing_at) FROM outage_event_source_presence p
+           WHERE p.outage_event_id = outage_events.id
+         ),
+         time_confidence = 'inferred',
+         updated_at = CURRENT_TIMESTAMP
+     WHERE status NOT IN ('dismissed', 'resolved')
+       AND EXISTS (
+         SELECT 1 FROM outage_event_source_presence p
+         WHERE p.outage_event_id = outage_events.id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM outage_event_source_presence p
+         WHERE p.outage_event_id = outage_events.id
+           AND p.consecutive_missing_checks < 2
+       )`
+  ).run();
 }
 
 export async function markOutageEventEmailSent(

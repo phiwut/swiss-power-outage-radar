@@ -316,9 +316,13 @@ describe("source registry observations", () => {
     expect(result.error).toBeNull();
     expect(result.transportStatus).toBe("ok");
     expect(result.parserStatus).toBe("ready");
-    expect(result.observations).toHaveLength(1);
+    expect(result.observations).toHaveLength(sourceKey === "primeo-netzstatus" ? 2 : 1);
     expect(result.observations[0].canonicalStatus).toBe(status);
     expect(result.observations[0].locationText).toContain(location);
+    if (sourceKey === "primeo-netzstatus") {
+      expect(result.observations[1].canonicalStatus).toBe("resolved");
+      expect(result.observations[1].resolvedAt).toBe("2026-07-14T00:30:00.000Z");
+    }
   });
 
   it("parses Romande Energie geometry but withholds publication when the live contract has no locality", async () => {

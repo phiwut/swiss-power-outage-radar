@@ -411,13 +411,20 @@ async function parsePrimeoPayload(
   );
   if (!schemaMatched) return { observations: [], schemaMatched: false };
   const active = current.filter((row) => row.status === "PROGRESS" || row.status === "PLANNED");
+  const resolved = done.filter((row) => row.status === "RESOLVED");
   return {
     schemaMatched: true,
-    observations: await Promise.all(active.map((row) => {
+    observations: await Promise.all([...active, ...resolved].map((row) => {
       const titleLocation = compact(String(row.title));
-      const status: CanonicalObservationStatus = row.status === "PLANNED" ? "planned" : "unplanned";
+      const status: CanonicalObservationStatus = row.status === "PLANNED"
+        ? "planned"
+        : row.status === "RESOLVED"
+          ? "resolved"
+          : "unplanned";
       const title = status === "planned"
         ? `Geplanter Stromunterbruch in ${titleLocation}`
+        : status === "resolved"
+          ? `Behobener Stromausfall in ${titleLocation}`
         : `Stromausfall in ${titleLocation}`;
       return makeKnownObservation(source, {
         status,

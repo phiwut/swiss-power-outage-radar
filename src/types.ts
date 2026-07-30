@@ -130,6 +130,7 @@ export type PublicStatus = "hidden" | "public_auto" | "public_verified";
 export type VerificationLevel = "auto_analyzed" | "official_source" | "admin_verified";
 export type EventQualityState = "candidate_only" | "publishable" | "needs_review" | "rejected";
 export type PublicTrust = "official" | "corroborated" | "reported";
+export type TimeConfidence = "exact" | "reported" | "inferred" | "unknown";
 export type GeoPlaceType = "canton" | "district" | "municipality" | "locality" | "postcode" | "street";
 export type EventPlaceRole = "affected" | "possibly_affected" | "context" | "operator_area" | "dismissed";
 export type LocationGranularity =
@@ -187,6 +188,11 @@ export interface OutageEvent {
   received_at?: string | null;
   started_at_estimate: string | null;
   resolved_at_estimate: string | null;
+  last_confirmed_active_at?: string | null;
+  expected_restore_at?: string | null;
+  resolution_earliest_at?: string | null;
+  resolution_latest_at?: string | null;
+  time_confidence?: TimeConfidence | null;
   summary: string | null;
   reason: string | null;
   confidence: number;
@@ -261,9 +267,16 @@ export interface PublicFeedItem {
   received_at: string;
   started_at: string | null;
   resolved_at: string | null;
-  status: "upcoming" | "active" | "resolved" | "historical" | null;
+  status: "upcoming" | "active" | "resolved" | "stale_unconfirmed" | "historical" | null;
   nature: OutageNature;
   duration_minutes: number | null;
+  active_since_at?: string | null;
+  active_since_is_minimum?: boolean;
+  last_confirmed_active_at?: string | null;
+  expected_restore_at?: string | null;
+  resolution_earliest_at?: string | null;
+  resolution_latest_at?: string | null;
+  time_confidence?: TimeConfidence;
   cause: string | null;
   affected_area: string | null;
   updated_at: string;

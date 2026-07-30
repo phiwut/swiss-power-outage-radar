@@ -275,7 +275,9 @@ export function toPublicFeedItem(
       .map((value) => value ? new Date(value).getTime() : NaN)
       .filter(Number.isFinite)
   );
-  const recentlyObserved = Number.isFinite(activityReference) && now - activityReference <= ACTIVE_EVENT_MAX_AGE_MS;
+  const lastConfirmedActiveAt = isoOrNull(event.last_confirmed_active_at ?? event.last_seen_at);
+  const confirmationMs = lastConfirmedActiveAt ? new Date(lastConfirmedActiveAt).getTime() : activityReference;
+  const recentlyObserved = Number.isFinite(confirmationMs) && now - confirmationMs <= ACTIVE_EVENT_MAX_AGE_MS;
   const status = nature === "planned" && Number.isFinite(startMs) && startMs > now
     ? "upcoming"
     : statusFact === "resolved" || statusFact === "behoben" || event.status === "resolved"
@@ -284,7 +286,10 @@ export function toPublicFeedItem(
         ? "historical"
         : recentlyObserved && (statusFact === "active" || statusFact === "aktiv" || !resolvedAt)
           ? "active"
-          : "historical";
+          : !resolvedAt
+            ? "stale_unconfirmed"
+            : "historical";
+  const activeSinceAt = startedAt ?? (status === "active" || status === "stale_unconfirmed" ? isoOrNull(event.first_seen_at) : null);
   const location = event.location_text?.trim() || "";
   return {
     id: event.id,
@@ -297,6 +302,13 @@ export function toPublicFeedItem(
     status,
     nature,
     duration_minutes: durationMinutes,
+    active_since_at: activeSinceAt,
+    active_since_is_minimum: Boolean(activeSinceAt && !startedAt),
+    last_confirmed_active_at: lastConfirmedActiveAt,
+    expected_restore_at: isoOrNull(event.expected_restore_at),
+    resolution_earliest_at: isoOrNull(event.resolution_earliest_at),
+    resolution_latest_at: isoOrNull(event.resolution_latest_at),
+    time_confidence: event.time_confidence ?? "unknown",
     cause: concreteFact(facts, "cause") ?? (event.cause_text?.trim() || null),
     affected_area: concreteFact(facts, "affected_area"),
     updated_at: event.updated_at,

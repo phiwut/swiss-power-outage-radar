@@ -26,7 +26,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       key: string;
       label: string;
       value: string;
-      format: "text" | "datetime";
+      format: "text" | "datetime" | "duration";
     };
     type DetailSource = {
       publisher: string;
@@ -46,6 +46,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
         received_at: string;
         summary: string;
         trust: Trust;
+        status: "upcoming" | "active" | "resolved" | "stale_unconfirmed" | "historical" | null;
       };
       map: null | {
         query: string;
@@ -81,6 +82,23 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? value : fmt.format(date);
     };
+    const formatDuration = (value: string) => {
+      const start = new Date(value).getTime();
+      if (!Number.isFinite(start)) return value;
+      const minutes = Math.max(0, Math.floor((Date.now() - start) / 60000));
+      return minutes >= 60
+        ? `${Math.floor(minutes / 60)} Std.${minutes % 60 ? ` ${minutes % 60} Min.` : ""}`
+        : `${minutes} Min.`;
+    };
+    const formatFact = (fact: DetailFact) => {
+      if (fact.format === "datetime") return formatDate(fact.value);
+      if (fact.format === "duration") return formatDuration(fact.value);
+      if (fact.key === "resolution_window" && fact.value.includes("|")) {
+        const [from, to] = fact.value.split("|");
+        return `zwischen ${formatDate(from)} und ${formatDate(to)}`;
+      }
+      return fact.value;
+    };
     const trustText = (trust: Trust) => trust === "official"
       ? "Offiziell gemeldet"
       : trust === "corroborated"
@@ -100,7 +118,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
         <h2 id="facts-heading">Was bekannt ist</h2>
         <dl>${facts.map((fact) => `<div>
           <dt>${escapeHtml(fact.label)}</dt>
-          <dd>${escapeHtml(fact.format === "datetime" ? formatDate(fact.value) : fact.value)}</dd>
+          <dd data-fact-key="${escapeHtml(fact.key)}">${escapeHtml(formatFact(fact))}</dd>
         </div>`).join("")}</dl>
       </section>`;
     }
@@ -244,6 +262,12 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       </article>`;
       shell.setAttribute("aria-busy", "false");
       void initializeMap(data);
+      window.setInterval(() => {
+        for (const fact of data.facts.filter((entry) => entry.format === "duration")) {
+          const target = shell.querySelector<HTMLElement>(`[data-fact-key="${fact.key}"]`);
+          if (target) target.textContent = formatFact(fact);
+        }
+      }, 60_000);
     }
 
     load().catch((error) => {

@@ -27,10 +27,10 @@ export interface PublicEventLocation {
 }
 
 export interface PublicDetailFact {
-  key: "start_time" | "end_time" | "duration" | "nature" | "status" | "affected_area" | "cause";
+  key: "start_time" | "end_time" | "duration" | "active_since" | "last_confirmed" | "expected_restore" | "resolution_window" | "nature" | "status" | "affected_area" | "cause";
   label: string;
   value: string;
-  format: "text" | "datetime";
+  format: "text" | "datetime" | "duration";
 }
 
 export interface PublicDetailOperator {
@@ -188,13 +188,37 @@ function publicFacts(facts: OutageFact[], item: PublicFeedItem): PublicDetailFac
     output.push({ key: "nature", label: "Art", value: "Ungeplant", format: "text" });
   }
   if (item.status === "active") {
-    output.push({ key: "status", label: "Status", value: "Aktiv", format: "text" });
+    output.push({ key: "status", label: "Status", value: "Noch aktiv", format: "text" });
+    if (item.active_since_at) {
+      output.push({
+        key: "active_since",
+        label: item.active_since_is_minimum ? "Mindestens aktiv" : "Bisherige Dauer",
+        value: item.active_since_at,
+        format: "duration"
+      });
+    }
   } else if (item.status === "resolved") {
     output.push({ key: "status", label: "Status", value: "Behoben", format: "text" });
+  } else if (item.status === "stale_unconfirmed") {
+    output.push({ key: "status", label: "Status", value: "Nicht mehr bestätigt", format: "text" });
   } else if (item.status === "historical") {
     output.push({ key: "status", label: "Status", value: "Historische Meldung", format: "text" });
   } else if (item.status === "upcoming") {
     output.push({ key: "status", label: "Status", value: "Bevorstehend", format: "text" });
+  }
+  if (item.last_confirmed_active_at && (item.status === "active" || item.status === "stale_unconfirmed")) {
+    output.push({ key: "last_confirmed", label: "Zuletzt aktiv bestätigt", value: item.last_confirmed_active_at, format: "datetime" });
+  }
+  if (item.expected_restore_at && item.status === "active") {
+    output.push({ key: "expected_restore", label: "Behebung erwartet", value: item.expected_restore_at, format: "datetime" });
+  }
+  if (item.resolution_earliest_at && item.resolution_latest_at && item.time_confidence === "inferred") {
+    output.push({
+      key: "resolution_window",
+      label: "Vermutlich behoben",
+      value: `${item.resolution_earliest_at}|${item.resolution_latest_at}`,
+      format: "text"
+    });
   }
   if (area) output.push({ key: "affected_area", label: "Betroffen", value: area.value_text, format: "text" });
   const causeValue = cause?.value_text.trim();
