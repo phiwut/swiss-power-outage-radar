@@ -253,7 +253,7 @@ export async function makeSourceObservationFromText(
     locationText: patch.locationText ?? likelyLocation(`${patch.title}. ${evidence}`, source),
     areaText: source.area_text,
     startedAt: patch.startedAt ?? null,
-    resolvedAt: patch.resolvedAt ?? (status === "resolved" ? observedAt : null),
+    resolvedAt: patch.resolvedAt ?? null,
     observedAt,
     publishedAt: patch.publishedAt ?? null,
     evidenceExcerpt: evidence,
@@ -369,17 +369,29 @@ async function parseSakPayload(
   );
   if (!schemaMatched) return { observations: [], schemaMatched: false };
   const now = Date.parse(observedAt);
-  const currentOrUpcoming = rows.filter((row) => {
+  const recentResolutionCutoff = now - 7 * 24 * 60 * 60 * 1000;
+  const relevant = rows.filter((row) => {
     const end = Date.parse(String(row.end_date ?? ""));
-    return !Number.isFinite(end) || end >= now;
+    const explicitlyResolved = Number(row.status) === 2;
+    const ended = Number.isFinite(end) && end <= now;
+    if (explicitlyResolved) {
+      const timestamps = [end, Date.parse(String(row.publish_date ?? "")), Date.parse(String(row.start_date ?? ""))]
+        .filter(Number.isFinite);
+      const resolutionReference = timestamps.length ? Math.max(...timestamps) : NaN;
+      return Number.isFinite(resolutionReference) && resolutionReference >= recentResolutionCutoff;
+    }
+    return !ended || end >= recentResolutionCutoff;
   });
   return {
     schemaMatched: true,
-    observations: await Promise.all(currentOrUpcoming.map((row) => {
+    observations: await Promise.all(relevant.map((row) => {
       const title = compact(String(row.title));
       const startedAt = isoOrNull(row.start_date);
+      const endedAt = isoOrNull(row.end_date);
+      const officialEndHasPassed = Boolean(endedAt && Date.parse(endedAt) <= now);
+      const resolved = Number(row.status) === 2 || officialEndHasPassed;
       const planned = Number(row.category) !== 0 && (startedAt ? Date.parse(startedAt) > now : false);
-      const status: CanonicalObservationStatus = planned ? "planned" : "unplanned";
+      const status: CanonicalObservationStatus = resolved ? "resolved" : planned ? "planned" : "unplanned";
       return makeKnownObservation(source, {
         status,
         title,
@@ -387,6 +399,7 @@ async function parseSakPayload(
         location: operatorLocation(title),
         observedAt,
         startedAt,
+        resolvedAt: resolved && officialEndHasPassed ? endedAt : null,
         publishedAt: isoOrNull(row.publish_date),
         raw: row
       });

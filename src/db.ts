@@ -997,14 +997,8 @@ export async function reconcileSourcePresence(
   await db.prepare(
     `UPDATE outage_events
      SET status = 'resolved',
-         resolution_earliest_at = (
-           SELECT MAX(last_confirmed_at) FROM outage_event_source_presence p
-           WHERE p.outage_event_id = outage_events.id
-         ),
-         resolution_latest_at = (
-           SELECT MAX(first_missing_at) FROM outage_event_source_presence p
-           WHERE p.outage_event_id = outage_events.id
-         ),
+         resolution_earliest_at = NULL,
+         resolution_latest_at = NULL,
          time_confidence = 'inferred',
          updated_at = CURRENT_TIMESTAMP
      WHERE status NOT IN ('dismissed', 'resolved')
@@ -1016,8 +1010,12 @@ export async function reconcileSourcePresence(
          SELECT 1 FROM outage_event_source_presence p
          WHERE p.outage_event_id = outage_events.id
            AND p.consecutive_missing_checks < 2
-       )`
-  ).run();
+       )
+       AND datetime((
+         SELECT MAX(last_confirmed_at) FROM outage_event_source_presence p
+         WHERE p.outage_event_id = outage_events.id
+       )) <= datetime(?, '-24 hours')`
+  ).bind(checkedAt).run();
 }
 
 export async function markOutageEventEmailSent(
@@ -1977,7 +1975,7 @@ export async function getUnplannedEventsDueForResearchRefresh(
   limit = 1
 ): Promise<OutageEvent[]> {
   const staleBefore = new Date(new Date(now).getTime() - 6 * 60 * 60 * 1000).toISOString();
-  const activeWindowStart = new Date(new Date(now).getTime() - 36 * 60 * 60 * 1000).toISOString();
+  const activeWindowStart = new Date(new Date(now).getTime() - 24 * 60 * 60 * 1000).toISOString();
   const dayBefore = new Date(new Date(now).getTime() - 24 * 60 * 60 * 1000).toISOString();
   const result = await db.prepare(
     `SELECT event.*

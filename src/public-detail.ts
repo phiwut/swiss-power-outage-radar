@@ -189,16 +189,13 @@ function publicFacts(facts: OutageFact[], item: PublicFeedItem): PublicDetailFac
   }
   if (item.status === "active") {
     output.push({ key: "status", label: "Status", value: "Noch aktiv", format: "text" });
-    if (item.active_since_at) {
-      output.push({
-        key: "active_since",
-        label: item.active_since_is_minimum ? "Mindestens aktiv" : "Bisherige Dauer",
-        value: item.active_since_at,
-        format: "duration"
-      });
-    }
   } else if (item.status === "resolved") {
-    output.push({ key: "status", label: "Status", value: "Behoben", format: "text" });
+    output.push({
+      key: "status",
+      label: "Status",
+      value: item.time_confidence === "inferred" && !item.resolved_at ? "Automatisch abgeschlossen" : "Behoben",
+      format: "text"
+    });
   } else if (item.status === "stale_unconfirmed") {
     output.push({ key: "status", label: "Status", value: "Nicht mehr bestätigt", format: "text" });
   } else if (item.status === "historical") {

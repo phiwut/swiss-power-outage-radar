@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { evaluatePublicEvent, parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "../src/publication";
 import type { OutageEvent, OutageFact, OutageSource } from "../src/types";
 
@@ -454,7 +454,7 @@ describe("public event publication", () => {
     expect(item?.resolution_latest_at).toBe("2026-07-15T09:25:00.000Z");
   });
 
-  it("does not present a stale unresolved report as an active outage", () => {
+  it("automatically closes an unresolved report after 24 hours without claiming an end time", () => {
     const outageEvent = event({
       first_seen_at: "2025-01-01T08:00:00.000Z",
       last_seen_at: "2025-01-01T08:15:00.000Z",
@@ -465,8 +465,50 @@ describe("public event publication", () => {
     const item = toPublicFeedItem(outageEvent, decision, [
       outageFact({ fact_type: "status", value_text: "active", confidence: 0.95 })
     ]);
-    expect(item?.status).toBe("stale_unconfirmed");
+    expect(item?.status).toBe("resolved");
+    expect(item?.resolved_at).toBeNull();
+    expect(item?.duration_minutes).toBeNull();
+    expect(item?.time_confidence).toBe("inferred");
     expect(item?.last_confirmed_active_at).toBe("2025-01-01T08:15:00.000Z");
-    expect(item?.active_since_is_minimum).toBe(true);
+    expect(item?.active_since_at).toBeNull();
+  });
+
+  it("keeps the 24-hour inactivity boundary explicit", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-30T10:00:00.000Z"));
+    try {
+      const recent = event({
+        first_seen_at: "2026-07-29T09:00:00.000Z",
+        last_seen_at: "2026-07-29T10:01:00.000Z",
+        received_at: "2026-07-29T09:00:00.000Z",
+        last_confirmed_active_at: "2026-07-29T10:01:00.000Z"
+      });
+      const expired = event({
+        first_seen_at: "2026-07-29T09:00:00.000Z",
+        last_seen_at: "2026-07-29T09:59:00.000Z",
+        received_at: "2026-07-29T09:00:00.000Z",
+        last_confirmed_active_at: "2026-07-29T09:59:00.000Z"
+      });
+      const statusFact = [outageFact({ fact_type: "status", value_text: "active", confidence: 0.95 })];
+      const decision = {
+        publishable: true,
+        trust: "official" as const,
+        reasons: [],
+        summary: "Stromausfall in Appenzell.",
+        primary_source: {
+          publisher: "SAK",
+          url: "https://netzstatus.sak.ch/",
+          domain: "netzstatus.sak.ch"
+        }
+      };
+
+      expect(toPublicFeedItem(recent, decision, statusFact)?.status).toBe("active");
+      const closed = toPublicFeedItem(expired, decision, statusFact);
+      expect(closed?.status).toBe("resolved");
+      expect(closed?.time_confidence).toBe("inferred");
+      expect(closed?.duration_minutes).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

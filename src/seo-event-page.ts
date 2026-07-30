@@ -19,10 +19,19 @@ function statusText(detail: PublicEventDetail): string {
   const status = detail.item.status;
   if (status === "upcoming") return "Bevorstehend";
   if (status === "active") return "Noch aktiv";
-  if (status === "resolved") return detail.item.resolved_at ? "Behoben" : "Behoben gemeldet";
+  if (status === "resolved") {
+    if (isAutoClosed(detail)) return "Automatisch abgeschlossen";
+    return detail.item.resolved_at ? "Behoben" : "Behoben gemeldet";
+  }
   if (status === "stale_unconfirmed") return "Status nicht mehr bestätigt";
   if (status === "historical") return "Historische Meldung";
   return "Noch nicht bestätigt";
+}
+
+function isAutoClosed(detail: PublicEventDetail): boolean {
+  return detail.item.status === "resolved" &&
+    detail.item.time_confidence === "inferred" &&
+    !detail.item.resolved_at;
 }
 
 function formatDuration(minutes: number | null): string | null {
@@ -33,21 +42,12 @@ function formatDuration(minutes: number | null): string | null {
   return `${hours} Std.${rest ? ` ${rest} Min.` : ""}`;
 }
 
-function activeDuration(detail: PublicEventDetail): string | null {
-  const start = detail.item.active_since_at ?? detail.item.started_at;
-  if (!start || detail.item.status !== "active") return null;
-  const startTime = new Date(start).getTime();
-  if (!Number.isFinite(startTime)) return null;
-  return formatDuration(Math.max(0, Math.floor((Date.now() - startTime) / 60000)));
-}
-
 function statusLine(detail: PublicEventDetail): string {
   const item = detail.item;
   if (item.status === "active") {
-    const duration = activeDuration(detail);
     return [
       "Noch aktiv",
-      duration ? `${item.active_since_is_minimum ? "seit mindestens" : "seit"} ${duration}` : null,
+      item.started_at ? `Beginn gemeldet ${formatDate(item.started_at)}` : null,
       item.last_confirmed_active_at ? `zuletzt bestätigt ${formatDate(item.last_confirmed_active_at)}` : null
     ].filter(Boolean).join(" · ");
   }
@@ -58,6 +58,13 @@ function statusLine(detail: PublicEventDetail): string {
     ].filter(Boolean).join(" · ");
   }
   if (item.status === "resolved") {
+    if (isAutoClosed(detail)) {
+      return [
+        "Automatisch abgeschlossen",
+        item.last_confirmed_active_at ? `letzte Bestätigung ${formatDate(item.last_confirmed_active_at)}` : null,
+        "Dauer unbekannt"
+      ].filter(Boolean).join(" · ");
+    }
     const duration = formatDuration(item.duration_minutes);
     return [
       item.resolved_at ? "Behoben" : "Behoben gemeldet",
@@ -79,6 +86,7 @@ function consistentSummary(detail: PublicEventDetail): string {
   if (item.status === "upcoming") return `Für ${location} ist ein geplanter Stromunterbruch gemeldet.`;
   if (item.status === "active") return `Für ${location} ist ein laufender Stromausfall gemeldet. Der jüngste bestätigte Stand ist unten ausgewiesen.`;
   if (item.status === "stale_unconfirmed") return `Für ${location} liegt eine Stromausfallmeldung vor. Der aktuelle Status ist nicht mehr bestätigt.`;
+  if (isAutoClosed(detail)) return `Der Fall in ${location} wurde nach 24 Stunden ohne neue Bestätigung automatisch abgeschlossen. Ob und wann die Stromversorgung wiederhergestellt wurde, ist nicht bekannt.`;
   if (item.status === "resolved" && !item.resolved_at) return `Der Stromausfall in ${location} wurde als behoben gemeldet. Der genaue Zeitpunkt ist nicht öffentlich bestätigt.`;
   if (item.status === "resolved") return `Der Stromausfall in ${location} wurde als behoben gemeldet.`;
   return item.summary;
@@ -94,7 +102,9 @@ export function eventFaq(detail: PublicEventDetail): Array<{ question: string; a
     : item.status === "upcoming"
       ? `Der Stromunterbruch in ${location} ist geplant und steht noch bevor. Prüfen Sie das Zeitfenster direkt beim Netzbetreiber.`
       : item.status === "resolved"
-        ? `${statusLine(detail)}. Die öffentliche Quellenlage bezeichnet den Stromausfall in ${location} als behoben.`
+        ? isAutoClosed(detail)
+          ? `${statusLine(detail)}. Das ist kein Nachweis einer Wiederherstellung; es liegt lediglich seit 24 Stunden keine neue Bestätigung vor.`
+          : `${statusLine(detail)}. Die öffentliche Quellenlage bezeichnet den Stromausfall in ${location} als behoben.`
         : item.status === "stale_unconfirmed"
           ? `${statusLine(detail)}. Ohne neue Betreiberinformation wird die Meldung nicht als aktuell aktiv dargestellt.`
         : `Die Meldung zu ${location} ist historisch. Ohne neue Betreiberinformation wird sie nicht als aktuell aktiv dargestellt.`;
@@ -145,7 +155,7 @@ export function eventSeo(detail: PublicEventDetail, origin: string) {
   const title = `${kind} in ${location}${date ? ` am ${date.split(" um ")[0]}` : ""} | outage.ch`;
   const description = [
     `${kind} in ${location}.`,
-    item.status === "upcoming" ? "Bevorstehend." : item.status === "resolved" ? "Behoben." : item.status === "stale_unconfirmed" ? "Status nicht mehr bestätigt." : item.status === "historical" ? "Historische Meldung." : "Aktuelle Informationen.",
+    item.status === "upcoming" ? "Bevorstehend." : item.status === "resolved" ? isAutoClosed(detail) ? "Automatisch abgeschlossen; Wiederherstellung unbekannt." : "Behoben." : item.status === "stale_unconfirmed" ? "Status nicht mehr bestätigt." : item.status === "historical" ? "Historische Meldung." : "Aktuelle Informationen.",
     item.cause ? `Ursache: ${item.cause}.` : "",
     item.affected_area ? `Betroffen: ${item.affected_area}.` : "",
     summary
@@ -229,11 +239,11 @@ function renderSourceCards(detail: PublicEventDetail): string {
 function renderIncidentAnswers(detail: PublicEventDetail): string {
   const item = detail.item;
   const location = eventLocation(detail);
-  type AnswerState = "Bestätigt" | "Gemeldet" | "Offen";
+  type AnswerState = "Bestätigt" | "Gemeldet" | "Automatisch" | "Offen";
   const rows = [
-    ["Aktueller Status", statusLine(detail), "Gemeldet"],
+    ["Aktueller Status", statusLine(detail), isAutoClosed(detail) ? "Automatisch" : "Gemeldet"],
     ["Beginn", formatDate(item.started_at) ?? "Noch nicht bestätigt", item.started_at ? "Bestätigt" : "Offen"],
-    ["Ende / Wiederherstellung", formatDate(item.resolved_at) ?? (item.status === "resolved" ? "Behoben gemeldet · Zeitpunkt unbekannt" : "Noch nicht bestätigt"), item.resolved_at ? "Bestätigt" : item.status === "resolved" ? "Gemeldet" : "Offen"],
+    ["Ende / Wiederherstellung", formatDate(item.resolved_at) ?? (isAutoClosed(detail) ? "Nicht bekannt" : item.status === "resolved" ? "Behoben gemeldet · Zeitpunkt unbekannt" : "Noch nicht bestätigt"), item.resolved_at ? "Bestätigt" : isAutoClosed(detail) ? "Offen" : item.status === "resolved" ? "Gemeldet" : "Offen"],
     ["Ursache", item.cause ?? "Noch nicht öffentlich bekannt", item.cause ? "Gemeldet" : "Offen"],
     ["Betroffenes Gebiet", item.affected_area ?? location, "Gemeldet"]
   ] as Array<[string, string, AnswerState]>;
@@ -267,8 +277,8 @@ export function renderEventSeoMarkup(detail: PublicEventDetail): string {
     ["Art", item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Noch unklar"],
     ["Status", statusText(detail)],
     ["Beginn", formatDate(item.started_at)],
-    ["Ende", formatDate(item.resolved_at) ?? (item.status === "resolved" ? "Zeitpunkt unbekannt" : null)],
-    ["Dauer", formatDuration(item.duration_minutes) ?? activeDuration(detail)],
+    ["Ende", formatDate(item.resolved_at) ?? (item.status === "resolved" ? "Nicht bekannt" : null)],
+    ["Dauer", formatDuration(item.duration_minutes)],
     ["Betroffene Region", item.affected_area ?? location],
     ["Ursache", item.cause]
   ].filter((row) => row[1]);

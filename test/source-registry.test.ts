@@ -193,7 +193,8 @@ describe("source registry observations", () => {
     expect(historical.canonical_status).toBe("historical");
     expect(assessSourceObservation(historical).publishable).toBe(false);
     expect(resolved.canonical_status).toBe("resolved");
-    expect(assessSourceObservation(resolved).facts.map((fact) => fact.fact_type)).toContain("end_time");
+    expect(resolved.resolved_at).toBeNull();
+    expect(assessSourceObservation(resolved).facts.map((fact) => fact.fact_type)).not.toContain("end_time");
     expect(irrelevant.canonical_status).toBe("irrelevant");
     expect(assessSourceObservation(irrelevant).publishable).toBe(false);
     expect(assessSourceObservation(irrelevant).facts.map((fact) => fact.fact_type)).not.toContain("end_time");
@@ -323,6 +324,64 @@ describe("source registry observations", () => {
       expect(result.observations[1].canonicalStatus).toBe("resolved");
       expect(result.observations[1].resolvedAt).toBe("2026-07-14T00:30:00.000Z");
     }
+  });
+
+  it("keeps a recent SAK resolution and uses its official end time", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify([{
+      id: "rossfall",
+      title: "Stromunterbruch Rossfall - Schwägalp",
+      description: "Die Stromversorgung wurde wiederhergestellt.",
+      status: 1,
+      category: 0,
+      publish_date: "2026-07-29T14:12:00.000+02:00",
+      start_date: "2026-07-29T13:52:00.000+02:00",
+      end_date: "2026-07-29T20:17:00.000+02:00"
+    }]), { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "sak-netzstatus",
+        operator_name: "SAK",
+        adapter_config_json: '{"api_url":"https://netzstatus.sak.ch/api/v1/failures"}'
+      }),
+      "2026-07-30T09:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].canonicalStatus).toBe("resolved");
+    expect(result.observations[0].startedAt).toBe("2026-07-29T11:52:00.000Z");
+    expect(result.observations[0].resolvedAt).toBe("2026-07-29T18:17:00.000Z");
+    const assessment = assessSourceObservation(stored(result.observations[0]));
+    expect(assessment.status).toBe("resolved");
+    expect(assessment.facts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fact_type: "end_time", value_text: "2026-07-29T18:17:00.000Z" })
+    ]));
+  });
+
+  it("does not re-import old SAK history as new resolved incidents", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify([{
+      id: "old",
+      title: "Stromunterbruch Alter Fall",
+      description: "Die Störung wurde behoben.",
+      status: 2,
+      category: 0,
+      publish_date: "2026-05-01T10:00:00.000+02:00",
+      start_date: "2026-05-01T10:00:00.000+02:00",
+      end_date: "2026-05-01T11:00:00.000+02:00"
+    }]), { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "sak-netzstatus",
+        operator_name: "SAK",
+        adapter_config_json: '{"api_url":"https://netzstatus.sak.ch/api/v1/failures"}'
+      }),
+      "2026-07-30T09:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("no_current_outage");
+    expect(result.observations).toHaveLength(0);
   });
 
   it("parses Romande Energie geometry but withholds publication when the live contract has no locality", async () => {

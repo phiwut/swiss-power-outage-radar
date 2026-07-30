@@ -66,7 +66,7 @@ describe("SEO event page", () => {
     expect(renderEventSeoMarkup(compound)).not.toContain("in in Lufingen");
   });
 
-  it("puts the running duration and latest confirmation ahead of the detail title", () => {
+  it("puts the reported start and latest confirmation ahead of the detail title without inventing a duration", () => {
     const active = detail();
     active.item.status = "active";
     active.item.started_at = "2026-07-29T06:00:00.000Z";
@@ -78,8 +78,9 @@ describe("SEO event page", () => {
 
     const html = renderEventSeoMarkup(active);
     expect(html).toContain("hero-statusline");
-    expect(html).toContain("Noch aktiv · seit");
+    expect(html).toContain("Noch aktiv · Beginn gemeldet");
     expect(html).toContain("zuletzt bestätigt");
+    expect(html).not.toContain("<dt>Dauer</dt>");
     expect(html.indexOf("hero-statusline")).toBeLessThan(html.indexOf("<h1>"));
   });
 
@@ -97,5 +98,21 @@ describe("SEO event page", () => {
     expect(html).toContain("<span>Gemeldet</span><h3>Betroffenes Gebiet</h3>");
     expect(html).toContain("Der genaue Zeitpunkt ist nicht öffentlich bestätigt.");
     expect(html).not.toContain("Ein Gewitter verursachte den Ausfall.");
+  });
+
+  it("labels a 24-hour fallback closure without claiming restoration or duration", () => {
+    const closed = detail();
+    closed.item.status = "resolved";
+    closed.item.resolved_at = null;
+    closed.item.duration_minutes = null;
+    closed.item.time_confidence = "inferred";
+    closed.item.last_confirmed_active_at = "2026-07-29T09:00:00.000Z";
+
+    const html = renderEventSeoMarkup(closed);
+    expect(html).toContain("Automatisch abgeschlossen");
+    expect(html).toContain("Dauer unbekannt");
+    expect(html).toContain("Ende / Wiederherstellung</h3><p>Nicht bekannt");
+    expect(html).not.toContain("Behoben gemeldet · Zeitpunkt unbekannt");
+    expect(html).not.toContain("<dt>Dauer</dt>");
   });
 });

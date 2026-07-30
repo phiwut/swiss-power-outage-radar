@@ -22,7 +22,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       <button id="filter-toggle" type="button" aria-expanded="false" aria-controls="filter-secondary">Filter</button>
       <div id="filter-secondary" class="filter-secondary">
         <label class="filter-field"><span>Art</span><select id="nature-filter"><option value="">Alle</option><option value="planned">Geplant</option><option value="unplanned">Ungeplant</option></select></label>
-        <label class="filter-field"><span>Status</span><select id="status-filter"><option value="">Alle</option><option value="upcoming">Bevorstehend</option><option value="active">Aktiv</option><option value="stale_unconfirmed">Nicht mehr bestätigt</option><option value="resolved">Behoben</option><option value="historical">Historisch</option></select></label>
+        <label class="filter-field"><span>Status</span><select id="status-filter"><option value="">Alle</option><option value="upcoming">Bevorstehend</option><option value="active">Aktiv</option><option value="stale_unconfirmed">Nicht mehr bestätigt</option><option value="resolved">Behoben / abgeschlossen</option><option value="historical">Historisch</option></select></label>
         <button id="refresh-button" type="button">Daten aktualisieren</button>
       </div>
     </div>
@@ -143,6 +143,9 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (item.status === "upcoming") return `Für ${location} ist ein geplanter Stromunterbruch gemeldet.`;
       if (item.status === "active") return `Für ${location} ist ein laufender Stromausfall gemeldet.`;
       if (item.status === "stale_unconfirmed") return `Der aktuelle Status der Meldung für ${location} ist nicht mehr bestätigt.`;
+      if (item.status === "resolved" && item.time_confidence === "inferred" && !item.resolved_at) {
+        return `Der Fall in ${location} wurde nach 24 Stunden ohne neue Bestätigung automatisch abgeschlossen.`;
+      }
       if (item.status === "resolved") return `Der Stromausfall in ${location} wurde als behoben gemeldet.`;
       return item.summary;
     }
@@ -163,23 +166,25 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         const status = item.status === "upcoming"
           ? "Bevorstehend"
           : item.status === "resolved"
-            ? "Behoben"
+            ? item.time_confidence === "inferred" && !item.resolved_at ? "Abgeschlossen" : "Behoben"
             : item.status === "historical"
               ? "Historisch"
               : item.status === "stale_unconfirmed"
                 ? "Status unbestätigt"
                 : "Noch aktiv";
         const duration = item.duration_minutes === null ? null : compactDuration(item.duration_minutes);
-        const activeMinutes = item.active_since_at && item.status === "active"
-          ? Math.max(0, Math.floor((Date.now() - new Date(item.active_since_at).getTime()) / 60000))
-          : null;
-        const activeDuration = activeMinutes === null ? null : compactDuration(activeMinutes);
         const activeStatusLine = item.status === "active"
           ? [
               "Noch aktiv",
-              activeDuration ? `${item.active_since_is_minimum ? "Seit mindestens" : "Seit"} ${activeDuration}` : null,
+              item.started_at ? `Beginn gemeldet ${dateFormatter.format(new Date(item.started_at))}` : null,
               item.last_confirmed_active_at ? `zuletzt bestätigt ${dateFormatter.format(new Date(item.last_confirmed_active_at))}` : null
             ].filter(Boolean).join(" · ")
+          : item.status === "resolved" && item.time_confidence === "inferred" && !item.resolved_at
+            ? [
+                "Automatisch abgeschlossen",
+                item.last_confirmed_active_at ? `letzte Bestätigung ${dateFormatter.format(new Date(item.last_confirmed_active_at))}` : null,
+                "Dauer unbekannt"
+              ].filter(Boolean).join(" · ")
           : null;
         const resolutionWindow = item.resolution_earliest_at && item.resolution_latest_at
           ? `Vermutlich behoben: ${dateFormatter.format(new Date(item.resolution_earliest_at))}–${dateFormatter.format(new Date(item.resolution_latest_at))}`
@@ -225,10 +230,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         : `${state.items.length} Meldung${state.items.length === 1 ? "" : "en"} geladen${state.generatedAt ? ` · Stand ${timeFormatter.format(new Date(state.generatedAt))}` : ""}`;
       shell.setAttribute("aria-busy", "false");
     }
-
-    window.setInterval(() => {
-      if (state.items.some((item) => item.status === "active" && item.active_since_at)) render();
-    }, 60_000);
 
     async function load(reset = false): Promise<void> {
       if (state.loading) return;

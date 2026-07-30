@@ -250,7 +250,7 @@ function publicNature(event: OutageEvent, facts: OutageFact[]): NonNullable<Outa
   return event.outage_nature ?? "unknown";
 }
 
-const ACTIVE_EVENT_MAX_AGE_MS = 36 * 60 * 60 * 1000;
+export const ACTIVE_EVENT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export function toPublicFeedItem(
   event: OutageEvent,
@@ -278,17 +278,23 @@ export function toPublicFeedItem(
   const lastConfirmedActiveAt = isoOrNull(event.last_confirmed_active_at ?? event.last_seen_at);
   const confirmationMs = lastConfirmedActiveAt ? new Date(lastConfirmedActiveAt).getTime() : activityReference;
   const recentlyObserved = Number.isFinite(confirmationMs) && now - confirmationMs <= ACTIVE_EVENT_MAX_AGE_MS;
+  const autoClosed = !resolvedAt && !recentlyObserved &&
+    (statusFact === "active" || statusFact === "aktiv" || (!statusFact && nature === "unplanned"));
   const status = nature === "planned" && Number.isFinite(startMs) && startMs > now
     ? "upcoming"
     : statusFact === "resolved" || statusFact === "behoben" || event.status === "resolved"
       ? "resolved"
       : statusFact === "historical" || statusFact === "archiviert"
         ? "historical"
+        : autoClosed
+          ? "resolved"
         : recentlyObserved && (statusFact === "active" || statusFact === "aktiv" || !resolvedAt)
           ? "active"
           : !resolvedAt
             ? "stale_unconfirmed"
             : "historical";
+  const inferredClosure = autoClosed ||
+    (status === "resolved" && !resolvedAt && event.time_confidence === "inferred");
   const activeSinceAt = startedAt ?? (status === "active" || status === "stale_unconfirmed" ? isoOrNull(event.first_seen_at) : null);
   const location = event.location_text?.trim() || "";
   return {
@@ -308,7 +314,7 @@ export function toPublicFeedItem(
     expected_restore_at: isoOrNull(event.expected_restore_at),
     resolution_earliest_at: isoOrNull(event.resolution_earliest_at),
     resolution_latest_at: isoOrNull(event.resolution_latest_at),
-    time_confidence: event.time_confidence ?? "unknown",
+    time_confidence: inferredClosure ? "inferred" : event.time_confidence ?? "unknown",
     cause: concreteFact(facts, "cause") ?? (event.cause_text?.trim() || null),
     affected_area: concreteFact(facts, "affected_area"),
     updated_at: event.updated_at,
