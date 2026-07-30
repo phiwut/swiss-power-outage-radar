@@ -133,7 +133,11 @@ function contradictoryFacts(event: OutageEvent, facts: OutageFact[]): boolean {
   );
   const outageClaims = values("outage_happened");
   if (outageClaims.has("true") && outageClaims.has("false")) return true;
-  if (values("status").size > 1 || values("cause").size > 1 || values("planned_nature").size > 1) return true;
+  const statusValues = values("status");
+  const lifecycleStatuses = new Set(["active", "aktiv", "resolved", "behoben"]);
+  const invalidStatusConflict = statusValues.size > 1 &&
+    [...statusValues].some((value) => !lifecycleStatuses.has(value));
+  if (invalidStatusConflict || values("cause").size > 1 || values("planned_nature").size > 1) return true;
 
   const summary = normalizeLocation(event.research_summary_de || event.summary);
   const plannedFacts = values("planned_nature");

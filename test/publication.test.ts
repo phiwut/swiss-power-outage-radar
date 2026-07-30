@@ -247,6 +247,23 @@ describe("public event publication", () => {
     expect(contradictory.reasons).toContain("contradictory_evidence");
   });
 
+  it("treats active followed by resolved as a lifecycle, not contradictory evidence", () => {
+    const outageEvent = event({ status: "resolved", resolved_at_estimate: "2026-07-15T08:30:00.000Z" });
+    const decision = evaluatePublicEvent(
+      outageEvent,
+      [source()],
+      [
+        outageFact({ id: 5 }),
+        outageFact({ id: 6, fact_type: "status", value_text: "active", observed_at: "2026-07-15T08:00:00.000Z" }),
+        outageFact({ id: 7, fact_type: "status", value_text: "resolved", observed_at: "2026-07-15T08:30:00.000Z" }),
+        outageFact({ id: 8, fact_type: "end_time", value_text: "2026-07-15T08:30:00.000Z" })
+      ]
+    );
+
+    expect(decision.reasons).not.toContain("contradictory_evidence");
+    expect(decision.publishable).toBe(true);
+  });
+
   it("rejects French and Italian advice or retrospective articles", () => {
     const media = source({
       source_url: "https://www.lejdj.ch/articles/retour-panne",

@@ -16,6 +16,7 @@ import {
   getLatestAlertSnapshot,
   getLinkedRelevantItemsNeedingCandidate,
   getDueSourceRegistryEntries,
+  getOutageEvent,
   getSourceRegistryEntryByUrl,
   getOutageEventSources,
   getOutageEventFacts,
@@ -813,6 +814,12 @@ async function collectRegistrySources(env: Env): Promise<{
               source.id,
               checkedAt
             );
+          } else if (
+            stored.observation.outage_event_id &&
+            stored.observation.canonical_status === "resolved"
+          ) {
+            const event = await getOutageEvent(env.DB, stored.observation.outage_event_id);
+            if (event) await applyPublicationGate(env, event);
           }
           continue;
         }
