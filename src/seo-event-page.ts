@@ -283,7 +283,7 @@ export function renderEventSeoMarkup(detail: PublicEventDetail): string {
     ["Ursache", item.cause]
   ].filter((row) => row[1]);
   return `<article class="event-brief seo-event">
-    <header class="event-hero ${hasMap ? "has-map" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(detail.map!.label)}"></div>` : ""}<div class="hero-wash"></div><div class="hero-copy">
+    <header class="event-hero ${hasMap ? "has-map map-loading" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(detail.map!.label)}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(detail.map!.label)}</strong><small>Karte wird geladen</small></div>` : ""}<div class="hero-wash"></div><div class="hero-copy">
       <div class="hero-meta"><span class="trust-mark"><i></i>${escapeHtml(item.trust === "official" ? "Offizielle Quelle" : "Nachvollziehbar gemeldet")}</span><span>Aktualisiert ${escapeHtml(formatDate(item.updated_at))}</span></div>
       <p class="hero-statusline">${escapeHtml(statusLine(detail))}</p>
       <h1>${escapeHtml(kind)} in ${escapeHtml(location)}</h1><p>${escapeHtml(consistentSummary(detail))}</p>

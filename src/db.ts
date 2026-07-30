@@ -1865,7 +1865,14 @@ export async function getPublicFeedItems(
       `SELECT event.*, decision.trust AS publication_trust,
               decision.public_summary AS publication_summary,
               decision.primary_source_publisher, decision.primary_source_url,
-              decision.primary_source_domain, decision.reasons_json
+              decision.primary_source_domain, decision.reasons_json,
+              COALESCE(
+                event.started_at_estimate,
+                event.resolved_at_estimate,
+                event.received_at,
+                event.created_at,
+                event.first_seen_at
+              ) AS feed_sort_at
        FROM outage_events event
        INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
        WHERE decision.publishable = 1
@@ -1875,12 +1882,24 @@ export async function getPublicFeedItems(
            (? IS NULL AND 1 = 1)
            OR (
              NOT (event.outage_nature = 'planned' AND julianday(event.started_at_estimate) > julianday('now'))
-             AND COALESCE(event.received_at, event.created_at, event.first_seen_at) < ?
+             AND COALESCE(
+               event.started_at_estimate,
+               event.resolved_at_estimate,
+               event.received_at,
+               event.created_at,
+               event.first_seen_at
+             ) < ?
            )
            OR (
              NOT (event.outage_nature = 'planned' AND julianday(event.started_at_estimate) > julianday('now'))
              AND
-             COALESCE(event.received_at, event.created_at, event.first_seen_at) = ?
+             COALESCE(
+               event.started_at_estimate,
+               event.resolved_at_estimate,
+               event.received_at,
+               event.created_at,
+               event.first_seen_at
+             ) = ?
              AND event.id < ?
            )
          )
@@ -1889,7 +1908,13 @@ export async function getPublicFeedItems(
            AND julianday(event.started_at_estimate) > julianday('now') THEN 0 ELSE 1 END,
          CASE WHEN event.outage_nature = 'planned'
            AND julianday(event.started_at_estimate) > julianday('now') THEN event.started_at_estimate END ASC,
-         COALESCE(event.received_at, event.created_at, event.first_seen_at) DESC,
+         COALESCE(
+           event.started_at_estimate,
+           event.resolved_at_estimate,
+           event.received_at,
+           event.created_at,
+           event.first_seen_at
+         ) DESC,
          event.id DESC
        LIMIT ?`
     )
@@ -1907,10 +1932,11 @@ export async function getPublicFeedItems(
       primary_source_url: string;
       primary_source_domain: string;
       reasons_json: string;
+      feed_sort_at: string;
     }>();
 
   const evidence = await getPublicationEvidenceForEvents(db, result.results.map((row) => row.id));
-  const items = result.results.flatMap((row) => {
+  const entries = result.results.flatMap((row) => {
     const item = toPublicFeedItem(
       row,
       {
@@ -1926,11 +1952,15 @@ export async function getPublicFeedItems(
       },
       evidence.facts.get(row.id) ?? []
     );
-    return item ? [item] : [];
+    return item ? [{ item, sortAt: row.feed_sort_at }] : [];
   });
+  const items = entries.map((entry) => entry.item);
+  const lastEntry = entries.at(-1);
   return {
     items,
-    next_cursor: items.length === limit && items.at(-1) ? publicFeedCursor(items.at(-1)!) : null
+    next_cursor: items.length === limit && lastEntry
+      ? publicFeedCursor({ id: lastEntry.item.id, received_at: lastEntry.sortAt })
+      : null
   };
 }
 

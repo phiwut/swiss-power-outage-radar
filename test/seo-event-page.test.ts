@@ -66,6 +66,24 @@ describe("SEO event page", () => {
     expect(renderEventSeoMarkup(compound)).not.toContain("in in Lufingen");
   });
 
+  it("renders a useful fallback while the interactive map is unavailable", () => {
+    const mapped = detail();
+    mapped.map = {
+      query: "Zürich",
+      label: "Zürich (ZH)",
+      latitude: 47.3769,
+      longitude: 8.5417,
+      precision: "municipality",
+      provider: "geo.admin.ch"
+    };
+
+    const html = renderEventSeoMarkup(mapped);
+    expect(html).toContain("map-loading");
+    expect(html).toContain("map-fallback");
+    expect(html).toContain("Zürich (ZH)");
+    expect(html).toContain("Karte wird geladen");
+  });
+
   it("puts the reported start and latest confirmation ahead of the detail title without inventing a duration", () => {
     const active = detail();
     active.item.status = "active";

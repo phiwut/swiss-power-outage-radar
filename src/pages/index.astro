@@ -124,11 +124,22 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         if (state.nature && item.nature !== state.nature) return false;
         if (state.status && item.status !== state.status) return false;
         return !query || `${item.location} ${item.canton ?? ""} ${item.affected_area ?? ""} ${item.cause ?? ""} ${item.summary} ${item.source.publisher}`.toLocaleLowerCase("de-CH").includes(query);
-      }).sort((a, b) => rank(a) - rank(b));
+      }).sort((a, b) => {
+        const statusOrder = rank(a) - rank(b);
+        if (statusOrder !== 0) return statusOrder;
+        const aTime = new Date(a.started_at ?? a.resolved_at ?? a.received_at).getTime();
+        const bTime = new Date(b.started_at ?? b.resolved_at ?? b.received_at).getTime();
+        return a.status === "upcoming" ? aTime - bTime : bTime - aTime;
+      });
     }
 
     function displayLocation(value: string): string {
-      return value.replace(/^\s*(?:in|im|bei)\s+/i, "").trim() || value;
+      const cleaned = value
+        .replace(/^\s*(?:behobener?|beendeter?)\s+(?:stromausfall|stromunterbruch)\s+(?:in|im|bei)\s+/i, "")
+        .replace(/^\s*(?:stromausfall|stromunterbruch)\s+(?:in|im|bei)\s+/i, "")
+        .replace(/^\s*(?:in|im|bei)\s+/i, "")
+        .trim();
+      return cleaned || value;
     }
 
     function compactDuration(minutes: number): string {
@@ -155,7 +166,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       const firstSecondaryIndex = items.findIndex((item) => !["active", "upcoming"].includes(item.status ?? ""));
       list.innerHTML = items.map((item, index) => {
         const location = displayLocation(item.location);
-        const primaryTime = item.nature === "planned" && item.started_at ? item.started_at : item.received_at;
+        const primaryTime = item.started_at ?? item.resolved_at ?? item.received_at;
         const received = receivedLabel(primaryTime);
         const trust = item.trust === "official"
           ? "Offizielle Quelle"

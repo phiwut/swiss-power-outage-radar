@@ -179,7 +179,16 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       if (!data.map) return;
       const container = document.querySelector<HTMLElement>("#event-map");
       if (!container) return;
+      const hero = container.closest<HTMLElement>(".event-hero");
       const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let loaded = false;
+      const markFailed = () => {
+        if (loaded) return;
+        hero?.classList.remove("map-loading");
+        hero?.classList.add("map-failed");
+        const message = hero?.querySelector<HTMLElement>(".map-fallback small");
+        if (message) message.textContent = "Kartenansicht vorübergehend nicht verfügbar";
+      };
       try {
         const { default: maplibregl } = await import("maplibre-gl");
         const map = new maplibregl.Map({
@@ -193,6 +202,10 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
         });
         map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
         map.once("load", () => {
+          loaded = true;
+          hero?.classList.remove("map-loading", "map-failed");
+          hero?.classList.add("map-ready");
+          map.resize();
           map.addSource("outage-location", {
             type: "geojson",
             data: {
@@ -219,9 +232,10 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
             }
           });
         });
-        map.on("error", () => container.classList.add("map-failed"));
+        map.on("error", markFailed);
+        window.setTimeout(markFailed, 8_000);
       } catch {
-        container.classList.add("map-failed");
+        markFailed();
       }
     }
 
@@ -241,8 +255,8 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       }
       const hasMap = Boolean(data.map);
       shell.innerHTML = `<article class="event-brief">
-        <header class="event-hero ${hasMap ? "has-map" : "no-map"}">
-          ${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(data.map!.label)}"></div>` : ""}
+        <header class="event-hero ${hasMap ? "has-map map-loading" : "no-map"}">
+          ${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(data.map!.label)}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(data.map!.label)}</strong><small>Karte wird geladen</small></div>` : ""}
           <div class="hero-wash" aria-hidden="true"></div>
           <div class="hero-copy">
             <div class="hero-meta"><span class="trust-mark"><i aria-hidden="true"></i>${escapeHtml(trustText(data.item.trust))}</span><span>Eingang ${escapeHtml(formatDate(data.item.received_at))}</span></div>
@@ -283,7 +297,12 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     .event-brief { animation: brief-in .45s var(--ease-out) both; }
     .event-hero { background: #dce8e3; border-radius: 1rem 1rem .35rem .35rem; color: #fffdf8; min-height: clamp(430px, 56vw, 620px); overflow: hidden; position: relative; box-shadow: 0 26px 70px color-mix(in oklch, #19332d 20%, transparent); }
     #event-map { inset: 0; position: absolute; }
-    #event-map.map-failed { background: radial-gradient(circle at 72% 28%, #d8e6df, #b9cdc5); }
+    .map-fallback { align-items: center; background-color: #cbdcd5; background-image: linear-gradient(rgba(28,67,57,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(28,67,57,.08) 1px, transparent 1px), radial-gradient(circle at 72% 28%, #e8f0ec, #b9cdc5); background-size: 44px 44px, 44px 44px, auto; color: #294c42; display: flex; flex-direction: column; gap: .4rem; inset: 0; justify-content: center; position: absolute; text-align: center; transition: opacity .25s ease; }
+    .map-fallback span { background: #e87524; border: 5px solid rgba(255,255,255,.82); border-radius: 50%; box-shadow: 0 0 0 16px rgba(232,117,36,.14); height: 13px; margin-bottom: .65rem; width: 13px; }
+    .map-fallback strong { font-family: var(--font-display); font-size: clamp(1rem, 3vw, 1.35rem); }
+    .map-fallback small { font-family: var(--font-mono); font-size: .68rem; }
+    .event-hero.map-ready .map-fallback { opacity: 0; pointer-events: none; }
+    .event-hero.map-failed #event-map { opacity: 0; }
     .event-hero.no-map { background: radial-gradient(circle at 78% 22%, #54746b, #17352f 58%, #0f2924); }
     .event-hero.no-map::before { background-image: linear-gradient(#fff1 1px, transparent 1px), linear-gradient(90deg, #fff1 1px, transparent 1px); background-size: 44px 44px; content: ""; inset: 0; opacity: .34; position: absolute; }
     .hero-wash { background: linear-gradient(90deg, rgba(8, 31, 27, .94) 0%, rgba(8, 31, 27, .78) 38%, rgba(8, 31, 27, .18) 72%, transparent 100%), linear-gradient(0deg, rgba(8, 31, 27, .4), transparent 46%); inset: 0; pointer-events: none; position: absolute; }
