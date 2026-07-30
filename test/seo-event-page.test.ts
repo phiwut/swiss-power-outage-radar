@@ -65,4 +65,37 @@ describe("SEO event page", () => {
     expect(renderEventSeoMarkup(compound)).toContain("in Lufingen und Winkel</h1>");
     expect(renderEventSeoMarkup(compound)).not.toContain("in in Lufingen");
   });
+
+  it("puts the running duration and latest confirmation ahead of the detail title", () => {
+    const active = detail();
+    active.item.status = "active";
+    active.item.started_at = "2026-07-29T06:00:00.000Z";
+    active.item.resolved_at = null;
+    active.item.duration_minutes = null;
+    active.item.active_since_at = "2026-07-29T06:00:00.000Z";
+    active.item.active_since_is_minimum = false;
+    active.item.last_confirmed_active_at = "2026-07-29T09:00:00.000Z";
+
+    const html = renderEventSeoMarkup(active);
+    expect(html).toContain("hero-statusline");
+    expect(html).toContain("Noch aktiv · seit");
+    expect(html).toContain("zuletzt bestätigt");
+    expect(html.indexOf("hero-statusline")).toBeLessThan(html.indexOf("<h1>"));
+  });
+
+  it("distinguishes a reported resolution from an exact restoration time", () => {
+    const resolved = detail();
+    resolved.item.status = "resolved";
+    resolved.item.resolved_at = null;
+    resolved.item.duration_minutes = null;
+    resolved.item.cause = null;
+    resolved.item.affected_area = null;
+    resolved.item.summary = "Ein Gewitter verursachte den Ausfall.";
+
+    const html = renderEventSeoMarkup(resolved);
+    expect(html).toContain("Behoben gemeldet · Zeitpunkt unbekannt");
+    expect(html).toContain("<span>Gemeldet</span><h3>Betroffenes Gebiet</h3>");
+    expect(html).toContain("Der genaue Zeitpunkt ist nicht öffentlich bestätigt.");
+    expect(html).not.toContain("Ein Gewitter verursachte den Ausfall.");
+  });
 });

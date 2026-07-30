@@ -13,11 +13,11 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
       <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
       Alle Meldungen
     </a>
-    <main id="event-shell" aria-live="polite" aria-busy="true">
+    <div id="event-shell" aria-live="polite" aria-busy="true">
       <div class="detail-loading" aria-label="Meldung wird geladen">
         <span></span><span></span><span></span>
       </div>
-    </main>
+    </div>
   </section>
 
   <script>
@@ -292,7 +292,8 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     .trust-mark { align-items: center; color: #fff; display: inline-flex; font-weight: 600; gap: .5rem; }
     .trust-mark i { background: #f29a42; border: 4px solid rgba(242,154,66,.2); border-radius: 50%; box-sizing: content-box; height: .4rem; width: .4rem; }
     .event-hero h1 { font-family: var(--font-display); font-size: clamp(2.6rem, 8vw, 5.9rem); font-weight: 800; hyphens: auto; letter-spacing: -.06em; line-height: .94; margin: 0; max-width: 800px; overflow-wrap: anywhere; text-wrap: balance; }
-    .event-hero .hero-copy > p { color: rgba(255,255,255,.82); font-size: clamp(1rem, 2vw, 1.22rem); line-height: 1.62; margin: 1.35rem 0 0; max-width: 640px; text-wrap: pretty; }
+    .event-hero .hero-copy > p:not(.hero-statusline) { color: rgba(255,255,255,.82); font-size: clamp(1rem, 2vw, 1.22rem); line-height: 1.62; margin: 1.1rem 0 0; max-width: 640px; text-wrap: pretty; }
+    .hero-statusline { color: #fff; font-family: var(--font-mono); font-size: clamp(.72rem, 1.6vw, .88rem); font-weight: 600; letter-spacing: .015em; line-height: 1.45; margin: 0 0 1rem; max-width: 720px; }
     .map-place { background: rgba(255,255,255,.88); border: 1px solid rgba(255,255,255,.92); border-radius: .28rem; color: #28433d; font-family: var(--font-mono); font-size: .62rem; letter-spacing: .04em; padding: .45rem .6rem; position: absolute; right: 1rem; top: 1rem; z-index: 2; }
     .maplibregl-ctrl-attrib { background: rgba(255,255,255,.78) !important; color: #47635c !important; font-size: 9px !important; }
     .fact-strip { background: var(--color-surface); border-bottom: 1px solid var(--color-rule); display: grid; grid-template-columns: minmax(150px, .72fr) minmax(0, 2.3fr); padding: clamp(1.35rem, 3vw, 2rem) clamp(1.4rem, 5vw, 3.5rem); }
@@ -395,10 +396,11 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     @media (prefers-reduced-motion: reduce) { .event-brief { animation: none; } }
     @media (max-width: 720px) {
       .detail-page { padding-top: 1rem; }
-      .event-hero { border-radius: .7rem .7rem .25rem .25rem; min-height: 510px; }
+      .event-hero { border-radius: .7rem .7rem .25rem .25rem; min-height: 390px; }
       .hero-wash { background: linear-gradient(0deg, rgba(8,31,27,.96) 0%, rgba(8,31,27,.72) 48%, rgba(8,31,27,.08) 82%); }
       .hero-copy { bottom: 1.55rem; }
-      .event-hero h1 { font-size: clamp(2.5rem, 14vw, 4.1rem); }
+      .event-hero h1 { font-size: clamp(2.15rem, 11vw, 3.35rem); }
+      .event-hero .hero-copy > p:not(.hero-statusline) { display: -webkit-box; font-size: .95rem; line-height: 1.5; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
       .map-place { max-width: calc(100% - 2rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .fact-strip { gap: 1.2rem; grid-template-columns: 1fr; }
       .fact-strip dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
