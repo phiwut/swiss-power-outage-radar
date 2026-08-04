@@ -9,6 +9,7 @@ import {
   getOutageEventSnapshots,
   getPublicFeedItems,
   getPublicSitemapItems,
+  getRelatedPublicFeedItems,
   isPublicEvidenceSnapshot,
   getPublicStatus,
   getRecentItems,
@@ -23,9 +24,15 @@ import { backfillSourcePlaceMentions, syncOpenPlzLocalities } from "./places";
 import { researchOutageEvent } from "./research";
 import { applyPublicationGate, ingestFirecrawlWebhook, revalidatePublicEvents, runAlertCheck } from "./runner";
 import { loadPublicEventDetail } from "./public-detail";
-import { publicEventIdFromPath } from "./public-url";
+import {
+  SITE_ORIGIN,
+  httpsRedirect,
+  publicEventIdFromPath,
+  siteOriginFromRequest,
+  toSitemapLastmod
+} from "./public-url";
 import { evidenceScreenshotKey } from "./snapshots";
-import { renderSeoEventAsset } from "./seo-event-page";
+import { renderHomeSeoAsset, renderSeoEventAsset } from "./seo-event-page";
 import { knowledgeArticlePaths } from "./knowledge";
 import { isBearerAuthorized } from "./auth";
 import type { Env } from "./types";
@@ -294,8 +301,13 @@ function cachePublic(response: Response, request: Request, ctx: ExecutionContext
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const forcedHttps = httpsRedirect(request);
+    if (forcedHttps) return forcedHttps;
+
     const url = new URL(request.url);
-    const isPublicGet = request.method === "GET" && (
+    const publicOrigin = siteOriginFromRequest(request);
+    const isPublicGet = (request.method === "GET" || request.method === "HEAD") && (
+      url.pathname === "/" ||
       url.pathname === "/api/public/events" ||
       /^\/api\/public\/events\/\d+$/.test(url.pathname) ||
       /^\/api\/public\/evidence\/\d+\.png$/.test(url.pathname) ||
@@ -303,7 +315,7 @@ export default {
       url.pathname === "/sitemap.xml" ||
       url.pathname === "/robots.txt"
     );
-    if (isPublicGet) {
+    if (isPublicGet && request.method === "GET") {
       const cached = await caches.default.match(request);
       if (cached) return cached;
     }
@@ -312,17 +324,33 @@ export default {
     if (legacyEvent) {
       const detail = await loadPublicEventDetail(env, Number(legacyEvent[1]));
       if (!detail) return new Response("Event nicht gefunden", { status: 404 });
-      return Response.redirect(new URL(detail.item.url, request.url).toString(), 301);
+      return Response.redirect(new URL(detail.item.url, publicOrigin).toString(), 301);
     }
 
     const seoId = publicEventIdFromPath(url.pathname);
     if (seoId) {
       const detail = await loadPublicEventDetail(env, seoId);
       if (!detail) return new Response("Event nicht gefunden", { status: 404 });
-      if (url.pathname.replace(/\/$/, "") !== detail.item.url) {
-        return Response.redirect(new URL(detail.item.url, request.url).toString(), 301);
+      if (url.pathname !== detail.item.url) {
+        return Response.redirect(new URL(detail.item.url, publicOrigin).toString(), 301);
       }
-      return cachePublic(await renderSeoEventAsset(env, request, detail), request, ctx, "public,max-age=60,s-maxage=300,stale-while-revalidate=1800");
+      const related = await getRelatedPublicFeedItems(env.DB, { excludeId: seoId, limit: 6 });
+      return cachePublic(
+        await renderSeoEventAsset(env, request, detail, related),
+        request,
+        ctx,
+        "public,max-age=60,s-maxage=300,stale-while-revalidate=1800"
+      );
+    }
+
+    if (url.pathname === "/" && request.method === "GET") {
+      const { items } = await getPublicFeedItems(env.DB, { limit: 25 });
+      return cachePublic(
+        await renderHomeSeoAsset(env, request, items),
+        request,
+        ctx,
+        "public,max-age=60,s-maxage=120,stale-while-revalidate=600"
+      );
     }
 
     const asset = await assetResponse(env, request);
@@ -357,20 +385,31 @@ export default {
       }), request, ctx, "public,max-age=300,s-maxage=300");
     }
 
-    if (url.pathname === "/sitemap.xml" && request.method === "GET") {
+    if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
       const items = await getPublicSitemapItems(env.DB);
-      const knowledgeUrls = knowledgeArticlePaths.map((path) => `<url><loc>${url.origin}${path}</loc><lastmod>2026-07-30</lastmod></url>`).join("");
-      const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${url.origin}/</loc></url>${knowledgeUrls}${items.map((item) => `<url><loc>${url.origin}${item.url}</loc><lastmod>${item.updated_at}</lastmod></url>`).join("")}</urlset>`;
-      return cachePublic(new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8" } }), request, ctx, "public,max-age=300,s-maxage=3600");
+      const origin = SITE_ORIGIN;
+      const knowledgeUrls = knowledgeArticlePaths.map((path) =>
+        `<url><loc>${origin}${path}</loc><lastmod>2026-07-30</lastmod></url>`
+      ).join("");
+      const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${origin}/</loc></url>${knowledgeUrls}${items.map((item) => `<url><loc>${origin}${item.url}</loc><lastmod>${toSitemapLastmod(item.updated_at)}</lastmod></url>`).join("")}</urlset>`;
+      const headers = { "Content-Type": "application/xml; charset=utf-8" };
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
+      }
+      return cachePublic(new Response(xml, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
     }
 
-    if (url.pathname === "/robots.txt" && request.method === "GET") {
-      return cachePublic(new Response(`User-agent: *\nAllow: /\nSitemap: ${url.origin}/sitemap.xml\n`, {
-        headers: { "Content-Type": "text/plain; charset=utf-8" }
-      }), request, ctx, "public,max-age=300,s-maxage=3600");
+    if (url.pathname === "/robots.txt" && (request.method === "GET" || request.method === "HEAD")) {
+      const body = `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`;
+      const headers = { "Content-Type": "text/plain; charset=utf-8" };
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
+      }
+      return cachePublic(new Response(body, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
     }
 
-    if (url.pathname === "/" && request.method === "GET") {
+    if (url.pathname === "/admin/status-page" && request.method === "GET") {
+      if (!isAuthorized(request, env)) return unauthorized();
       const status = await getPublicStatus(env.DB);
       return new Response(renderStatusPage(status), {
         headers: {

@@ -31,10 +31,25 @@ describe("SEO event page", () => {
   it("creates a canonical location URL and structured event data", () => {
     const seo = eventSeo(detail(), "https://outage.ch");
     expect(seo.canonical).toBe("https://outage.ch/stromausfall/zurich-42");
-    expect(seo.title).toContain("Geplanter Stromunterbruch in Zürich");
+    expect(seo.title).toContain("Unterbruch Zürich");
+    expect(seo.title.length).toBeLessThanOrEqual(60);
+    expect(seo.description.length).toBeGreaterThanOrEqual(120);
+    expect(seo.ogImage).toContain("/og-default.png");
     const graph = JSON.parse(seo.jsonLd)["@graph"];
     expect(graph.some((entry: { "@type": string }) => entry["@type"] === "Event")).toBe(true);
     expect(graph.some((entry: { "@type": string }) => entry["@type"] === "FAQPage")).toBe(true);
+  });
+
+  it("strips status prose from polluted location labels before SEO copy", () => {
+    const polluted = detail();
+    polluted.item.location = "Behobener Stromausfall in Seewen";
+    polluted.item.nature = "unplanned";
+    polluted.item.status = "resolved";
+    const seo = eventSeo(polluted, "http://outage.ch");
+    expect(seo.canonical.startsWith("https://")).toBe(true);
+    expect(seo.title).toContain("Seewen");
+    expect(seo.title).not.toContain("Behobener");
+    expect(renderEventSeoMarkup(polluted)).toContain("<h1>Stromausfall in Seewen</h1>");
   });
 
   it("renders useful location-specific copy without client JavaScript", () => {

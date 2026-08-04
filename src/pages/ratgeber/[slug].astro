@@ -47,11 +47,13 @@ const jsonLd = {
 };
 ---
 
-<RadarLayout title={`${article.title} | outage.ch`} description={article.description}>
-  <link slot="head" rel="canonical" href={canonical} />
-  <meta slot="head" name="robots" content="index,follow,max-image-preview:large" />
-  <meta slot="head" property="og:url" content={canonical} />
-  <meta slot="head" property="og:type" content="article" />
+<RadarLayout
+  title={`${article.shortTitle} | outage.ch`}
+  description={article.description}
+  canonical={canonical}
+  ogType="article"
+  robots="index,follow,max-image-preview:large"
+>
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <article class="knowledge-article">
     <nav aria-label="Breadcrumb"><a href="/">Stromausfälle</a><span>/</span><a href="/ratgeber/">Ratgeber</a></nav>

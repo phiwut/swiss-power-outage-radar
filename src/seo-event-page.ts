@@ -1,6 +1,12 @@
 import type { PublicEventDetail } from "./public-detail";
-import type { Env } from "./types";
+import type { Env, PublicFeedItem } from "./types";
 import { relatedKnowledgeArticles, knowledgeArticleUrl } from "./knowledge";
+import {
+  DEFAULT_OG_IMAGE_PATH,
+  SITE_ORIGIN,
+  absoluteUrl,
+  publicDisplayLocation
+} from "./public-url";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -76,8 +82,33 @@ function statusLine(detail: PublicEventDetail): string {
 }
 
 function eventLocation(detail: PublicEventDetail): string {
-  const reportedLocation = detail.item.location.replace(/^\s*(?:in|im|bei)\s+/i, "").trim();
-  return reportedLocation || detail.map?.query || "der Schweiz";
+  return publicDisplayLocation(detail.item.location) || detail.map?.query || "der Schweiz";
+}
+
+function shortDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return null;
+  return new Intl.DateTimeFormat("de-CH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/Zurich"
+  }).format(date);
+}
+
+function clampText(value: string, max: number): string {
+  if (value.length <= max) return value;
+  const cut = value.slice(0, max - 1);
+  const boundary = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf(","));
+  return `${(boundary > 40 ? cut.slice(0, boundary) : cut).trim()}…`;
+}
+
+function padDescription(parts: string[], min = 120, max = 158): string {
+  const base = parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  if (base.length >= min) return clampText(base, max);
+  const filler = " Details zu Beginn, Dauer, Ursache und Quellen auf outage.ch.";
+  return clampText(`${base}${base.endsWith(".") ? "" : "."}${filler}`, max);
 }
 
 function consistentSummary(detail: PublicEventDetail): string {
@@ -146,33 +177,50 @@ export function eventFaq(detail: PublicEventDetail): Array<{ question: string; a
   ];
 }
 
-export function eventSeo(detail: PublicEventDetail, origin: string) {
+export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
+  const siteOrigin = origin.includes("outage.ch") ? SITE_ORIGIN : origin.replace(/^http:/i, "https:");
   const item = detail.item;
   const location = eventLocation(detail);
   const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
+  const kindShort = item.nature === "planned" ? "Unterbruch" : "Stromausfall";
   const summary = consistentSummary(detail);
-  const date = formatDate(item.started_at);
-  const title = `${kind} in ${location}${date ? ` am ${date.split(" um ")[0]}` : ""} | outage.ch`;
-  const description = [
+  const date = shortDate(item.started_at ?? item.received_at);
+  const titleCore = clampText(`${kindShort} ${location}${date ? `, ${date}` : ""}`, 45);
+  const title = `${titleCore} | outage.ch`;
+  const statusBit = item.status === "upcoming"
+    ? "Bevorstehend"
+    : item.status === "resolved"
+      ? isAutoClosed(detail) ? "Automatisch abgeschlossen" : "Behoben"
+      : item.status === "stale_unconfirmed"
+        ? "Status unbestätigt"
+        : item.status === "historical"
+          ? "Historische Meldung"
+          : "Aktuelle Infos";
+  const description = padDescription([
     `${kind} in ${location}.`,
-    item.status === "upcoming" ? "Bevorstehend." : item.status === "resolved" ? isAutoClosed(detail) ? "Automatisch abgeschlossen; Wiederherstellung unbekannt." : "Behoben." : item.status === "stale_unconfirmed" ? "Status nicht mehr bestätigt." : item.status === "historical" ? "Historische Meldung." : "Aktuelle Informationen.",
+    `${statusBit}.`,
     item.cause ? `Ursache: ${item.cause}.` : "",
     item.affected_area ? `Betroffen: ${item.affected_area}.` : "",
+    detail.operator ? `Netzbetreiber: ${detail.operator.name}.` : "",
     summary
-  ].filter(Boolean).join(" ").slice(0, 160);
-  const canonical = new URL(item.url, origin).toString();
+  ]);
+  const canonical = absoluteUrl(item.url, siteOrigin);
+  const ogImage = detail.evidence[0]?.image_url
+    ? absoluteUrl(detail.evidence[0].image_url, siteOrigin)
+    : absoluteUrl(DEFAULT_OG_IMAGE_PATH, siteOrigin);
   const pageId = `${canonical}#webpage`;
   const graph: Record<string, unknown>[] = [
-    { "@type": "WebSite", "@id": `${origin}/#website`, url: `${origin}/`, name: "outage.ch", inLanguage: "de-CH" },
+    { "@type": "WebSite", "@id": `${siteOrigin}/#website`, url: `${siteOrigin}/`, name: "outage.ch", inLanguage: "de-CH" },
     {
       "@type": "WebPage", "@id": pageId, url: canonical, name: title, description,
-      isPartOf: { "@id": `${origin}/#website` }, dateModified: item.updated_at, inLanguage: "de-CH",
-      breadcrumb: { "@id": `${canonical}#breadcrumb` }
+      isPartOf: { "@id": `${siteOrigin}/#website` }, dateModified: item.updated_at, inLanguage: "de-CH",
+      breadcrumb: { "@id": `${canonical}#breadcrumb` },
+      primaryImageOfPage: { "@type": "ImageObject", url: ogImage }
     },
     {
       "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`,
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${origin}/` },
+        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${siteOrigin}/` },
         { "@type": "ListItem", position: 2, name: location, item: canonical }
       ]
     }
@@ -197,17 +245,18 @@ export function eventSeo(detail: PublicEventDetail, origin: string) {
       ...(item.resolved_at ? { endDate: item.resolved_at } : {}),
       ...(item.status === "upcoming" ? { eventStatus: "https://schema.org/EventScheduled" } : {}),
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      image: [ogImage],
       location: {
         "@type": "Place", name: detail.map?.label ?? location,
         address: { "@type": "PostalAddress", addressLocality: location, addressRegion: item.canton ?? undefined, addressCountry: "CH" },
         ...(detail.map ? { geo: { "@type": "GeoCoordinates", latitude: detail.map.latitude, longitude: detail.map.longitude } } : {})
       },
-      organizer: { "@type": "Organization", name: detail.operator?.name ?? "outage.ch", url: detail.operator?.url ?? `${origin}/` }
+      organizer: { "@type": "Organization", name: detail.operator?.name ?? "outage.ch", url: detail.operator?.url ?? `${siteOrigin}/` }
     });
   } else {
     graph[1].about = { "@type": "Thing", name: `${kind} in ${location}` };
   }
-  return { title, description, canonical, jsonLd: JSON.stringify({ "@context": "https://schema.org", "@graph": graph }) };
+  return { title, description, canonical, ogImage, jsonLd: JSON.stringify({ "@context": "https://schema.org", "@graph": graph }) };
 }
 
 function renderSourceRole(role: PublicEventDetail["sources"][number]["role"]): string {
@@ -268,7 +317,29 @@ function renderKnowledgeLinks(): string {
   </section>`;
 }
 
-export function renderEventSeoMarkup(detail: PublicEventDetail): string {
+function relatedStatusLabel(item: PublicFeedItem): string {
+  if (item.status === "upcoming") return "Bevorstehend";
+  if (item.status === "active") return "Aktiv";
+  if (item.status === "resolved") return "Behoben";
+  if (item.status === "stale_unconfirmed") return "Unbestätigt";
+  if (item.status === "historical") return "Historisch";
+  return "Meldung";
+}
+
+function renderRelatedEvents(related: PublicFeedItem[]): string {
+  if (!related.length) return "";
+  return `<section class="related-events" aria-labelledby="related-heading">
+    <div class="section-heading"><span>Weitere Meldungen</span><h2 id="related-heading">Aktuelle Stromausfälle in der Schweiz</h2></div>
+    <div class="related-list">${related.map((item) => {
+      const location = publicDisplayLocation(item.location);
+      const kind = item.nature === "planned" ? "Geplanter Unterbruch" : "Stromausfall";
+      return `<a href="${escapeHtml(item.url)}"><span>${escapeHtml(relatedStatusLabel(item))}</span><strong>${escapeHtml(kind)} in ${escapeHtml(location)}</strong><small>${escapeHtml(item.source.publisher)}</small></a>`;
+    }).join("")}</div>
+    <a class="all-guides" href="/">Alle Meldungen ansehen</a>
+  </section>`;
+}
+
+export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicFeedItem[] = []): string {
   const item = detail.item;
   const location = eventLocation(detail);
   const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
@@ -296,23 +367,87 @@ export function renderEventSeoMarkup(detail: PublicEventDetail): string {
       <ol>${detail.timeline.map((entry) => `<li><span class="timeline-mark"></span><div><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(formatDate(entry.value))}</strong></div></li>`).join("")}</ol></section>
       ${renderSourceCards(detail)}
       ${renderFaq(detail)}
+      ${renderRelatedEvents(related)}
       ${renderKnowledgeLinks()}
     </div>
     <footer class="detail-note">Letzte Aktualisierung: ${escapeHtml(formatDate(item.updated_at))}. outage.ch dokumentiert öffentliche Meldungen und kennzeichnet fehlende Angaben bewusst als offen. Für verbindliche Informationen gelten Netzbetreiber und Behörden.</footer>
   </article>`;
 }
 
-export async function renderSeoEventAsset(env: Pick<Env, "ASSETS">, request: Request, detail: PublicEventDetail): Promise<Response> {
+function setMetaContent(content: string) {
+  return {
+    element(element: Element) {
+      element.setAttribute("content", content);
+    }
+  };
+}
+
+export async function renderSeoEventAsset(
+  env: Pick<Env, "ASSETS">,
+  request: Request,
+  detail: PublicEventDetail,
+  related: PublicFeedItem[] = []
+): Promise<Response> {
   const assetUrl = new URL("/events/", request.url);
   const asset = await env.ASSETS.fetch(new Request(assetUrl, request));
-  const seo = eventSeo(detail, new URL(request.url).origin);
+  const seo = eventSeo(detail, SITE_ORIGIN);
   const data = JSON.stringify(detail).replace(/</g, "\\u003c");
   return new HTMLRewriter()
     .on("title", { element(element) { element.setInnerContent(seo.title); } })
-    .on('meta[name="description"]', { element(element) { element.setAttribute("content", seo.description); } })
+    .on('meta[name="description"]', setMetaContent(seo.description))
+    .on('meta[property="og:title"]', setMetaContent(seo.title))
+    .on('meta[property="og:description"]', setMetaContent(seo.description))
+    .on('meta[property="og:type"]', setMetaContent("article"))
+    .on('meta[property="og:url"]', setMetaContent(seo.canonical))
+    .on('meta[property="og:image"]', setMetaContent(seo.ogImage))
+    .on('meta[name="twitter:title"]', setMetaContent(seo.title))
+    .on('meta[name="twitter:description"]', setMetaContent(seo.description))
+    .on('meta[name="twitter:image"]', setMetaContent(seo.ogImage))
+    .on('link[rel="canonical"]', { element(element) { element.setAttribute("href", seo.canonical); } })
     .on("head", { element(element) {
-      element.append(`<link rel="canonical" href="${escapeHtml(seo.canonical)}"><meta property="og:title" content="${escapeHtml(seo.title)}"><meta property="og:description" content="${escapeHtml(seo.description)}"><meta property="og:url" content="${escapeHtml(seo.canonical)}"><meta property="og:type" content="article"><meta name="robots" content="index,follow,max-image-preview:large"><script type="application/ld+json">${seo.jsonLd}</script><script id="outage-event-data" type="application/json">${data}</script>`, { html: true });
+      element.append(`<meta name="robots" content="index,follow,max-image-preview:large"><script type="application/ld+json">${seo.jsonLd}</script><script id="outage-event-data" type="application/json">${data}</script>`, { html: true });
     } })
-    .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail), { html: true }); element.setAttribute("aria-busy", "false"); } })
+    .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail, related), { html: true }); element.setAttribute("aria-busy", "false"); } })
     .transform(new Response(asset.body, { status: asset.status, headers: { ...Object.fromEntries(asset.headers), "Cache-Control": "public,max-age=60,s-maxage=300,stale-while-revalidate=1800" } }));
+}
+
+export function renderHomeFeedLinks(items: PublicFeedItem[]): string {
+  if (!items.length) {
+    return `<nav class="seo-feed-index" aria-label="Aktuelle Stromausfall-Meldungen"><p>Aktuell sind keine öffentlichen Meldungen verfügbar.</p><a href="/ratgeber/">Stromausfall-Ratgeber</a></nav>`;
+  }
+  return `<nav class="seo-feed-index" aria-label="Aktuelle Stromausfall-Meldungen">
+    <h2>Aktuelle Meldungen</h2>
+    <ul>${items.map((item) => {
+      const location = publicDisplayLocation(item.location);
+      const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
+      return `<li><a href="${escapeHtml(item.url)}">${escapeHtml(kind)} in ${escapeHtml(location)}</a></li>`;
+    }).join("")}</ul>
+    <p><a href="/ratgeber/">Ratgeber zu Stromausfällen</a></p>
+  </nav>`;
+}
+
+export async function renderHomeSeoAsset(
+  env: Pick<Env, "ASSETS">,
+  request: Request,
+  items: PublicFeedItem[]
+): Promise<Response> {
+  const asset = await env.ASSETS.fetch(new Request(new URL("/", request.url), request));
+  const canonical = absoluteUrl("/", SITE_ORIGIN);
+  const ogImage = absoluteUrl(DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN);
+  const feedLinks = renderHomeFeedLinks(items);
+  return new HTMLRewriter()
+    .on('link[rel="canonical"]', { element(element) { element.setAttribute("href", canonical); } })
+    .on('meta[property="og:url"]', setMetaContent(canonical))
+    .on('meta[property="og:image"]', setMetaContent(ogImage))
+    .on('meta[name="twitter:image"]', setMetaContent(ogImage))
+    .on(".feed-page", { element(element) {
+      element.append(feedLinks, { html: true });
+    } })
+    .transform(new Response(asset.body, {
+      status: asset.status,
+      headers: {
+        ...Object.fromEntries(asset.headers),
+        "Cache-Control": "public,max-age=60,s-maxage=120,stale-while-revalidate=600"
+      }
+    }));
 }

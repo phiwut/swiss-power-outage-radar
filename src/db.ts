@@ -2039,6 +2039,15 @@ export async function getPublicSitemapItems(db: D1Database): Promise<Array<{ url
   }));
 }
 
+export async function getRelatedPublicFeedItems(
+  db: D1Database,
+  input: { excludeId: number; limit?: number }
+): Promise<PublicFeedItem[]> {
+  const limit = Math.max(1, Math.min(12, Math.floor(input.limit ?? 6)));
+  const { items } = await getPublicFeedItems(db, { limit: Math.min(25, limit + 5) });
+  return items.filter((item) => item.id !== input.excludeId).slice(0, limit);
+}
+
 export async function createGeoSyncRun(
   db: D1Database,
   input: { provider: string; scope: string; startedAt: string }

@@ -286,7 +286,9 @@ function isoOrNull(value: unknown): string | null {
 
 function operatorLocation(title: string): string | null {
   const withoutPrefix = title
+    .replace(/^(?:behobener?|beendeter?|geplanter?)\s+/i, "")
     .replace(/^(?:netzstörung|netzstoerung|stromunterbruch|stromausfall|panne(?: de courant)?)\s+/i, "")
+    .replace(/^(?:in|im|bei|à)\s+/i, "")
     .replace(/\s+(?:und|et)\s+umgebung.*$/i, "")
     .trim();
   if (!withoutPrefix) return null;
@@ -443,7 +445,7 @@ async function parsePrimeoPayload(
         status,
         title,
         text: title,
-        location: operatorLocation(title),
+        location: operatorLocation(titleLocation) ?? (compact(titleLocation).slice(0, 120) || null),
         observedAt,
         startedAt: isoOrNull(row.from),
         resolvedAt: isoOrNull(row.to),

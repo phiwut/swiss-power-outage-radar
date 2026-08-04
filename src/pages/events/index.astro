@@ -6,6 +6,7 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
 <RadarLayout
   title="Stromausfall-Meldung | outage.ch"
   description="Stromausfall-Meldung mit Karte, bekannten Fakten, Netzbetreiber und Originalquellen."
+  robots="noindex,follow"
 >
   <link slot="head" rel="stylesheet" href={maplibreCss} />
   <section class="detail-page">
@@ -378,6 +379,12 @@ import RadarLayout from "../../layouts/RadarLayout.astro";
     .event-faq summary::after { color: #b4682e; content: "+"; font-size: 1.2rem; position: absolute; right: .4rem; }
     .event-faq details[open] summary::after { content: "–"; }
     .event-faq details p { color: var(--color-muted); line-height: 1.7; margin: 0; max-width: 720px; padding: 0 2.5rem 1.35rem 0; }
+    .related-events .related-list { border-bottom: 1px solid var(--color-rule); display: grid; }
+    .related-events .related-list > a { border-top: 1px solid var(--color-rule); color: inherit; display: grid; gap: .35rem; padding: 1rem .15rem; text-decoration: none; }
+    .related-events .related-list > a:hover { background: color-mix(in oklch, var(--color-accent-soft) 28%, transparent); padding-left: .75rem; padding-right: .75rem; }
+    .related-events .related-list span { color: #b4682e; font-family: var(--font-mono); font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; }
+    .related-events .related-list strong { font-family: var(--font-display); font-size: 1.05rem; }
+    .related-events .related-list small { color: var(--color-faint); font-size: .72rem; }
     .knowledge-links > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .knowledge-links > div > a { border-left: 1px solid var(--color-rule); color: inherit; display: grid; gap: 1rem; grid-template-columns: 24px 1fr; min-height: 230px; padding: 1.25rem; text-decoration: none; }
     .knowledge-links > div > a:first-child { border-left: 0; }

@@ -1,6 +1,6 @@
 import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { normalizeLocation } from "./events";
-import { publicEventPath } from "./public-url";
+import { publicDisplayLocation, publicEventPath } from "./public-url";
 import type {
   OutageEvent,
   OutageFact,
@@ -300,7 +300,7 @@ export function toPublicFeedItem(
   const inferredClosure = autoClosed ||
     (status === "resolved" && !resolvedAt && event.time_confidence === "inferred");
   const activeSinceAt = startedAt ?? (status === "active" || status === "stale_unconfirmed" ? isoOrNull(event.first_seen_at) : null);
-  const location = event.location_text?.trim() || "";
+  const location = publicDisplayLocation(event.location_text);
   return {
     id: event.id,
     location,

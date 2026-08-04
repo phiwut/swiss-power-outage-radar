@@ -1,17 +1,28 @@
 ---
 import "../styles/global.css";
+import { DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN, absoluteUrl } from "../public-url";
 
 interface Props {
   title: string;
   eyebrow?: string;
   description?: string;
+  canonical?: string;
+  ogType?: "website" | "article";
+  ogImage?: string;
+  robots?: string;
 }
 
 const {
   title,
   eyebrow = "Stromausfälle Schweiz",
-  description = "Aktuelle Hinweise zu Stromausfällen und Netzunterbrüchen in der Schweiz aus öffentlichen Quellen und Google Alerts."
+  description = "Aktuelle Hinweise zu Stromausfällen und Netzunterbrüchen in der Schweiz aus öffentlichen Quellen und Google Alerts.",
+  canonical,
+  ogType = "website",
+  ogImage = absoluteUrl(DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN),
+  robots
 } = Astro.props;
+
+const canonicalUrl = canonical ?? absoluteUrl(Astro.url.pathname, SITE_ORIGIN);
 ---
 
 <!doctype html>
@@ -21,11 +32,19 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2307131a'/%3E%3Cpath d='M35 8 17 37h14l-3 19 20-31H35V8Z' fill='none' stroke='%23fff' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
+    <link rel="canonical" href={canonicalUrl} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImage} />
     <meta property="og:locale" content="de_CH" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:site_name" content="outage.ch" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
     <slot name="head" />
     <title>{title}</title>
   </head>
