@@ -283,6 +283,10 @@ export interface PublicFeedItem {
   summary: string;
   trust: PublicTrust;
   source: PublicCanonicalSource;
+  /** Cached geo.admin pin when available (from event_public_locations). */
+  latitude?: number | null;
+  longitude?: number | null;
+  map_precision?: "address" | "locality" | "municipality" | "district" | "region" | null;
 }
 
 export interface SourceSnapshot {

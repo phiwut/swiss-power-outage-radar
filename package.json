@@ -19,7 +19,7 @@
     "tailwindcss": "^3.4.19",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4",
-    "wrangler": "^4.115.0"
+    "wrangler": "^4.118.0"
   },
   "dependencies": {
     "maplibre-gl": "^5.24.0"

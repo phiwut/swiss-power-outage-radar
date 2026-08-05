@@ -366,7 +366,7 @@ export default {
 
     if ((url.pathname === "/api/public/events" || url.pathname === "/api/public/status") && request.method === "GET") {
       const requestedLimit = Number(url.searchParams.get("limit") ?? 10);
-      const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(25, Math.floor(requestedLimit))) : 10;
+      const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(40, Math.floor(requestedLimit))) : 10;
       const before = url.searchParams.get("before");
       return cachePublic(json({
         ...(await getPublicFeedItems(env.DB, { limit, before })),

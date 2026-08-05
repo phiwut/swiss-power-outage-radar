@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { evaluatePublicEvent, parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "../src/publication";
+import { attachPublicMapCoords, evaluatePublicEvent, parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "../src/publication";
 import type { OutageEvent, OutageFact, OutageSource } from "../src/types";
 
 function event(patch: Partial<OutageEvent> = {}): OutageEvent {
@@ -400,11 +400,31 @@ describe("public event publication", () => {
       "updated_at",
       "summary",
       "trust",
-      "source"
+      "source",
+      "latitude",
+      "longitude",
+      "map_precision"
     ]);
+    expect(item!.latitude).toBeNull();
+    expect(item!.longitude).toBeNull();
     expect(item).not.toHaveProperty("event_score");
     expect(item).not.toHaveProperty("event_quality_state");
     expect(item).not.toHaveProperty("unknown_metrics");
+  });
+
+  it("attaches cached map coordinates within Switzerland", () => {
+    const outageEvent = event();
+    const decision = evaluatePublicEvent(outageEvent, [source()], [outageFact()]);
+    const item = toPublicFeedItem(outageEvent, decision);
+    const withMap = attachPublicMapCoords(item, {
+      latitude: 47.3769,
+      longitude: 8.5417,
+      precision: "locality"
+    });
+    expect(withMap?.latitude).toBe(47.3769);
+    expect(withMap?.longitude).toBe(8.5417);
+    expect(withMap?.map_precision).toBe("locality");
+    expect(attachPublicMapCoords(item, { latitude: 40, longitude: 8 })?.latitude).toBeNull();
   });
 
   it("uses event id as a stable cursor tie-breaker for simultaneous receipts", () => {

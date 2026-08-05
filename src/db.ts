@@ -29,7 +29,7 @@ import type {
   StoredAlertItem
 } from "./types";
 import { canonicalSourceUrl, classifySource } from "./intelligence";
-import { parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "./publication";
+import { attachPublicMapCoords, parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "./publication";
 import { publicEventPath } from "./public-url";
 import type { HistoricalBackfillTarget } from "./historical-backfill";
 
@@ -1858,7 +1858,7 @@ export async function getPublicFeedItems(
   input: { limit?: number; before?: string | null } = {}
 ): Promise<{ items: PublicFeedItem[]; next_cursor: string | null }> {
   const requestedLimit = Number(input.limit ?? 10);
-  const limit = Math.max(1, Math.min(25, Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : 10)));
+  const limit = Math.max(1, Math.min(40, Math.floor(Number.isFinite(requestedLimit) ? requestedLimit : 10)));
   const cursor = parsePublicFeedCursor(input.before);
   const result = await db
     .prepare(
@@ -1866,6 +1866,9 @@ export async function getPublicFeedItems(
               decision.public_summary AS publication_summary,
               decision.primary_source_publisher, decision.primary_source_url,
               decision.primary_source_domain, decision.reasons_json,
+              loc.latitude AS map_latitude,
+              loc.longitude AS map_longitude,
+              loc.precision AS map_precision,
               COALESCE(
                 event.started_at_estimate,
                 event.resolved_at_estimate,
@@ -1875,6 +1878,7 @@ export async function getPublicFeedItems(
               ) AS feed_sort_at
        FROM outage_events event
        INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+       LEFT JOIN event_public_locations loc ON loc.outage_event_id = event.id
        WHERE decision.publishable = 1
          AND event.status != 'dismissed'
          AND event.country = 'CH'
@@ -1933,24 +1937,34 @@ export async function getPublicFeedItems(
       primary_source_domain: string;
       reasons_json: string;
       feed_sort_at: string;
+      map_latitude: number | null;
+      map_longitude: number | null;
+      map_precision: PublicFeedItem["map_precision"];
     }>();
 
   const evidence = await getPublicationEvidenceForEvents(db, result.results.map((row) => row.id));
   const entries = result.results.flatMap((row) => {
-    const item = toPublicFeedItem(
-      row,
+    const item = attachPublicMapCoords(
+      toPublicFeedItem(
+        row,
+        {
+          publishable: true,
+          trust: row.publication_trust,
+          reasons: [],
+          summary: row.publication_summary,
+          primary_source: {
+            publisher: row.primary_source_publisher,
+            url: row.primary_source_url,
+            domain: row.primary_source_domain
+          }
+        },
+        evidence.facts.get(row.id) ?? []
+      ),
       {
-        publishable: true,
-        trust: row.publication_trust,
-        reasons: [],
-        summary: row.publication_summary,
-        primary_source: {
-          publisher: row.primary_source_publisher,
-          url: row.primary_source_url,
-          domain: row.primary_source_domain
-        }
-      },
-      evidence.facts.get(row.id) ?? []
+        latitude: row.map_latitude,
+        longitude: row.map_longitude,
+        precision: row.map_precision
+      }
     );
     return item ? [{ item, sortAt: row.feed_sort_at }] : [];
   });
@@ -1970,9 +1984,13 @@ export async function getPublicFeedItem(db: D1Database, eventId: number): Promis
       `SELECT event.*, decision.trust AS publication_trust,
               decision.public_summary AS publication_summary,
               decision.primary_source_publisher, decision.primary_source_url,
-              decision.primary_source_domain
+              decision.primary_source_domain,
+              loc.latitude AS map_latitude,
+              loc.longitude AS map_longitude,
+              loc.precision AS map_precision
        FROM outage_events event
        INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
+       LEFT JOIN event_public_locations loc ON loc.outage_event_id = event.id
        WHERE event.id = ? AND decision.publishable = 1
          AND event.status != 'dismissed' AND event.country = 'CH'
        LIMIT 1`
@@ -1984,19 +2002,29 @@ export async function getPublicFeedItem(db: D1Database, eventId: number): Promis
       primary_source_publisher: string;
       primary_source_url: string;
       primary_source_domain: string;
+      map_latitude: number | null;
+      map_longitude: number | null;
+      map_precision: PublicFeedItem["map_precision"];
     }>(), getPublicationEvidenceForEvents(db, [eventId])]);
   if (!row) return null;
-  return toPublicFeedItem(row, {
-    publishable: true,
-    trust: row.publication_trust,
-    reasons: [],
-    summary: row.publication_summary,
-    primary_source: {
-      publisher: row.primary_source_publisher,
-      url: row.primary_source_url,
-      domain: row.primary_source_domain
+  return attachPublicMapCoords(
+    toPublicFeedItem(row, {
+      publishable: true,
+      trust: row.publication_trust,
+      reasons: [],
+      summary: row.publication_summary,
+      primary_source: {
+        publisher: row.primary_source_publisher,
+        url: row.primary_source_url,
+        domain: row.primary_source_domain
+      }
+    }, evidence.facts.get(eventId) ?? []),
+    {
+      latitude: row.map_latitude,
+      longitude: row.map_longitude,
+      precision: row.map_precision
     }
-  }, evidence.facts.get(eventId) ?? []);
+  );
 }
 
 export async function getUnplannedEventsDueForResearchRefresh(

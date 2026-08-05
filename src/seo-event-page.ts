@@ -453,7 +453,7 @@ export async function renderHomeSeoAsset(
     .on('meta[property="og:url"]', setMetaContent(canonical))
     .on('meta[property="og:image"]', setMetaContent(ogImage))
     .on('meta[name="twitter:image"]', setMetaContent(ogImage))
-    .on(".feed-page", { element(element) {
+    .on(".radar", { element(element) {
       element.append(feedLinks, { html: true });
     } })
     .transform(new Response(asset.body, {

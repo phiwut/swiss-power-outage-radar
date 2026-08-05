@@ -324,6 +324,30 @@ export function toPublicFeedItem(
     updated_at: event.updated_at,
     summary: decision.summary,
     trust: decision.trust,
-    source: decision.primary_source
+    source: decision.primary_source,
+    latitude: null,
+    longitude: null,
+    map_precision: null
+  };
+}
+
+export function attachPublicMapCoords(
+  item: PublicFeedItem | null,
+  coords: {
+    latitude?: number | null;
+    longitude?: number | null;
+    precision?: PublicFeedItem["map_precision"];
+  } | null | undefined
+): PublicFeedItem | null {
+  if (!item) return null;
+  const latitude = coords?.latitude;
+  const longitude = coords?.longitude;
+  if (typeof latitude !== "number" || typeof longitude !== "number") return item;
+  if (latitude < 45.7 || latitude > 47.9 || longitude < 5.9 || longitude > 10.7) return item;
+  return {
+    ...item,
+    latitude,
+    longitude,
+    map_precision: coords?.precision ?? null
   };
 }
