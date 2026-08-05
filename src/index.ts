@@ -292,10 +292,18 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
+const PUBLIC_CACHE_VERSION = "seo-v2";
+
+function publicCacheRequest(request: Request): Request {
+  const url = new URL(request.url);
+  url.searchParams.set("__cv", PUBLIC_CACHE_VERSION);
+  return new Request(url.toString(), request);
+}
+
 function cachePublic(response: Response, request: Request, ctx: ExecutionContext, cacheControl: string): Response {
   const cached = new Response(response.body, response);
   cached.headers.set("Cache-Control", cacheControl);
-  if (response.ok) ctx.waitUntil(caches.default.put(request, cached.clone()));
+  if (response.ok) ctx.waitUntil(caches.default.put(publicCacheRequest(request), cached.clone()));
   return cached;
 }
 
@@ -316,7 +324,7 @@ export default {
       url.pathname === "/robots.txt"
     );
     if (isPublicGet && request.method === "GET") {
-      const cached = await caches.default.match(request);
+      const cached = await caches.default.match(publicCacheRequest(request));
       if (cached) return cached;
     }
 
