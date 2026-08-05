@@ -7,7 +7,9 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "not_found_handling": "none"
+    "not_found_handling": "none",
+    // Homepage SSR, HTTPS redirects, and HTMLRewriter must run before static HTML.
+    "run_worker_first": true
   },
   "routes": [
     {

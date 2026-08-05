@@ -33,6 +33,10 @@ describe("public URL helpers", () => {
     const www = httpsRedirect(new Request("https://www.outage.ch/stromausfall/seewen-110"));
     expect(www?.headers.get("Location")).toBe("https://outage.ch/stromausfall/seewen-110");
     expect(httpsRedirect(new Request("https://outage.ch/"))).toBeNull();
+    const viaHeader = httpsRedirect(new Request("https://outage.ch/", {
+      headers: { "x-forwarded-proto": "http" }
+    }));
+    expect(viaHeader?.headers.get("Location")).toBe("https://outage.ch/");
   });
 
   it("builds absolute https URLs", () => {

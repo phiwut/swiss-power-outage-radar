@@ -57,13 +57,28 @@ export function toSitemapLastmod(value: string | null | undefined): string {
   return date.toISOString();
 }
 
+function clientProtocol(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  if (forwarded) return forwarded.toLowerCase();
+  const visitor = request.headers.get("cf-visitor");
+  if (visitor) {
+    try {
+      const scheme = (JSON.parse(visitor) as { scheme?: string }).scheme;
+      if (scheme) return scheme.toLowerCase();
+    } catch {
+      // ignore malformed cf-visitor
+    }
+  }
+  return new URL(request.url).protocol.replace(":", "").toLowerCase();
+}
+
 export function httpsRedirect(request: Request): Response | null {
   const url = new URL(request.url);
   const host = url.hostname.toLowerCase();
   const isProdHost = host === "outage.ch" || host === "www.outage.ch";
   if (!isProdHost) return null;
 
-  const needsHttps = url.protocol === "http:";
+  const needsHttps = clientProtocol(request) === "http";
   const needsHost = host === "www.outage.ch";
   if (!needsHttps && !needsHost) return null;
 

@@ -33,11 +33,20 @@ describe("SEO event page", () => {
     expect(seo.canonical).toBe("https://outage.ch/stromausfall/zurich-42");
     expect(seo.title).toContain("Unterbruch Zürich");
     expect(seo.title.length).toBeLessThanOrEqual(60);
+    expect(seo.title).not.toContain("…");
     expect(seo.description.length).toBeGreaterThanOrEqual(120);
     expect(seo.ogImage).toContain("/og-default.png");
     const graph = JSON.parse(seo.jsonLd)["@graph"];
     expect(graph.some((entry: { "@type": string }) => entry["@type"] === "Event")).toBe(true);
     expect(graph.some((entry: { "@type": string }) => entry["@type"] === "FAQPage")).toBe(true);
+  });
+
+  it("keeps long compound locations readable in the title without ellipsis", () => {
+    const long = detail();
+    long.item.location = "Füllinsdorf, Basel-Landschaft, Schweiz";
+    const seo = eventSeo(long, "https://outage.ch");
+    expect(seo.title).toBe("Unterbruch Füllinsdorf, 2. Aug. 2026 | outage.ch");
+    expect(seo.title).not.toContain("…");
   });
 
   it("strips status prose from polluted location labels before SEO copy", () => {

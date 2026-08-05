@@ -104,6 +104,20 @@ function clampText(value: string, max: number): string {
   return `${(boundary > 40 ? cut.slice(0, boundary) : cut).trim()}…`;
 }
 
+function titlePlace(location: string): string {
+  const primary = location.split(",")[0]?.trim() || location;
+  return primary.length <= 36 ? primary : clampText(primary, 36).replace(/…$/, "").trim();
+}
+
+function buildEventTitle(kindShort: string, location: string, date: string | null): string {
+  const place = titlePlace(location);
+  const withDate = `${kindShort} ${place}${date ? `, ${date}` : ""} | outage.ch`;
+  if (withDate.length <= 60) return withDate;
+  const withoutDate = `${kindShort} ${place} | outage.ch`;
+  if (withoutDate.length <= 60) return withoutDate;
+  return `${clampText(`${kindShort} ${place}`, 45)} | outage.ch`;
+}
+
 function padDescription(parts: string[], min = 120, max = 158): string {
   const base = parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   if (base.length >= min) return clampText(base, max);
@@ -185,8 +199,7 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
   const kindShort = item.nature === "planned" ? "Unterbruch" : "Stromausfall";
   const summary = consistentSummary(detail);
   const date = shortDate(item.started_at ?? item.received_at);
-  const titleCore = clampText(`${kindShort} ${location}${date ? `, ${date}` : ""}`, 45);
-  const title = `${titleCore} | outage.ch`;
+  const title = buildEventTitle(kindShort, location, date);
   const statusBit = item.status === "upcoming"
     ? "Bevorstehend"
     : item.status === "resolved"
