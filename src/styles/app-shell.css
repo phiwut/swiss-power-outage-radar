@@ -106,7 +106,6 @@ body.shell-app {
 
 .app-main--radar {
   padding: 0;
-  padding-bottom: var(--app-dock-h);
 }
 
 .app-dock {

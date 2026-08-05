@@ -1,6 +1,6 @@
 ---
 /**
- * Radar home: desktop = split map|list (variant A), mobile = map HUD (variant C).
+ * Radar home: desktop = split map|list (viewport-locked), mobile = map HUD.
  */
 import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import RadarLayout from "../layouts/RadarLayout.astro";
@@ -15,6 +15,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   activeNav="radar"
 >
   <link slot="head" rel="stylesheet" href={maplibreCss} />
+  <link slot="head" rel="preconnect" href="https://vectortiles.geo.admin.ch" crossorigin />
+  <link slot="head" rel="dns-prefetch" href="https://vectortiles.geo.admin.ch" />
 
   <section class="radar" data-radar>
     <div class="radar__map-wrap">
@@ -25,6 +27,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         <span data-tone="resolved">Behoben</span>
         <span data-tone="other">Archiv</span>
       </div>
+      <p class="radar__disclaimer">outage.ch ist ein unabhängiger öffentlicher Radar und kein offizieller Notfallkanal.</p>
     </div>
 
     <header class="radar__hud">
@@ -34,7 +37,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
           <span class="sr-only">Ort suchen</span>
           <input id="radar-search" type="search" placeholder="Ort oder Region" autocomplete="off" enterkeyhint="search" />
         </label>
-        <button type="button" id="radar-locate" class="radar__locate" title="In der Nähe">Nähe</button>
       </div>
       <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
     </header>
@@ -67,8 +69,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     <button type="button" id="radar-list-fab" class="radar__fab">Liste</button>
   </section>
-
-  <p class="radar__disclaimer">outage.ch ist ein unabhängiger öffentlicher Radar und kein offizieller Notfallkanal.</p>
 
   <script>
     type PublicItem = {
@@ -129,6 +129,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     let map: any = null;
     let maplibregl: any = null;
     let mapReady = false;
+    let mapInit: Promise<any> | null = null;
+    let lastFitKey = "";
+    let searchTimer = 0;
+    let resizeTimer = 0;
 
     const listEl = document.querySelector<HTMLElement>("#radar-list")!;
     const chipsEl = document.querySelector<HTMLElement>("#radar-chips")!;
@@ -141,6 +145,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     const sheetBody = document.querySelector<HTMLElement>("#radar-sheet-body")!;
     const sheetLink = document.querySelector<HTMLAnchorElement>("#radar-sheet-link")!;
     const fabEl = document.querySelector<HTMLButtonElement>("#radar-list-fab")!;
+    const mapWrap = document.querySelector<HTMLElement>(".radar__map-wrap");
 
     const escapeHtml = (value: unknown) =>
       String(value ?? "")
@@ -199,70 +204,16 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       });
     };
 
-    async function ensureMap() {
-      if (map) {
-        map.resize();
-        return map;
-      }
-      const mod = await import("maplibre-gl");
-      maplibregl = mod.default;
-      const container = document.querySelector("#radar-map");
-      if (!container) return null;
-      map = new maplibregl.Map({
-        container,
-        style: "https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json",
-        center: [8.2, 46.8],
-        zoom: 7.15,
-        attributionControl: false,
-        fadeDuration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 250
-      });
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-      await new Promise<void>((resolve) => map.once("load", () => resolve()));
-      map.addSource("outages", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({
-        id: "outages-halo",
-        type: "circle",
-        source: "outages",
-        paint: { "circle-radius": 16, "circle-color": ["get", "color"], "circle-opacity": 0.18 }
-      });
-      map.addLayer({
-        id: "outages-point",
-        type: "circle",
-        source: "outages",
-        paint: {
-          "circle-radius": ["case", ["==", ["get", "selected"], 1], 9, 6],
-          "circle-color": ["get", "color"],
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2
-        }
-      });
-      map.on("click", "outages-point", (e: any) => {
-        const id = Number(e.features?.[0]?.properties?.id);
-        if (!Number.isFinite(id)) return;
-        selectItem(id, { openSheet: isMobile() });
-      });
-      map.on("mouseenter", "outages-point", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "outages-point", () => {
-        map.getCanvas().style.cursor = "";
-      });
-      mapReady = true;
-      return map;
-    }
-
-    function syncMap() {
-      if (!map || !mapReady) return;
-      const features = filtered()
+    const featuresFor = (items: PublicItem[]) =>
+      items
         .map((item) => {
           const coords = pinFor(item);
           if (!coords) return null;
-          const category = categorize(item.status);
           return {
             type: "Feature" as const,
             properties: {
               id: item.id,
-              color: COLOR[category],
+              color: COLOR[categorize(item.status)],
               selected: state.selectedId === item.id ? 1 : 0
             },
             geometry: { type: "Point" as const, coordinates: coords }
@@ -270,22 +221,112 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         })
         .filter(Boolean);
 
+    async function ensureMap() {
+      if (map) return map;
+      if (mapInit) return mapInit;
+      mapInit = (async () => {
+        // Wait for layout so MapLibre gets a non-zero container.
+        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        const container = document.querySelector("#radar-map");
+        if (!container) return null;
+        const mod = await import("maplibre-gl");
+        maplibregl = mod.default;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        map = new maplibregl.Map({
+          container,
+          style: "https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json",
+          center: [8.2275, 46.8182],
+          zoom: 7.2,
+          attributionControl: false,
+          antialias: false,
+          fadeDuration: reduce ? 0 : 120,
+          maxPitch: 0,
+          pitchWithRotate: false,
+          dragRotate: false,
+          touchPitch: false,
+          pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5)
+        });
+        map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+        await new Promise<void>((resolve, reject) => {
+          const fail = window.setTimeout(() => reject(new Error("map timeout")), 12_000);
+          map.once("load", () => {
+            window.clearTimeout(fail);
+            resolve();
+          });
+          map.once("error", () => {
+            /* style tile errors are common; ignore unless never loaded */
+          });
+        }).catch(() => undefined);
+
+        if (!map.getSource("outages")) {
+          map.addSource("outages", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+          map.addLayer({
+            id: "outages-halo",
+            type: "circle",
+            source: "outages",
+            paint: { "circle-radius": 14, "circle-color": ["get", "color"], "circle-opacity": 0.16 }
+          });
+          map.addLayer({
+            id: "outages-point",
+            type: "circle",
+            source: "outages",
+            paint: {
+              "circle-radius": ["case", ["==", ["get", "selected"], 1], 8, 5.5],
+              "circle-color": ["get", "color"],
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 2
+            }
+          });
+          map.on("click", "outages-point", (e: any) => {
+            const id = Number(e.features?.[0]?.properties?.id);
+            if (!Number.isFinite(id)) return;
+            selectItem(id, { openSheet: isMobile() });
+          });
+          map.on("mouseenter", "outages-point", () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", "outages-point", () => {
+            map.getCanvas().style.cursor = "";
+          });
+        }
+        map.resize();
+        mapReady = true;
+        mapWrap?.classList.add("is-ready");
+        return map;
+      })();
+      return mapInit;
+    }
+
+    function syncPins(fit = false) {
+      if (!map || !mapReady) return;
+      const items = filtered();
+      const features = featuresFor(items);
       map.getSource("outages")?.setData({ type: "FeatureCollection", features });
-      map.resize();
 
       if (state.selectedId != null) {
         const sel = state.items.find((i) => i.id === state.selectedId);
         const coords = sel ? pinFor(sel) : null;
         if (coords) {
-          map.easeTo({ center: coords, zoom: Math.max(map.getZoom(), 10.2), duration: 420 });
+          map.easeTo({
+            center: coords,
+            zoom: Math.max(map.getZoom(), 10),
+            duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 280
+          });
           return;
         }
       }
-      if (features.length > 0) {
-        const bounds = new maplibregl.LngLatBounds();
-        for (const f of features as any[]) bounds.extend(f.geometry.coordinates);
-        map.fitBounds(bounds, { padding: isMobile() ? 56 : 48, maxZoom: 11, duration: 0 });
-      }
+
+      if (!fit || features.length === 0) return;
+      const fitKey = `${state.status}|${state.query}|${features.length}`;
+      if (fitKey === lastFitKey) return;
+      lastFitKey = fitKey;
+      const bounds = new maplibregl.LngLatBounds();
+      for (const f of features as any[]) bounds.extend(f.geometry.coordinates);
+      map.fitBounds(bounds, {
+        padding: isMobile() ? 48 : 40,
+        maxZoom: 10.5,
+        duration: 0
+      });
     }
 
     function rowHtml(item: PublicItem, selected: boolean) {
@@ -360,21 +401,24 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       panelEl.classList.toggle("is-open", open);
       fabEl.hidden = open || !isMobile();
       document.body.classList.toggle("radar-drawer-open", open);
+      if (open) {
+        window.setTimeout(() => map?.resize(), 280);
+      }
     }
 
     function selectItem(id: number, opts: { openSheet?: boolean } = {}) {
       state.selectedId = id;
       renderList();
-      syncMap();
+      syncPins(false);
       if (opts.openSheet && isMobile()) {
         setDrawer(false);
         openSheet(id);
       }
       const row = listEl.querySelector<HTMLElement>(`[data-id="${id}"]`);
-      row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      row?.scrollIntoView({ block: "nearest" });
     }
 
-    function renderAll() {
+    function renderUi(opts: { fitMap?: boolean } = {}) {
       renderChips();
       renderList();
       moreBtn.hidden = !state.nextCursor;
@@ -384,7 +428,9 @@ import RadarLayout from "../layouts/RadarLayout.astro";
           ? "Meldungen werden geladen …"
           : "";
       fabEl.hidden = !isMobile() || state.drawerOpen;
-      void ensureMap().then(() => syncMap());
+      if (state.items.length || opts.fitMap) {
+        void ensureMap().then(() => syncPins(Boolean(opts.fitMap)));
+      }
     }
 
     async function loadFeed(reset = true) {
@@ -394,12 +440,15 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (reset) {
         state.items = [];
         state.nextCursor = null;
+        lastFitKey = "";
       }
-      renderAll();
+      renderUi();
+      // Start map download in parallel with API.
+      void ensureMap();
       try {
-        const params = new URLSearchParams({ limit: "40" });
+        const params = new URLSearchParams({ limit: "25" });
         if (!reset && state.nextCursor) params.set("before", state.nextCursor);
-        const res = await fetch(`/api/public/events?${params}`, { cache: "no-store" });
+        const res = await fetch(`/api/public/events?${params}`);
         if (!res.ok) throw new Error(`API ${res.status}`);
         const data = (await res.json()) as { items: PublicItem[]; next_cursor: string | null; generated_at?: string };
         state.items = reset ? data.items : [...state.items, ...data.items];
@@ -409,7 +458,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         state.error = err instanceof Error ? err.message : "Laden fehlgeschlagen";
       } finally {
         state.loading = false;
-        renderAll();
+        renderUi({ fitMap: true });
       }
     }
 
@@ -417,7 +466,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-status]");
       if (!btn) return;
       state.status = btn.dataset.status ?? "";
-      renderAll();
+      state.selectedId = null;
+      closeSheet();
+      lastFitKey = "";
+      renderUi({ fitMap: true });
     });
 
     listEl.addEventListener("click", (ev) => {
@@ -429,13 +481,17 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       ev.preventDefault();
       const id = Number(row.dataset.id);
       if (!Number.isFinite(id)) return;
-      if (isMobile()) selectItem(id, { openSheet: true });
-      else selectItem(id);
+      selectItem(id, { openSheet: isMobile() });
     });
 
     searchEl.addEventListener("input", () => {
-      state.query = searchEl.value;
-      renderAll();
+      window.clearTimeout(searchTimer);
+      searchTimer = window.setTimeout(() => {
+        state.query = searchEl.value;
+        state.selectedId = null;
+        lastFitKey = "";
+        renderUi({ fitMap: true });
+      }, 160);
     });
 
     document.querySelector("#radar-refresh")?.addEventListener("click", () => void loadFeed(true));
@@ -443,18 +499,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     document.querySelector("#radar-sheet-close")?.addEventListener("click", () => {
       closeSheet();
       state.selectedId = null;
-      renderAll();
+      renderUi();
     });
     document.querySelector("#radar-panel-close")?.addEventListener("click", () => setDrawer(false));
     fabEl.addEventListener("click", () => setDrawer(true));
-    document.querySelector("#radar-locate")?.addEventListener("click", () => {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition((pos) => {
-        void ensureMap().then(() => {
-          map?.easeTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 11, duration: 500 });
-        });
-      });
-    });
 
     window.addEventListener("resize", () => {
       fabEl.hidden = !isMobile() || state.drawerOpen;
@@ -462,7 +510,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         setDrawer(false);
         closeSheet();
       }
-      map?.resize();
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => map?.resize(), 120);
     });
 
     void loadFeed(true);
@@ -470,6 +519,26 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 </RadarLayout>
 
 <style is:global>
+  /* Lock radar shell to the viewport so long feeds scroll inside the panel. */
+  body.shell-radar {
+    overflow: hidden;
+    height: 100dvh;
+  }
+
+  body.shell-radar .app-frame {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  body.shell-radar .app-main--radar {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   .sr-only {
     position: absolute;
     width: 1px;
@@ -483,25 +552,40 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
   .radar {
     position: relative;
-    min-height: calc(100dvh - var(--app-dock-h));
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
     background: var(--color-surface-2);
   }
 
   .radar__map-wrap {
     position: absolute;
     inset: 0;
+    background: #d7e2dd;
+  }
+
+  .radar__map-wrap:not(.is-ready)::after {
+    content: "Karte wird geladen …";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--color-muted);
+    font: 600 0.85rem/1.3 var(--font-body);
+    pointer-events: none;
+    z-index: 1;
   }
 
   .radar__map {
     width: 100%;
     height: 100%;
-    background: #d7e2dd;
   }
 
   .radar__legend {
     position: absolute;
     left: 0.65rem;
-    bottom: 0.65rem;
+    bottom: calc(var(--app-dock-h) + 0.65rem);
     z-index: 2;
     display: flex;
     flex-wrap: wrap;
@@ -522,6 +606,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   .radar__legend [data-tone="resolved"] { color: var(--status-resolved); }
   .radar__legend [data-tone="other"] { color: var(--status-other); }
 
+  .radar__disclaimer {
+    display: none;
+  }
+
   .radar__hud {
     position: relative;
     z-index: 5;
@@ -535,7 +623,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
   .radar__hud-bar {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr;
     gap: 0.5rem;
     align-items: center;
     padding: 0.5rem 0.6rem;
@@ -567,22 +655,14 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     font: 500 0.9rem/1.2 var(--font-body);
   }
 
-  .radar__locate,
-  .radar__text-btn {
-    border: 1px solid var(--color-rule);
-    background: var(--color-surface);
-    border-radius: 999px;
-    padding: 0.48rem 0.75rem;
-    font: 650 0.75rem/1 var(--font-body);
-    cursor: pointer;
-    color: var(--color-ink);
-  }
-
   .radar__text-btn {
     border: 0;
     background: transparent;
-    color: var(--color-accent);
+    border-radius: 999px;
     padding: 0.25rem;
+    font: 650 0.75rem/1 var(--font-body);
+    cursor: pointer;
+    color: var(--color-accent);
   }
 
   .radar__chips {
@@ -604,9 +684,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     left: 0;
     right: 0;
     bottom: 0;
-    max-height: 72dvh;
+    max-height: min(72dvh, calc(100dvh - var(--app-dock-h) - 6rem));
     display: flex;
     flex-direction: column;
+    min-height: 0;
     background: var(--color-surface);
     border-radius: 18px 18px 0 0;
     box-shadow: 0 -12px 40px rgb(15 23 42 / 0.18);
@@ -618,16 +699,13 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     transform: translateY(0);
   }
 
-  .radar__panel[hidden] {
-    display: none !important;
-  }
-
   .radar__panel-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
     padding: 1rem 1rem 0.45rem;
+    flex-shrink: 0;
   }
 
   .radar__panel-head h1 {
@@ -649,12 +727,15 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   .radar__list {
     overflow: auto;
     flex: 1;
+    min-height: 0;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .radar__panel-foot {
-    padding: 0.65rem 1rem 1rem;
+    padding: 0.65rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0));
     border-top: 1px solid var(--color-rule);
+    flex-shrink: 0;
   }
 
   #radar-more {
@@ -748,10 +829,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     box-shadow: 0 10px 24px rgb(15 23 42 / 0.22);
   }
 
-  .radar__disclaimer {
-    display: none;
-  }
-
   .seo-feed-index {
     position: absolute;
     width: 1px;
@@ -769,13 +846,19 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     .radar-skel { animation: none; }
   }
 
-  /* Desktop: A-style split */
+  /* Desktop: viewport-locked split cockpit */
   @media (min-width: 900px) {
+    body.shell-radar .app-top--radar-desktop-only {
+      display: flex;
+      flex-shrink: 0;
+    }
+
     .radar {
       display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      grid-template-rows: auto 1fr;
-      min-height: calc(100dvh - 3.5rem);
+      grid-template-columns: minmax(0, 1.15fr) minmax(20rem, 0.85fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100%;
+      max-height: 100%;
     }
 
     .radar__hud {
@@ -783,6 +866,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       grid-row: 1;
       padding: 0;
       pointer-events: auto;
+      flex-shrink: 0;
     }
 
     .radar__hud-bar {
@@ -792,7 +876,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       border-bottom: 1px solid var(--color-rule);
       background: var(--color-surface);
       backdrop-filter: none;
-      padding: 0.7rem 1rem;
+      padding: 0.65rem 1rem;
+      grid-template-columns: 1fr;
     }
 
     .radar__brand {
@@ -801,10 +886,9 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     .radar__chips {
       margin: 0;
-      padding: 0.55rem 1rem;
+      padding: 0.5rem 1rem;
       background: var(--color-surface);
       border-bottom: 1px solid var(--color-rule);
-      box-shadow: none;
     }
 
     .radar__chips .radar-chip {
@@ -815,29 +899,12 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       position: relative;
       grid-column: 1;
       grid-row: 2;
+      min-height: 0;
       border-right: 1px solid var(--color-rule);
     }
 
-    .radar__panel {
-      position: relative;
-      grid-column: 2;
-      grid-row: 2;
-      max-height: none;
-      height: 100%;
-      transform: none;
-      border-radius: 0;
-      box-shadow: none;
-      transition: none;
-    }
-
-    .radar__panel-close,
-    .radar__fab,
-    .radar__sheet {
-      display: none !important;
-    }
-
-    .radar__list {
-      max-height: none;
+    .radar__legend {
+      bottom: 0.65rem;
     }
 
     .radar__disclaimer {
@@ -855,6 +922,29 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       font-size: 0.68rem;
       line-height: 1.35;
       pointer-events: none;
+    }
+
+    .radar__panel {
+      position: relative;
+      grid-column: 2;
+      grid-row: 2;
+      max-height: none;
+      height: 100%;
+      min-height: 0;
+      transform: none;
+      border-radius: 0;
+      box-shadow: none;
+      transition: none;
+    }
+
+    .radar__panel-close,
+    .radar__fab,
+    .radar__sheet {
+      display: none !important;
+    }
+
+    .radar__panel-foot {
+      padding-bottom: 0.85rem;
     }
   }
 </style>
