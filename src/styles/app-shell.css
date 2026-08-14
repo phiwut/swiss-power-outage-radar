@@ -323,6 +323,47 @@ body.shell-app {
   background: color-mix(in oklch, var(--row-tone) 8%, var(--color-surface));
 }
 
+.radar-row__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+}
+
+.radar-row__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font: 750 0.92rem/1 var(--font-body);
+  white-space: nowrap;
+}
+
+.radar-row:hover .radar-row__cta {
+  background: color-mix(in oklch, var(--color-ink) 82%, white);
+}
+
+.radar-row.is-selected .radar-row__cta {
+  background: var(--color-danger);
+}
+
+.radar-row__cta::after {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid currentColor;
+  border-top: 2px solid currentColor;
+  transform: rotate(45deg);
+  translate: 0 -1px;
+}
+
 .radar-row__top {
   display: flex;
   justify-content: space-between;
@@ -348,7 +389,9 @@ body.shell-app {
 }
 
 .radar-row__meta {
-  margin-top: 0.35rem;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font: 500 0.72rem/1.3 var(--font-mono);
   color: var(--color-faint);
 }

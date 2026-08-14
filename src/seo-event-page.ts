@@ -309,16 +309,31 @@ function renderIncidentAnswers(detail: PublicEventDetail): string {
     ["Ursache", item.cause ?? "Noch nicht öffentlich bekannt", item.cause ? "Gemeldet" : "Offen"],
     ["Betroffenes Gebiet", item.affected_area ?? location, "Gemeldet"]
   ] as Array<[string, string, AnswerState]>;
-  return `<section class="answers-block" aria-labelledby="answers-heading">
-    <div class="section-heading"><span>Schnellantworten</span><h2 id="answers-heading">Was zum Stromausfall in ${escapeHtml(location)} bekannt ist</h2></div>
-    <div class="answer-grid">${rows.map(([label, value, state]) => `<div class="${state === "Offen" ? "is-open" : "is-known"}"><span>${state}</span><h3>${escapeHtml(label)}</h3><p>${escapeHtml(value)}</p></div>`).join("")}</div>
+  const known = rows.filter((row) => row[2] !== "Offen").length;
+  return `<section class="answers-block fold-block" aria-labelledby="answers-heading">
+    <details>
+      <summary>
+        <span class="fold-kicker">Abgleich</span>
+        <strong>Was bestätigt ist</strong>
+        <span class="fold-hint">${known} von ${rows.length} Angaben belegt</span>
+      </summary>
+      <h2 id="answers-heading">Was zum Stromausfall in ${escapeHtml(location)} bekannt ist</h2>
+      <div class="answer-grid">${rows.map(([label, value, state]) => `<div class="${state === "Offen" ? "is-open" : "is-known"}"><span>${state}</span><h3>${escapeHtml(label)}</h3><p>${escapeHtml(value)}</p></div>`).join("")}</div>
+    </details>
   </section>`;
 }
 
 function renderFaq(detail: PublicEventDetail): string {
-  return `<section class="event-faq" aria-labelledby="faq-heading">
-    <div class="section-heading"><span>FAQ</span><h2 id="faq-heading">Häufige Fragen zu diesem Vorfall</h2></div>
-    ${eventFaq(detail).map((faq) => `<details><summary>${escapeHtml(faq.question)}</summary><p>${escapeHtml(faq.answer)}</p></details>`).join("")}
+  const faqs = eventFaq(detail);
+  return `<section class="event-faq fold-block" aria-labelledby="faq-heading">
+    <details>
+      <summary>
+        <span class="fold-kicker">FAQ</span>
+        <strong id="faq-heading">Häufige Fragen zu diesem Vorfall</strong>
+        <span class="fold-hint">${faqs.length} Fragen</span>
+      </summary>
+      ${faqs.map((faq) => `<details><summary>${escapeHtml(faq.question)}</summary><p>${escapeHtml(faq.answer)}</p></details>`).join("")}
+    </details>
   </section>`;
 }
 
@@ -352,11 +367,31 @@ function renderRelatedEvents(related: PublicFeedItem[]): string {
   </section>`;
 }
 
+function renderOperator(operator: PublicEventDetail["operator"]): string {
+  if (!operator) return "";
+  return `<aside class="operator-block" aria-labelledby="operator-heading">
+    <div class="operator-copy">
+      <span>${escapeHtml(operator.role)}</span>
+      <h2 id="operator-heading">${escapeHtml(operator.name)}</h2>
+      ${operator.area ? `<p>${escapeHtml(operator.area)}</p>` : ""}
+    </div>
+    <a href="${escapeHtml(operator.url)}" target="_blank" rel="noreferrer">Beim Betreiber öffnen</a>
+  </aside>`;
+}
+
+function renderTimeline(detail: PublicEventDetail): string {
+  if (!detail.timeline.length) return "";
+  return `<ol class="brief__times">${detail.timeline.map((entry) =>
+    `<li><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(formatDate(entry.value))}</strong></li>`
+  ).join("")}</ol>`;
+}
+
 export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicFeedItem[] = []): string {
   const item = detail.item;
   const location = eventLocation(detail);
   const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
   const hasMap = Boolean(detail.map);
+  const statusClass = item.status ?? "historical";
   const factRows = [
     ["Art", item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Noch unklar"],
     ["Status", statusText(detail)],
@@ -366,20 +401,28 @@ export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicF
     ["Betroffene Region", item.affected_area ?? location],
     ["Ursache", item.cause]
   ].filter((row) => row[1]);
-  return `<article class="event-brief seo-event">
-    <header class="event-hero ${hasMap ? "has-map map-loading" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(detail.map!.label)}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(detail.map!.label)}</strong><small>Karte wird geladen</small></div>` : ""}<div class="hero-wash"></div><div class="hero-copy">
-      <div class="hero-meta"><span class="trust-mark"><i></i>${escapeHtml(item.trust === "official" ? "Offizielle Quelle" : "Nachvollziehbar gemeldet")}</span><span>Aktualisiert ${escapeHtml(formatDate(item.updated_at))}</span></div>
-      <p class="hero-statusline">${escapeHtml(statusLine(detail))}</p>
-      <h1>${escapeHtml(kind)} in ${escapeHtml(location)}</h1><p>${escapeHtml(consistentSummary(detail))}</p>
-    </div>${hasMap ? `<span class="map-place">${escapeHtml(detail.map!.label)}</span>` : ""}</header>
-    <section class="fact-strip"><h2>Informationen zum Vorfall</h2><dl>${factRows.map(([label, value]) =>
-      `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>
-    <div class="detail-flow">
-      ${renderIncidentAnswers(detail)}
-      <section class="timeline-block"><div class="section-heading"><span>Verlauf</span><h2>Zeitliche Einordnung</h2></div>
-      <ol>${detail.timeline.map((entry) => `<li><span class="timeline-mark"></span><div><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(formatDate(entry.value))}</strong></div></li>`).join("")}</ol></section>
-      ${renderSourceCards(detail)}
-      ${renderFaq(detail)}
+  return `<article class="event-brief seo-event" data-status="${escapeHtml(statusClass)}">
+    <header class="brief">
+      <div class="brief__copy">
+        <div class="brief__kicker">
+          <span class="radar-badge radar-badge--${escapeHtml(statusClass)}">${escapeHtml(statusText(detail))}</span>
+          <span class="trust-mark"><i></i>${escapeHtml(item.trust === "official" ? "Offizielle Quelle" : "Nachvollziehbar gemeldet")}</span>
+          <span>Aktualisiert ${escapeHtml(formatDate(item.updated_at))}</span>
+        </div>
+        <p class="hero-statusline">${escapeHtml(statusLine(detail))}</p>
+        <h1>${escapeHtml(kind)} in ${escapeHtml(location)}</h1>
+        <p class="brief__lede">${escapeHtml(consistentSummary(detail))}</p>
+        <section class="fact-strip"><h2>Informationen zum Vorfall</h2><dl>${factRows.map(([label, value]) =>
+          `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>
+        ${renderTimeline(detail)}
+        ${renderOperator(detail.operator)}
+      </div>
+      <div class="brief__map event-hero ${hasMap ? "has-map map-loading" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(detail.map!.label)}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(detail.map!.label)}</strong><small>Karte wird geladen</small></div>` : ""}<div class="hero-wash"></div>${hasMap ? `<span class="map-place">${escapeHtml(detail.map!.label)}</span>` : ""}</div>
+    </header>
+    ${renderSourceCards(detail)}
+    ${renderIncidentAnswers(detail)}
+    ${renderFaq(detail)}
+    <div class="brief__more">
       ${renderRelatedEvents(related)}
       ${renderKnowledgeLinks()}
     </div>

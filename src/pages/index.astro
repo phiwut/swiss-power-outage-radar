@@ -70,7 +70,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
       <div id="radar-sheet-body"></div>
-      <a id="radar-sheet-link" class="radar__cta" href="#">Details öffnen</a>
+      <a id="radar-sheet-link" class="radar__cta" href="#">Meldung öffnen</a>
     </div>
 
     <button type="button" id="radar-list-fab" class="radar__fab" aria-controls="radar-panel">
@@ -365,7 +365,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
             <span class="radar-badge radar-badge--${escapeHtml(badge)}">${escapeHtml(statusLabel(item.status))}</span>
           </div>
           <p>${escapeHtml(item.summary)}</p>
-          <div class="radar-row__meta">${escapeHtml(natureLabel(item.nature))} · ${escapeHtml(item.source.publisher)}${selected ? ` · <span data-nav>Details öffnen</span>` : ""}</div>
+          <div class="radar-row__foot">
+            <div class="radar-row__meta">${escapeHtml(natureLabel(item.nature))} · ${escapeHtml(item.source.publisher)}</div>
+            <span class="radar-row__cta" data-nav>Meldung öffnen</span>
+          </div>
         </a>`;
     }
 
@@ -521,9 +524,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (!row) return;
       const mouse = ev as MouseEvent;
       if (t.closest("[data-nav]") || mouse.metaKey || mouse.ctrlKey || mouse.shiftKey || mouse.button === 1) return;
-      ev.preventDefault();
       const id = Number(row.dataset.id);
       if (!Number.isFinite(id)) return;
+      if (!isMobile() && state.selectedId === id) return;
+      ev.preventDefault();
       selectItem(id, { openSheet: isMobile() });
     });
 
@@ -932,17 +936,29 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   }
 
   .radar__cta {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    margin-top: 0.85rem;
-    padding: 0.65rem 1.1rem;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 52px;
+    margin-top: 1rem;
+    padding: 0.8rem 1.15rem;
     border-radius: 999px;
     background: var(--color-ink);
     color: var(--color-surface);
-    font: 750 0.9rem/1 var(--font-body);
+    font: 750 1.05rem/1 var(--font-body);
     text-decoration: none;
+  }
+
+  .radar__cta::after {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    border-right: 2.5px solid currentColor;
+    border-top: 2.5px solid currentColor;
+    transform: rotate(45deg);
+    translate: 0 -1px;
   }
 
   .radar__fab {
