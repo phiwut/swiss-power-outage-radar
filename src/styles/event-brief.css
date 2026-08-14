@@ -33,12 +33,12 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
   overflow: hidden;
   border: 1px solid var(--color-rule);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   background:
-    radial-gradient(rgba(18, 21, 26, 0.04) 0.55px, transparent 0.7px),
+    radial-gradient(rgba(18, 21, 26, 0.025) 0.55px, transparent 0.7px),
     var(--color-surface);
   background-size: 3px 3px, auto;
-  box-shadow: 0 18px 40px color-mix(in oklch, var(--color-ink) 7%, transparent);
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--color-ink) 5%, transparent);
 }
 
 .brief::before {
@@ -300,14 +300,15 @@
   align-items: center;
   gap: 0.85rem;
   margin-top: 0.25rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0.7rem;
-  background: var(--color-ink);
-  color: #fff;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-ink);
 }
 
 .operator-copy > span {
-  color: rgb(255 255 255 / 0.58);
+  color: var(--color-faint);
   font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.08em;
@@ -317,13 +318,14 @@
 .operator-copy h2 {
   margin: 0.15rem 0 0;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  font-weight: 650;
   letter-spacing: -0.03em;
 }
 
 .operator-copy p {
   margin: 0.25rem 0 0;
-  color: rgb(255 255 255 / 0.7);
+  color: var(--color-muted);
   font-size: 0.85rem;
 }
 
@@ -332,20 +334,20 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  min-height: 44px;
-  padding: 0.6rem 0.95rem;
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-ink);
+  min-height: 40px;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--color-ink);
+  color: var(--color-surface);
   font-size: 0.8rem;
-  font-weight: 750;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .operator-block > a:hover {
-  background: var(--color-danger);
-  color: white;
+  background: color-mix(in oklch, var(--color-ink) 88%, white);
+  color: var(--color-surface);
 }
 
 .answers-block,

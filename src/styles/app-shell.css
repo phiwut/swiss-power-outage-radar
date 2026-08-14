@@ -2,7 +2,7 @@
 
 :root {
   --app-dock-h: 3.65rem;
-  --app-radius: 14px;
+  --app-radius: 0.625rem;
   --status-active: var(--color-danger);
   --status-upcoming: var(--color-warn);
   --status-resolved: var(--color-ok);
@@ -85,7 +85,7 @@ body.shell-app {
   color: var(--color-muted);
   text-decoration: none;
   padding: 0.45rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -98,17 +98,7 @@ body.shell-app {
 
 .app-top__nav a[aria-current="page"] {
   color: var(--color-ink);
-}
-
-.app-top__nav a[aria-current="page"]::after {
-  content: "";
-  position: absolute;
-  left: 0.7rem;
-  right: 0.7rem;
-  bottom: 0.28rem;
-  height: 2px;
-  border-radius: 99px;
-  background: var(--color-ink);
+  background: var(--color-surface-2);
 }
 
 .app-main {
@@ -183,91 +173,91 @@ body.shell-app {
 }
 
 /* Radar status chips / rows shared */
+.radar-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.radar-mark--triangle {
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-bottom: 8px solid currentColor;
+}
+
+.radar-mark--square {
+  width: 8px;
+  height: 8px;
+  border-radius: 1.5px;
+  background: currentColor;
+}
+
+.radar-mark--mixed {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  background: linear-gradient(135deg, currentColor 49%, transparent 50%);
+}
+
 .radar-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
   border: 1px solid var(--color-rule);
   background: var(--color-surface);
-  color: var(--color-ink);
-  border-radius: 999px;
-  min-height: 44px;
-  padding: 0.35rem 0.85rem;
-  font: 650 0.82rem/1.2 var(--font-body);
+  color: var(--color-muted);
+  border-radius: var(--radius-md);
+  min-height: 40px;
+  padding: 0.3rem 0.7rem;
+  font: 500 0.8rem/1.2 var(--font-body);
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
+  box-shadow: none;
 }
 
 .radar-chip__dot {
-  width: 0.48rem;
-  height: 0.48rem;
+  width: 0.45rem;
+  height: 0.45rem;
   border-radius: 99px;
   background: currentColor;
   flex-shrink: 0;
 }
 
-.radar-chip[data-tone="all"] .radar-chip__dot { background: var(--color-ink); }
+.radar-chip[data-tone="all"] .radar-chip__dot { background: var(--color-faint); }
 .radar-chip[data-tone="active"] .radar-chip__dot { background: var(--status-active); }
 .radar-chip[data-tone="upcoming"] .radar-chip__dot { background: var(--status-upcoming); }
 .radar-chip[data-tone="resolved"] .radar-chip__dot { background: var(--status-resolved); }
 .radar-chip[data-tone="historical"] .radar-chip__dot { background: var(--status-other); }
 
 .radar-chip[aria-pressed="true"] {
-  color: white;
-}
-
-.radar-chip[aria-pressed="true"] .radar-chip__dot {
-  background: white;
-}
-
-.radar-chip[data-tone="all"][aria-pressed="true"] {
-  background: var(--color-ink);
-  border-color: var(--color-ink);
-}
-
-.radar-chip[data-tone="active"][aria-pressed="true"] {
-  background: var(--status-active);
-  border-color: var(--status-active);
-}
-
-.radar-chip[data-tone="upcoming"][aria-pressed="true"] {
-  background: var(--status-upcoming);
-  border-color: var(--status-upcoming);
-}
-
-.radar-chip[data-tone="resolved"][aria-pressed="true"] {
-  background: var(--status-resolved);
-  border-color: var(--status-resolved);
-}
-
-.radar-chip[data-tone="historical"][aria-pressed="true"] {
-  background: var(--color-muted);
-  border-color: var(--color-muted);
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  border-color: color-mix(in oklch, var(--color-ink) 16%, var(--color-rule));
 }
 
 .radar-chip:hover {
-  border-color: var(--color-rule-strong);
-}
-
-.radar-chip[aria-pressed="true"]:hover {
-  filter: brightness(1.05);
+  border-color: color-mix(in oklch, var(--color-ink) 14%, var(--color-rule));
+  background: var(--color-surface-2);
 }
 
 .radar-chip .n {
-  opacity: 0.72;
+  opacity: 0.62;
   margin-left: 0.08rem;
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
 }
 
 .radar-badge {
-  font: 650 0.66rem/1 var(--font-mono);
+  font: 550 0.66rem/1 var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 0.28rem 0.42rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
 }
 
@@ -298,7 +288,7 @@ body.shell-app {
   text-align: left;
   border: 0;
   border-bottom: 1px solid var(--color-rule);
-  border-left: 3px solid var(--row-tone, var(--color-rule));
+  border-left: 2px solid var(--row-tone, var(--color-rule));
   background: transparent;
   padding: 0.95rem 1rem 0.95rem 0.95rem;
   color: inherit;
@@ -337,21 +327,21 @@ body.shell-app {
   justify-content: center;
   gap: 0.45rem;
   width: 100%;
-  min-height: 46px;
+  min-height: 40px;
   padding: 0 1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-md);
   background: var(--color-ink);
   color: var(--color-surface);
-  font: 750 0.92rem/1 var(--font-body);
+  font: 600 0.875rem/1 var(--font-body);
   white-space: nowrap;
 }
 
 .radar-row:hover .radar-row__cta {
-  background: color-mix(in oklch, var(--color-ink) 82%, white);
+  background: color-mix(in oklch, var(--color-ink) 88%, white);
 }
 
 .radar-row.is-selected .radar-row__cta {
-  background: var(--color-danger);
+  background: var(--color-ink);
 }
 
 .radar-row__cta::after {
@@ -372,9 +362,16 @@ body.shell-app {
 }
 
 .radar-row h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
   margin: 0;
-  font: 750 0.98rem/1.25 var(--font-display);
+  font: 650 0.95rem/1.25 var(--font-display);
   letter-spacing: -0.02em;
+}
+
+.radar-row h2 .radar-mark {
+  color: var(--row-tone);
 }
 
 .radar-row p {

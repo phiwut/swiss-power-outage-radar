@@ -22,8 +22,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     <div class="radar__map-wrap">
       <div id="radar-map" class="radar__map" role="img" aria-label="Karte der Stromausfall-Meldungen"></div>
       <div class="radar__legend">
+        <span data-shape="unplanned"><i class="radar-mark radar-mark--triangle" aria-hidden="true"></i>Ungeplant</span>
+        <span data-shape="planned"><i class="radar-mark radar-mark--square" aria-hidden="true"></i>Geplant</span>
         <span data-tone="active"><i aria-hidden="true"></i>Aktiv</span>
-        <span data-tone="upcoming"><i aria-hidden="true"></i>Geplant</span>
+        <span data-tone="upcoming"><i aria-hidden="true"></i>Bevorstehend</span>
         <span data-tone="resolved"><i aria-hidden="true"></i>Behoben</span>
         <span data-tone="other"><i aria-hidden="true"></i>Archiv</span>
       </div>
@@ -39,7 +41,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
           <input id="radar-search" type="search" placeholder="Ort oder Region" autocomplete="off" enterkeyhint="search" />
         </label>
       </div>
-      <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
+      <div class="radar__filters">
+        <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
+        <div id="radar-nature" class="radar__chips radar__chips--nature" role="toolbar" aria-label="Art filtern"></div>
+      </div>
     </header>
 
     <aside class="radar__panel" id="radar-panel" inert aria-hidden="true">
@@ -100,16 +105,22 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     const STATUS_FILTERS = [
       { key: "", label: "Alle", tone: "all" },
       { key: "active", label: "Aktiv", tone: "active" },
-      { key: "upcoming", label: "Geplant", tone: "upcoming" },
+      { key: "upcoming", label: "Bevorstehend", tone: "upcoming" },
       { key: "resolved", label: "Behoben", tone: "resolved" },
       { key: "historical", label: "Archiv", tone: "historical" }
     ] as const;
 
+    const NATURE_FILTERS = [
+      { key: "", label: "Alle Arten", mark: "mixed" },
+      { key: "unplanned", label: "Ungeplant", mark: "triangle" },
+      { key: "planned", label: "Geplant", mark: "square" }
+    ] as const;
+
     const COLOR: Record<Category, string> = {
-      active: "#C41E3A",
-      upcoming: "#B45309",
-      resolved: "#1F7A4D",
-      other: "#5B6470"
+      active: "#B5474C",
+      upcoming: "#B56A1A",
+      resolved: "#3F7A5C",
+      other: "#6B7280"
     };
 
     const CANTON_CENTROIDS: Record<string, [number, number]> = {
@@ -129,6 +140,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       nextCursor: null as string | null,
       query: "",
       status: "",
+      nature: "" as "" | "planned" | "unplanned",
       selectedId: null as number | null,
       loading: false,
       error: null as string | null,
@@ -146,6 +158,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     const listEl = document.querySelector<HTMLElement>("#radar-list")!;
     const chipsEl = document.querySelector<HTMLElement>("#radar-chips")!;
+    const natureEl = document.querySelector<HTMLElement>("#radar-nature")!;
     const countEl = document.querySelector<HTMLElement>("#radar-count")!;
     const noteEl = document.querySelector<HTMLElement>("#radar-note")!;
     const moreBtn = document.querySelector<HTMLButtonElement>("#radar-more")!;
@@ -174,7 +187,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     const statusLabel = (status: PublicItem["status"]) => {
       if (status === "active") return "Aktiv";
-      if (status === "upcoming") return "Geplant";
+      if (status === "upcoming") return "Bevorstehend";
       if (status === "resolved") return "Behoben";
       if (status === "stale_unconfirmed") return "Unbestätigt";
       if (status === "historical") return "Archiv";
@@ -186,6 +199,14 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (nature === "unplanned") return "ungeplant";
       return "unklar";
     };
+
+    const natureShape = (nature: PublicItem["nature"]) =>
+      nature === "planned" ? "square" : "triangle";
+
+    const markHtml = (shape: "triangle" | "square" | "mixed") =>
+      shape === "mixed"
+        ? `<i class="radar-mark radar-mark--mixed" aria-hidden="true"></i>`
+        : `<i class="radar-mark radar-mark--${shape}" aria-hidden="true"></i>`;
 
     const isMobile = () => window.matchMedia("(max-width: 899px)").matches;
 
@@ -224,6 +245,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         } else if (state.status && item.status !== state.status) {
           return false;
         }
+        if (state.nature === "planned" && item.nature !== "planned") return false;
+        if (state.nature === "unplanned" && item.nature === "planned") return false;
         if (!q) return true;
         const hay = `${item.location} ${item.canton ?? ""} ${item.summary} ${item.cause ?? ""}`.toLowerCase();
         return hay.includes(q);
@@ -235,17 +258,79 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         .map((item) => {
           const coords = pinFor(item);
           if (!coords) return null;
+          const selected = state.selectedId === item.id;
           return {
             type: "Feature" as const,
             properties: {
               id: item.id,
               color: COLOR[categorize(item.status)],
-              selected: state.selectedId === item.id ? 1 : 0
+              icon: markerId(natureShape(item.nature), COLOR[categorize(item.status)], selected),
+              selected: selected ? 1 : 0
             },
             geometry: { type: "Point" as const, coordinates: coords }
           };
         })
         .filter(Boolean);
+
+    function markerId(shape: "triangle" | "square", color: string, selected: boolean) {
+      return `pin-${shape}-${color.replace("#", "")}-${selected ? "s" : "n"}`;
+    }
+
+    function drawMarker(shape: "triangle" | "square", color: string, selected: boolean) {
+      const dpr = 2;
+      const size = (selected ? 30 : 22) * dpr;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      const pad = (selected ? 3.5 : 3) * dpr;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.lineWidth = 2.2 * dpr;
+      ctx.fillStyle = color;
+      ctx.strokeStyle = "#fff";
+      ctx.beginPath();
+      if (shape === "triangle") {
+        ctx.moveTo(size / 2, pad);
+        ctx.lineTo(size - pad, size - pad * 0.85);
+        ctx.lineTo(pad, size - pad * 0.85);
+        ctx.closePath();
+      } else {
+        const r = 2.5 * dpr;
+        const x = pad;
+        const y = pad;
+        const w = size - pad * 2;
+        const h = size - pad * 2;
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+      }
+      ctx.fill();
+      ctx.stroke();
+      return {
+        width: size,
+        height: size,
+        data: new Uint8Array(ctx.getImageData(0, 0, size, size).data)
+      };
+    }
+
+    function ensureMarkerImages(items: PublicItem[]) {
+      if (!map) return;
+      for (const item of items) {
+        if (!pinFor(item)) continue;
+        const shape = natureShape(item.nature);
+        const color = COLOR[categorize(item.status)];
+        for (const selected of [false, true]) {
+          const id = markerId(shape, color, selected);
+          if (!map.hasImage(id)) {
+            map.addImage(id, drawMarker(shape, color, selected), { pixelRatio: 2 });
+          }
+        }
+      }
+    }
 
     async function ensureMap() {
       if (map) return map;
@@ -287,31 +372,37 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         if (!map.getSource("outages")) {
           map.addSource("outages", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
           map.addLayer({
-            id: "outages-halo",
-            type: "circle",
-            source: "outages",
-            paint: { "circle-radius": 14, "circle-color": ["get", "color"], "circle-opacity": 0.16 }
-          });
-          map.addLayer({
-            id: "outages-point",
+            id: "outages-hit",
             type: "circle",
             source: "outages",
             paint: {
-              "circle-radius": ["case", ["==", ["get", "selected"], 1], 8, 5.5],
-              "circle-color": ["get", "color"],
-              "circle-stroke-color": "#ffffff",
-              "circle-stroke-width": 2
+              "circle-radius": 16,
+              "circle-color": "#000",
+              "circle-opacity": 0
             }
           });
-          map.on("click", "outages-point", (e: any) => {
+          map.addLayer({
+            id: "outages-point",
+            type: "symbol",
+            source: "outages",
+            layout: {
+              "icon-image": ["get", "icon"],
+              "icon-size": 1,
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true
+            }
+          });
+          const pick = (e: any) => {
             const id = Number(e.features?.[0]?.properties?.id);
             if (!Number.isFinite(id)) return;
             selectItem(id, { openSheet: isMobile() });
-          });
-          map.on("mouseenter", "outages-point", () => {
+          };
+          map.on("click", "outages-hit", pick);
+          map.on("click", "outages-point", pick);
+          map.on("mouseenter", "outages-hit", () => {
             map.getCanvas().style.cursor = "pointer";
           });
-          map.on("mouseleave", "outages-point", () => {
+          map.on("mouseleave", "outages-hit", () => {
             map.getCanvas().style.cursor = "";
           });
         }
@@ -326,6 +417,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     function syncPins(fit = false) {
       if (!map || !mapReady) return;
       const items = filtered();
+      ensureMarkerImages(items);
       const features = featuresFor(items);
       map.getSource("outages")?.setData({ type: "FeatureCollection", features });
 
@@ -343,7 +435,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       }
 
       if (!fit || features.length === 0) return;
-      const fitKey = `${state.status}|${state.query}|${features.length}`;
+      const fitKey = `${state.status}|${state.nature}|${state.query}|${features.length}`;
       if (fitKey === lastFitKey) return;
       lastFitKey = fitKey;
       const bounds = new maplibregl.LngLatBounds();
@@ -358,10 +450,11 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     function rowHtml(item: PublicItem, selected: boolean) {
       const badge = item.status ?? "historical";
       const tone = categorize(item.status);
+      const shape = natureShape(item.nature);
       return `
         <a class="radar-row radar-row--${tone} ${selected ? "is-selected" : ""}" href="${escapeHtml(item.url)}" data-id="${item.id}">
           <div class="radar-row__top">
-            <h2>${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
+            <h2>${markHtml(shape)} ${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
             <span class="radar-badge radar-badge--${escapeHtml(badge)}">${escapeHtml(statusLabel(item.status))}</span>
           </div>
           <p>${escapeHtml(item.summary)}</p>
@@ -373,17 +466,25 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     }
 
     function renderChips() {
-      const counts: Record<string, number> = { "": 0, active: 0, upcoming: 0, resolved: 0, historical: 0 };
+      const statusCounts: Record<string, number> = { "": 0, active: 0, upcoming: 0, resolved: 0, historical: 0 };
+      const natureCounts: Record<string, number> = { "": 0, planned: 0, unplanned: 0 };
       for (const item of state.items) {
-        counts[""] += 1;
-        if (item.status === "active") counts.active += 1;
-        else if (item.status === "upcoming") counts.upcoming += 1;
-        else if (item.status === "resolved") counts.resolved += 1;
-        else counts.historical += 1;
+        statusCounts[""] += 1;
+        if (item.status === "active") statusCounts.active += 1;
+        else if (item.status === "upcoming") statusCounts.upcoming += 1;
+        else if (item.status === "resolved") statusCounts.resolved += 1;
+        else statusCounts.historical += 1;
+        natureCounts[""] += 1;
+        if (item.nature === "planned") natureCounts.planned += 1;
+        else natureCounts.unplanned += 1;
       }
       chipsEl.innerHTML = STATUS_FILTERS.map(
         (f) =>
-          `<button type="button" class="radar-chip" data-status="${f.key}" data-tone="${f.tone}" aria-pressed="${state.status === f.key}"><i class="radar-chip__dot" aria-hidden="true"></i>${f.label}<span class="n">${counts[f.key] ?? 0}</span></button>`
+          `<button type="button" class="radar-chip" data-status="${f.key}" data-tone="${f.tone}" aria-pressed="${state.status === f.key}"><i class="radar-chip__dot" aria-hidden="true"></i>${f.label}<span class="n">${statusCounts[f.key] ?? 0}</span></button>`
+      ).join("");
+      natureEl.innerHTML = NATURE_FILTERS.map(
+        (f) =>
+          `<button type="button" class="radar-chip" data-nature="${f.key}" aria-pressed="${state.nature === f.key}">${markHtml(f.mark)}${f.label}<span class="n">${natureCounts[f.key] ?? 0}</span></button>`
       ).join("");
     }
 
@@ -414,7 +515,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (!item) return;
       sheetBody.innerHTML = `
         <div class="radar-row__top">
-          <h2>${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
+          <h2>${markHtml(natureShape(item.nature))} ${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
           <span class="radar-badge radar-badge--${escapeHtml(item.status ?? "historical")}">${escapeHtml(statusLabel(item.status))}</span>
         </div>
         <p>${escapeHtml(item.summary)}</p>
@@ -506,6 +607,17 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       renderUi({ fitMap: true });
     });
 
+    natureEl.addEventListener("click", (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-nature]");
+      if (!btn) return;
+      const next = (btn.dataset.nature ?? "") as typeof state.nature;
+      state.nature = next;
+      state.selectedId = null;
+      closeSheet();
+      lastFitKey = "";
+      renderUi({ fitMap: true });
+    });
+
     listEl.addEventListener("click", (ev) => {
       const t = ev.target as HTMLElement;
       if (t.closest("[data-retry]")) {
@@ -515,6 +627,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (t.closest("[data-reset]")) {
         state.query = "";
         state.status = "";
+        state.nature = "";
         searchEl.value = "";
         lastFitKey = "";
         renderUi({ fitMap: true });
@@ -649,12 +762,12 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    background: rgb(255 252 247 / 0.92);
+    background: color-mix(in oklch, var(--color-surface) 92%, transparent);
     border: 1px solid var(--color-rule);
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     padding: 0.28rem 0.55rem;
-    color: var(--color-ink);
-    font: 650 0.65rem/1.2 var(--font-mono);
+    color: var(--color-muted);
+    font: 500 0.65rem/1.2 var(--font-body);
   }
 
   .radar__legend i {
@@ -662,6 +775,24 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     height: 0.45rem;
     border-radius: 99px;
     background: currentColor;
+  }
+
+  .radar__legend .radar-mark--triangle,
+  .radar__legend .radar-mark--square {
+    width: auto;
+    height: auto;
+    color: var(--color-ink);
+  }
+
+  .radar__legend .radar-mark--square {
+    width: 7px;
+    height: 7px;
+    background: var(--color-ink);
+  }
+
+  .radar__legend .radar-mark--triangle {
+    border-bottom-color: var(--color-ink);
+    background: none;
   }
 
   .radar__legend [data-tone="active"] i { color: var(--status-active); }
@@ -691,15 +822,15 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     align-items: center;
     padding: 0.42rem 0.5rem;
     border-radius: var(--app-radius);
-    background: rgb(255 252 247 / 0.9);
-    border: 1px solid rgb(255 255 255 / 0.55);
-    box-shadow: 0 12px 32px rgb(18 21 26 / 0.12);
+    background: color-mix(in oklch, var(--color-surface) 88%, transparent);
+    border: 1px solid var(--color-rule);
+    box-shadow: 0 8px 24px color-mix(in oklch, var(--color-ink) 8%, transparent);
   }
 
   @supports (backdrop-filter: blur(12px)) {
     .radar__hud-bar {
-      background: rgb(255 252 247 / 0.72);
-      backdrop-filter: blur(16px) saturate(1.15);
+      background: color-mix(in oklch, var(--color-surface) 72%, transparent);
+      backdrop-filter: blur(16px) saturate(1.05);
     }
   }
 
@@ -732,37 +863,43 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
   .radar__search input {
     width: 100%;
-    min-height: 44px;
+    min-height: 40px;
     border: 1px solid var(--color-rule);
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     padding: 0.45rem 0.85rem 0.45rem 2.15rem;
     background: var(--color-surface);
-    font: 500 1rem/1.2 var(--font-body);
+    color: var(--color-ink);
+    font: 500 0.95rem/1.2 var(--font-body);
   }
 
   .radar__icon-btn {
     border: 0;
     background: transparent;
-    border-radius: 999px;
-    min-height: 44px;
+    border-radius: var(--radius-md);
+    min-height: 40px;
     padding: 0.35rem 0.55rem;
-    font: 650 0.78rem/1 var(--font-body);
+    font: 550 0.78rem/1 var(--font-body);
     cursor: pointer;
-    color: var(--color-accent);
+    color: var(--color-muted);
+  }
+
+  .radar__filters {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
   }
 
   .radar__chips {
     display: flex;
-    gap: 0.4rem;
+    gap: 0.35rem;
     overflow-x: auto;
-    margin-top: 0.55rem;
-    padding: 0 0.1rem 0.2rem;
+    padding: 0 0.1rem 0.15rem;
     -webkit-overflow-scrolling: touch;
     mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 1.4rem), transparent);
   }
 
   .radar__chips .radar-chip {
-    box-shadow: 0 4px 12px rgb(18 21 26 / 0.08);
+    box-shadow: none;
     flex: none;
   }
 
@@ -777,8 +914,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     flex-direction: column;
     min-height: 0;
     background: var(--color-surface);
-    border-radius: 18px 18px 0 0;
-    box-shadow: 0 -12px 40px rgb(18 21 26 / 0.18);
+    border-radius: 0.75rem 0.75rem 0 0;
+    box-shadow: 0 -8px 28px color-mix(in oklch, var(--color-ink) 10%, transparent);
     transform: translateY(110%);
     transition: transform 0.28s var(--ease-out);
   }
@@ -842,10 +979,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     width: 100%;
     border: 1px solid var(--color-rule);
     background: var(--color-surface);
-    border-radius: 999px;
-    min-height: 44px;
+    border-radius: var(--radius-md);
+    min-height: 40px;
     padding: 0.65rem;
-    font: 650 0.85rem/1 var(--font-body);
+    font: 550 0.85rem/1 var(--font-body);
     cursor: pointer;
     color: var(--color-ink);
   }
@@ -892,7 +1029,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     border-radius: var(--app-radius);
     background: var(--color-surface);
     border: 1px solid var(--color-rule);
-    box-shadow: 0 16px 40px rgb(18 21 26 / 0.16);
+    box-shadow: 0 12px 32px color-mix(in oklch, var(--color-ink) 10%, transparent);
   }
 
   .radar__sheet[hidden] {
@@ -918,10 +1055,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     right: 0.45rem;
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border: 0;
-    border-radius: 99px;
+    border-radius: var(--radius-md);
     background: var(--color-surface-2);
     color: var(--color-muted);
     cursor: pointer;
@@ -941,13 +1078,13 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     justify-content: center;
     gap: 0.45rem;
     width: 100%;
-    min-height: 52px;
+    min-height: 44px;
     margin-top: 1rem;
-    padding: 0.8rem 1.15rem;
-    border-radius: 999px;
+    padding: 0.7rem 1.1rem;
+    border-radius: var(--radius-md);
     background: var(--color-ink);
     color: var(--color-surface);
-    font: 750 1.05rem/1 var(--font-body);
+    font: 600 0.95rem/1 var(--font-body);
     text-decoration: none;
   }
 
@@ -971,13 +1108,13 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     gap: 0.45rem;
     min-height: 44px;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     padding: 0.7rem 0.95rem 0.7rem 0.85rem;
     background: var(--color-ink);
     color: var(--color-surface);
-    font: 750 0.88rem/1 var(--font-body);
+    font: 600 0.88rem/1 var(--font-body);
     cursor: pointer;
-    box-shadow: 0 12px 28px rgb(18 21 26 / 0.24);
+    box-shadow: 0 8px 20px color-mix(in oklch, var(--color-ink) 16%, transparent);
   }
 
   .radar__fab svg {
@@ -995,7 +1132,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   .radar__fab b {
     min-width: 1.4rem;
     padding: 0.12rem 0.4rem;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: rgb(255 255 255 / 0.16);
     font: 650 0.72rem/1.2 var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -1057,11 +1194,19 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       display: none;
     }
 
-    .radar__chips {
+    .radar__filters {
       margin: 0;
-      padding: 0.45rem 0.9rem 0.55rem;
+      padding: 0.4rem 0.9rem 0.5rem;
       background: var(--color-surface);
       border-bottom: 1px solid var(--color-rule);
+      gap: 0.3rem;
+    }
+
+    .radar__chips {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: 0;
       mask-image: none;
       flex-wrap: wrap;
       overflow: visible;
@@ -1092,8 +1237,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       margin: 0;
       max-width: 17rem;
       padding: 0.5rem 0.65rem;
-      border-radius: 8px;
-      background: rgb(255 252 247 / 0.9);
+      border-radius: var(--radius-md);
+      background: color-mix(in oklch, var(--color-surface) 92%, transparent);
       color: var(--color-muted);
       font-size: 0.7rem;
       line-height: 1.4;

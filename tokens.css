@@ -1,22 +1,22 @@
-/* outage.ch · alpine briefing desk · civic cartography */
+/* outage.ch · zinc-warm, shadcn-like contrast */
 :root {
-  --color-bg: oklch(96.2% 0.012 92);
-  --color-surface: oklch(99.4% 0.004 92);
-  --color-surface-2: oklch(93.6% 0.016 92);
-  --color-ink: oklch(18% 0.03 250);
-  --color-muted: oklch(40% 0.024 250);
-  --color-faint: oklch(55% 0.02 250);
-  --color-rule: oklch(86.5% 0.014 92);
-  --color-rule-strong: oklch(70% 0.022 250);
-  --color-accent: oklch(36% 0.08 250);
-  --color-accent-soft: oklch(93.5% 0.02 250);
-  --color-warn: oklch(56% 0.14 62);
-  --color-warn-soft: oklch(93.5% 0.05 72);
-  --color-ok: oklch(46% 0.1 155);
-  --color-ok-soft: oklch(93% 0.04 155);
-  --color-danger: oklch(51% 0.19 25);
-  --color-danger-soft: oklch(93.5% 0.045 25);
-  --color-focus: oklch(36% 0.08 250);
+  --color-bg: oklch(97.4% 0.006 90);
+  --color-surface: oklch(99.5% 0.002 90);
+  --color-surface-2: oklch(95.6% 0.008 90);
+  --color-ink: oklch(32% 0.016 260);
+  --color-muted: oklch(50% 0.012 260);
+  --color-faint: oklch(62% 0.01 260);
+  --color-rule: oklch(90.5% 0.008 90);
+  --color-rule-strong: oklch(78% 0.012 260);
+  --color-accent: oklch(40% 0.035 260);
+  --color-accent-soft: oklch(95.2% 0.01 260);
+  --color-warn: oklch(58% 0.1 62);
+  --color-warn-soft: oklch(95.4% 0.028 72);
+  --color-ok: oklch(50% 0.068 155);
+  --color-ok-soft: oklch(95.2% 0.022 155);
+  --color-danger: oklch(55% 0.13 25);
+  --color-danger-soft: oklch(95.4% 0.028 25);
+  --color-focus: oklch(45% 0.05 260);
 
   --font-display: "Archivo", "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
@@ -47,7 +47,7 @@
   --dur-mid: 220ms;
 
   --radius-xs: 0.25rem;
-  --radius-sm: 0.4rem;
-  --radius-md: 0.55rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
   --rule-thin: 1px;
 }
