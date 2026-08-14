@@ -1,4 +1,5 @@
 import { normalizeLocation } from "./events";
+import { geojsonCentroid, locateIncidentClusters, resolveIncidentLocation } from "./intake-location";
 import { itemHash, parseRssFeed } from "./rss";
 import type {
   AiClassification,
@@ -284,6 +285,21 @@ function isoOrNull(value: unknown): string | null {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
+function finiteNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function earliestIso(values: Array<string | null | undefined>): string | null {
+  const timestamps = values.filter((value): value is string => Boolean(value)).map((value) => Date.parse(value)).filter(Number.isFinite);
+  return timestamps.length ? new Date(Math.min(...timestamps)).toISOString() : null;
+}
+
+function latestIso(values: Array<string | null | undefined>): string | null {
+  const timestamps = values.filter((value): value is string => Boolean(value)).map((value) => Date.parse(value)).filter(Number.isFinite);
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
+}
+
 function operatorLocation(title: string): string | null {
   const withoutPrefix = title
     .replace(/^(?:behobener?|beendeter?|geplanter?)\s+/i, "")
@@ -331,11 +347,65 @@ async function parseBkwPayload(
   if (!Array.isArray(payload)) return { observations: [], schemaMatched: false };
   const rows = payload.map(recordOf);
   const allowedStates = new Set(["SUPPLIED", "DISCONNECTION", "FAILURE"]);
-  const schemaMatched = rows.length === 0 || rows.every((row) =>
+  const zoneRows = rows.filter((row) =>
     typeof row.supplyState === "string" && allowedStates.has(row.supplyState) && typeof row.city === "string"
   );
-  if (!schemaMatched) return { observations: [], schemaMatched: false };
-  const affected = rows.filter((row) => row.supplyState === "FAILURE" || row.supplyState === "DISCONNECTION");
+  const trafoRows = rows.filter((row) =>
+    typeof row.supplyState === "string" &&
+    allowedStates.has(row.supplyState) &&
+    typeof row.trafoName === "string" &&
+    finiteNumber(row.latitude) !== null &&
+    finiteNumber(row.longitude) !== null
+  );
+  if (rows.length > 0 && zoneRows.length === 0 && trafoRows.length === 0) {
+    return { observations: [], schemaMatched: false };
+  }
+
+  if (trafoRows.length > 0) {
+    const incidents = trafoRows.flatMap((row) => {
+      if (row.supplyState !== "FAILURE" && row.supplyState !== "DISCONNECTION") return [];
+      const latitude = finiteNumber(row.latitude);
+      const longitude = finiteNumber(row.longitude);
+      if (latitude === null || longitude === null) return [];
+      const planned = row.supplyState === "DISCONNECTION";
+      return [{
+        status: (planned ? "planned" : "unplanned") as CanonicalObservationStatus,
+        latitude,
+        longitude,
+        startedAt: isoOrNull(row.disconnectionStartTime),
+        resolvedAt: isoOrNull(row.disconnectionEndTime),
+        name: compact(String(row.trafoName)),
+        raw: row
+      }];
+    });
+    const clusters = await locateIncidentClusters(incidents);
+    return {
+      schemaMatched: true,
+      observations: await Promise.all(clusters.map((cluster) => {
+        const planned = cluster.status === "planned";
+        const place = cluster.location || "unbekanntem Ort";
+        const title = planned ? `Geplanter Stromunterbruch in ${place}` : `Stromausfall in ${place}`;
+        const names = cluster.items.map((item) => item.name).filter(Boolean).slice(0, 8).join(", ");
+        return makeKnownObservation(source, {
+          status: cluster.status,
+          title,
+          text: compact(`${title}. ${cluster.items.length} Trafostationen betroffen${names ? `: ${names}` : ""}.`),
+          location: cluster.location,
+          observedAt,
+          startedAt: earliestIso(cluster.items.map((item) => item.startedAt)),
+          resolvedAt: latestIso(cluster.items.map((item) => item.resolvedAt)),
+          raw: {
+            adapter: "bkw-trafo-state",
+            latitude: cluster.latitude,
+            longitude: cluster.longitude,
+            transformers: cluster.items.map((item) => item.raw)
+          }
+        });
+      }))
+    };
+  }
+
+  const affected = zoneRows.filter((row) => row.supplyState === "FAILURE" || row.supplyState === "DISCONNECTION");
   return {
     schemaMatched: true,
     observations: await Promise.all(affected.map((row) => {
@@ -365,14 +435,14 @@ async function parseSakPayload(
   const rows = payload.map(recordOf);
   const allowedStatuses = new Set([0, 1, 2]);
   const allowedCategories = new Set([0, 1, 2]);
-  const schemaMatched = rows.length === 0 || rows.every((row) =>
+  const matching = rows.filter((row) =>
     typeof row.title === "string" && typeof row.status === "number" && allowedStatuses.has(row.status) &&
     typeof row.category === "number" && allowedCategories.has(row.category) && typeof row.start_date === "string"
   );
-  if (!schemaMatched) return { observations: [], schemaMatched: false };
+  if (rows.length > 0 && matching.length === 0) return { observations: [], schemaMatched: false };
   const now = Date.parse(observedAt);
   const recentResolutionCutoff = now - 7 * 24 * 60 * 60 * 1000;
-  const relevant = rows.filter((row) => {
+  const relevant = matching.filter((row) => {
     const end = Date.parse(String(row.end_date ?? ""));
     const explicitlyResolved = Number(row.status) === 2;
     const ended = Number.isFinite(end) && end <= now;
@@ -421,12 +491,15 @@ async function parsePrimeoPayload(
   const current = root.current.map(recordOf);
   const done = root.done.map(recordOf);
   const allowedStatuses = new Set(["PROGRESS", "PLANNED", "RESOLVED"]);
-  const schemaMatched = [...current, ...done].every((row) =>
+  const matching = [...current, ...done].filter((row) =>
     typeof row.status === "string" && allowedStatuses.has(row.status) && typeof row.title === "string"
   );
-  if (!schemaMatched) return { observations: [], schemaMatched: false };
-  const active = current.filter((row) => row.status === "PROGRESS" || row.status === "PLANNED");
-  const resolved = done.filter((row) => row.status === "RESOLVED");
+  if ((current.length > 0 || done.length > 0) && matching.length === 0) {
+    return { observations: [], schemaMatched: false };
+  }
+  const matchingCurrent = new Set(matching);
+  const active = current.filter((row) => matchingCurrent.has(row) && (row.status === "PROGRESS" || row.status === "PLANNED"));
+  const resolved = done.filter((row) => matchingCurrent.has(row) && row.status === "RESOLVED");
   return {
     schemaMatched: true,
     observations: await Promise.all([...active, ...resolved].map((row) => {
@@ -463,34 +536,37 @@ async function parseRomandePayload(
   if (!Array.isArray(payload)) return { observations: [], schemaMatched: false };
   const rows = payload.map(recordOf);
   const allowedGenres = new Set(["coupure", "panne"]);
-  const schemaMatched = rows.length === 0 || rows.every((row) =>
+  const matching = rows.filter((row) =>
     typeof row.genre === "string" && allowedGenres.has(row.genre) &&
     typeof row.date_debut === "string" && recordOf(row.geojson).type === "FeatureCollection"
   );
-  if (!schemaMatched) return { observations: [], schemaMatched: false };
+  if (rows.length > 0 && matching.length === 0) return { observations: [], schemaMatched: false };
   const now = Date.parse(observedAt);
-  const currentOrUpcoming = rows.filter((row) => {
+  const currentOrUpcoming = matching.filter((row) => {
     const end = Date.parse(String(row.date_fin ?? ""));
     return !Number.isFinite(end) || end >= now;
   });
   return {
     schemaMatched: true,
-    observations: await Promise.all(currentOrUpcoming.map((row) => {
+    observations: await Promise.all(currentOrUpcoming.map(async (row) => {
       const planned = row.genre === "coupure";
       const status: CanonicalObservationStatus = planned ? "planned" : "unplanned";
       const geojson = recordOf(row.geojson);
       const features = Array.isArray(geojson.features) ? geojson.features.map(recordOf) : [];
       const properties = recordOf(features[0]?.properties);
-      const suppliedLocation = stringOrNull(properties.LOCATION ?? properties.LIEU ?? row.location);
+      const centroid = geojsonCentroid(row.geojson);
+      const location = await resolveIncidentLocation({
+        namedLocation: stringOrNull(properties.LOCATION ?? properties.LIEU ?? row.location),
+        latitude: centroid?.latitude,
+        longitude: centroid?.longitude
+      });
       const title = planned ? "Interruption de courant planifiée" : "Panne de courant";
       const cause = stringOrNull(properties.CAUSE);
       return makeKnownObservation(source, {
         status,
-        title: suppliedLocation ? `${title} à ${suppliedLocation}` : title,
+        title: location ? `${title} à ${location}` : title,
         text: compact(`${title}. ${cause ? `Cause: ${cause}.` : ""}`),
-        // The live feed currently exposes geometry but no readable locality. Coordinates
-        // stay in the raw payload; without a verified place this cannot pass publication.
-        location: suppliedLocation,
+        location,
         observedAt,
         startedAt: isoOrNull(row.date_debut),
         resolvedAt: isoOrNull(row.date_fin),

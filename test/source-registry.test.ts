@@ -4,11 +4,43 @@ import { fetchSourceObservations, makeSourceObservationFromText } from "../src/s
 import { assessSourceObservation, observationToClassification } from "../src/source-quality";
 import type { OutageEvent, OutageSource, SourceObservation, SourceRegistryEntry } from "../src/types";
 import bkwFixture from "./fixtures/operators/bkw.json?raw";
+import bkwTrafoFixture from "./fixtures/operators/bkw-trafo.json?raw";
 import ewzFixture from "./fixtures/operators/ewz.html?raw";
 import ewzNoCurrentFixture from "./fixtures/operators/ewz-no-current.html?raw";
 import primeoFixture from "./fixtures/operators/primeo.json?raw";
 import romandeFixture from "./fixtures/operators/romande-energie.json?raw";
 import sakFixture from "./fixtures/operators/sak.json?raw";
+
+function geoIdentifyBody(municipality: string, canton = "BE"): string {
+  return JSON.stringify({
+    results: [
+      {
+        attributes: {
+          gemname: municipality,
+          label: municipality,
+          is_current_jahr: true,
+          jahr: 2024,
+          kanton: canton
+        }
+      }
+    ]
+  });
+}
+
+function stubOperatorFetch(operatorBody: string, municipalityForCoords: (lat: number, lon: number) => string): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("geo.admin.ch") && url.includes("identify")) {
+        const geometry = new URL(url).searchParams.get("geometry") ?? "";
+        const [lon, lat] = geometry.split(",").map(Number);
+        return new Response(geoIdentifyBody(municipalityForCoords(lat, lon)), { status: 200 });
+      }
+      return new Response(operatorBody, { status: 200 });
+    })
+  );
+}
 
 function registry(patch: Partial<SourceRegistryEntry> = {}): SourceRegistryEntry {
   return {
@@ -384,8 +416,8 @@ describe("source registry observations", () => {
     expect(result.observations).toHaveLength(0);
   });
 
-  it("parses Romande Energie geometry but withholds publication when the live contract has no locality", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(romandeFixture, { status: 200 })));
+  it("parses Romande Energie geometry and resolves a municipality from coordinates at intake", async () => {
+    stubOperatorFetch(romandeFixture, () => "Montricher");
     const result = await fetchSourceObservations(
       { FIRECRAWL_API_KEY: undefined },
       registry({
@@ -399,13 +431,91 @@ describe("source registry observations", () => {
     expect(result.parserStatus).toBe("ready");
     expect(result.observations).toHaveLength(1);
     expect(result.observations[0].canonicalStatus).toBe("planned");
-    expect(result.observations[0].locationText).toBeNull();
+    expect(result.observations[0].locationText).toBe("Montricher");
     const observation = stored(result.observations[0]);
     const assessment = assessSourceObservation(observation);
-    expect(assessment.publishable).toBe(false);
-    expect(assessment.location_text).toBe("");
-    expect(assessment.facts.some((candidate) => candidate.fact_type === "location")).toBe(false);
-    expect(observationToClassification(observation).location_text).toBe("");
+    expect(assessment.publishable).toBe(true);
+    expect(assessment.location_text).toBe("Montricher");
+    expect(assessment.facts.some((candidate) => candidate.fact_type === "location")).toBe(true);
+    expect(observationToClassification(observation).location_text).toBe("Montricher");
+  });
+
+  it("ingests the BKW transformer incident feed and aggregates nearby failures by municipality", async () => {
+    stubOperatorFetch(bkwTrafoFixture, (lat) => {
+      if (lat < 46.8) return "Höfen";
+      if (lat < 46.95) return "Köniz";
+      return "Lützelflüh";
+    });
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "bkw-outage",
+        operator_name: "BKW",
+        adapter_config_json: '{"api_url":"https://api-outage.bkw.ch/api/services/trafo/state?supplier=bkw"}'
+      }),
+      "2026-08-14T08:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("ready");
+    const locations = result.observations.map((observation) => `${observation.canonicalStatus}:${observation.locationText}`).sort();
+    expect(locations).toEqual(["planned:Köniz", "unplanned:Höfen", "unplanned:Lützelflüh"]);
+    expect(result.observations.every((observation) => !/Bracher|Schnetzenschachen|Höfen-Dorf|Föhrenweg/i.test(observation.locationText ?? ""))).toBe(true);
+    const planned = result.observations.find((observation) => observation.canonicalStatus === "planned");
+    expect(planned?.startedAt).toBe("2026-08-14T06:00:00.000Z");
+    expect(planned?.resolvedAt).toBe("2026-08-14T09:00:00.000Z");
+    expect(assessSourceObservation(stored(result.observations[0])).publishable).toBe(true);
+  });
+
+  it("keeps known BKW incidents when a single row uses an unknown enum", async () => {
+    stubOperatorFetch(
+      JSON.stringify([
+        {
+          trafoNumber: 1,
+          trafoName: "Kirchplatz 4",
+          supplyState: "FAILURE",
+          latitude: 47.00787,
+          longitude: 7.68643,
+          affectedCustomers: 0
+        },
+        {
+          trafoNumber: 2,
+          trafoName: "Unknown",
+          supplyState: "MAINTENANCE",
+          latitude: 47.00787,
+          longitude: 7.68643,
+          affectedCustomers: 0
+        }
+      ]),
+      () => "Lützelflüh"
+    );
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "bkw-outage",
+        adapter_config_json: '{"api_url":"https://api-outage.bkw.ch/api/services/trafo/state?supplier=bkw"}'
+      }),
+      "2026-08-14T08:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].locationText).toBe("Lützelflüh");
+  });
+
+  it("treats an empty BKW transformer list as no current outage", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("[]", { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "bkw-outage",
+        adapter_config_json: '{"api_url":"https://api-outage.bkw.ch/api/services/trafo/state?supplier=bkw"}'
+      }),
+      "2026-08-14T08:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("no_current_outage");
+    expect(result.observations).toHaveLength(0);
   });
 
   it("parses the live ewz incident component and recognizes its real no-current message", async () => {

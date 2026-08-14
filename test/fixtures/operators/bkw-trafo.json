@@ -1,0 +1,36 @@
+[
+  {
+    "trafoNumber": 40778,
+    "trafoName": "Bracher 529",
+    "supplyState": "FAILURE",
+    "affectedCustomers": 0,
+    "latitude": 46.99037,
+    "longitude": 7.7314
+  },
+  {
+    "trafoNumber": 40780,
+    "trafoName": "Schnetzenschachen",
+    "supplyState": "FAILURE",
+    "affectedCustomers": 0,
+    "latitude": 46.9917,
+    "longitude": 7.72129
+  },
+  {
+    "trafoNumber": 12,
+    "trafoName": "Höfen-Dorf",
+    "supplyState": "FAILURE",
+    "affectedCustomers": 0,
+    "latitude": 46.72137,
+    "longitude": 7.56248
+  },
+  {
+    "trafoNumber": 88,
+    "trafoName": "Föhrenweg 62A",
+    "supplyState": "DISCONNECTION",
+    "affectedCustomers": 0,
+    "latitude": 46.92331,
+    "longitude": 7.43433,
+    "disconnectionStartTime": "2026-08-14T06:00:00Z",
+    "disconnectionEndTime": "2026-08-14T09:00:00Z"
+  }
+]

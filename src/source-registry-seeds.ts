@@ -48,7 +48,7 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     check_interval_minutes: 10,
     priority: 100,
     firecrawl_enabled: 1,
-    adapter_config: { language: "de", status_mode: "operator_api", api_url: "https://api-outage.bkw.ch/api/services/supplyZone/state", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
+    adapter_config: { language: "de", status_mode: "operator_api", api_url: "https://api-outage.bkw.ch/api/services/trafo/state?supplier=bkw", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms }
   },
   {
     source_key: "romande-energie-pannes",

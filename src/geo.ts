@@ -6,6 +6,13 @@ interface GeoAdminResult {
     detail?: string;
     origin?: string;
   };
+  attributes?: {
+    gemname?: string;
+    label?: string;
+    kanton?: string;
+    jahr?: number;
+    is_current_jahr?: boolean;
+  };
 }
 
 interface GeoAdminResponse {
@@ -17,6 +24,27 @@ export interface SwissLocationNormalization {
   label: string | null;
   source: "geo.admin.ch" | "fallback";
   reason: string;
+}
+
+export interface SwissMunicipalityFix {
+  municipality: string;
+  canton: string | null;
+}
+
+export const SWISS_LATITUDE_MIN = 45.7;
+export const SWISS_LATITUDE_MAX = 47.9;
+export const SWISS_LONGITUDE_MIN = 5.9;
+export const SWISS_LONGITUDE_MAX = 10.7;
+
+export function isSwissWgs84(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= SWISS_LATITUDE_MIN &&
+    latitude <= SWISS_LATITUDE_MAX &&
+    longitude >= SWISS_LONGITUDE_MIN &&
+    longitude <= SWISS_LONGITUDE_MAX
+  );
 }
 
 function hasMultipleConcretePlaces(location: string): boolean {
@@ -37,6 +65,60 @@ function extractLabel(label: string | undefined, detail: string | undefined): st
     .replace(/\s+-\s+.*$/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function compactName(value: string | null | undefined): string | null {
+  const name = (value ?? "").replace(/\s+/g, " ").trim();
+  return name || null;
+}
+
+function pickCurrentMunicipality(results: GeoAdminResult[]): SwissMunicipalityFix | null {
+  const ranked = results
+    .map((result) => result.attributes)
+    .filter((attributes): attributes is NonNullable<GeoAdminResult["attributes"]> => Boolean(attributes?.gemname || attributes?.label))
+    .sort((left, right) => {
+      const currentDelta = Number(Boolean(right.is_current_jahr)) - Number(Boolean(left.is_current_jahr));
+      if (currentDelta !== 0) return currentDelta;
+      return (right.jahr ?? 0) - (left.jahr ?? 0);
+    });
+  const selected = ranked[0];
+  const municipality = compactName(selected?.gemname) ?? compactName(selected?.label);
+  if (!municipality) return null;
+  return { municipality, canton: compactName(selected?.kanton) };
+}
+
+export async function reverseGeocodeSwissMunicipality(
+  latitude: number,
+  longitude: number
+): Promise<SwissMunicipalityFix | null> {
+  if (!isSwissWgs84(latitude, longitude)) return null;
+
+  const url = new URL("https://api3.geo.admin.ch/rest/services/all/MapServer/identify");
+  url.searchParams.set("geometry", `${longitude},${latitude}`);
+  url.searchParams.set("geometryType", "esriGeometryPoint");
+  url.searchParams.set("layers", "all:ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill");
+  url.searchParams.set("mapExtent", `${SWISS_LONGITUDE_MIN},${SWISS_LATITUDE_MIN},${SWISS_LONGITUDE_MAX},${SWISS_LATITUDE_MAX}`);
+  url.searchParams.set("imageDisplay", "100,100,96");
+  url.searchParams.set("tolerance", "0");
+  url.searchParams.set("returnGeometry", "false");
+  url.searchParams.set("sr", "4326");
+  url.searchParams.set("lang", "de");
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 1500);
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { "User-Agent": "swiss-power-outage-radar/0.1" },
+      signal: controller.signal
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as GeoAdminResponse;
+    return pickCurrentMunicipality(data.results ?? []);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function normalizeSwissLocation(
