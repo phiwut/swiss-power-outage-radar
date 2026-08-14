@@ -1,17 +1,16 @@
 /* Shared app shell · outage.ch radar */
 
 :root {
-  --app-dock-h: 3.5rem;
+  --app-dock-h: 3.65rem;
   --app-radius: 14px;
-  --status-active: oklch(55% 0.16 28);
-  --status-upcoming: oklch(58% 0.13 60);
-  --status-resolved: oklch(52% 0.11 155);
-  --status-other: oklch(50% 0.02 225);
+  --status-active: var(--color-danger);
+  --status-upcoming: var(--color-warn);
+  --status-resolved: var(--color-ok);
+  --status-other: var(--color-faint);
 }
 
 body.shell-app {
   background: var(--color-bg);
-  background-image: none;
 }
 
 .app-frame {
@@ -28,12 +27,11 @@ body.shell-app {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  min-height: 3.5rem;
-  max-height: 4rem;
-  padding: 0.55rem 1rem;
+  min-height: 3.65rem;
+  padding: 0.55rem 1.1rem;
   border-bottom: 1px solid var(--color-rule);
-  background: color-mix(in oklch, var(--color-surface) 92%, white);
-  backdrop-filter: blur(10px);
+  background: color-mix(in oklch, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(1.1);
 }
 
 .app-top__brand {
@@ -77,19 +75,40 @@ body.shell-app {
 .app-top__nav {
   display: none;
   align-items: center;
-  gap: 1.15rem;
-  font-size: 0.88rem;
+  gap: 0.15rem;
+  font-size: 0.9rem;
   font-weight: 650;
 }
 
 .app-top__nav a {
+  position: relative;
   color: var(--color-muted);
   text-decoration: none;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 
-.app-top__nav a[aria-current="page"],
 .app-top__nav a:hover {
   color: var(--color-ink);
+  background: var(--color-surface-2);
+}
+
+.app-top__nav a[aria-current="page"] {
+  color: var(--color-ink);
+}
+
+.app-top__nav a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: 0.28rem;
+  height: 2px;
+  border-radius: 99px;
+  background: var(--color-ink);
 }
 
 .app-main {
@@ -127,8 +146,9 @@ body.shell-app {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
-  padding: 0.45rem 0.25rem;
+  gap: 0.18rem;
+  min-height: 44px;
+  padding: 0.4rem 0.25rem;
   color: var(--color-muted);
   font-size: 0.72rem;
   font-weight: 650;
@@ -136,7 +156,7 @@ body.shell-app {
 }
 
 .app-dock a[aria-current="page"] {
-  color: var(--color-accent);
+  color: var(--color-ink);
 }
 
 .app-dock svg {
@@ -164,27 +184,82 @@ body.shell-app {
 
 /* Radar status chips / rows shared */
 .radar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
   border: 1px solid var(--color-rule);
   background: var(--color-surface);
   color: var(--color-ink);
   border-radius: 999px;
-  padding: 0.38rem 0.78rem;
-  font: 650 0.78rem/1.2 var(--font-body);
+  min-height: 44px;
+  padding: 0.35rem 0.85rem;
+  font: 650 0.82rem/1.2 var(--font-body);
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
 }
 
+.radar-chip__dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 99px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.radar-chip[data-tone="all"] .radar-chip__dot { background: var(--color-ink); }
+.radar-chip[data-tone="active"] .radar-chip__dot { background: var(--status-active); }
+.radar-chip[data-tone="upcoming"] .radar-chip__dot { background: var(--status-upcoming); }
+.radar-chip[data-tone="resolved"] .radar-chip__dot { background: var(--status-resolved); }
+.radar-chip[data-tone="historical"] .radar-chip__dot { background: var(--status-other); }
+
 .radar-chip[aria-pressed="true"] {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
   color: white;
 }
 
+.radar-chip[aria-pressed="true"] .radar-chip__dot {
+  background: white;
+}
+
+.radar-chip[data-tone="all"][aria-pressed="true"] {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+.radar-chip[data-tone="active"][aria-pressed="true"] {
+  background: var(--status-active);
+  border-color: var(--status-active);
+}
+
+.radar-chip[data-tone="upcoming"][aria-pressed="true"] {
+  background: var(--status-upcoming);
+  border-color: var(--status-upcoming);
+}
+
+.radar-chip[data-tone="resolved"][aria-pressed="true"] {
+  background: var(--status-resolved);
+  border-color: var(--status-resolved);
+}
+
+.radar-chip[data-tone="historical"][aria-pressed="true"] {
+  background: var(--color-muted);
+  border-color: var(--color-muted);
+}
+
+.radar-chip:hover {
+  border-color: var(--color-rule-strong);
+}
+
+.radar-chip[aria-pressed="true"]:hover {
+  filter: brightness(1.05);
+}
+
 .radar-chip .n {
-  opacity: 0.78;
-  margin-left: 0.28rem;
+  opacity: 0.72;
+  margin-left: 0.08rem;
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
 }
 
 .radar-badge {
@@ -223,11 +298,21 @@ body.shell-app {
   text-align: left;
   border: 0;
   border-bottom: 1px solid var(--color-rule);
+  border-left: 3px solid var(--row-tone, var(--color-rule));
   background: transparent;
-  padding: 0.9rem 1rem;
+  padding: 0.95rem 1rem 0.95rem 0.95rem;
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+}
+
+.radar-row--active { --row-tone: var(--status-active); }
+.radar-row--upcoming { --row-tone: var(--status-upcoming); }
+.radar-row--resolved { --row-tone: var(--status-resolved); }
+.radar-row--other { --row-tone: var(--status-other); }
+
+.radar-row:hover {
+  background: color-mix(in oklch, var(--color-surface-2) 70%, var(--color-surface));
 }
 
 .radar-row:active {
@@ -235,7 +320,7 @@ body.shell-app {
 }
 
 .radar-row.is-selected {
-  background: color-mix(in oklch, var(--color-accent-soft) 55%, white);
+  background: color-mix(in oklch, var(--row-tone) 8%, var(--color-surface));
 }
 
 .radar-row__top {
@@ -254,8 +339,12 @@ body.shell-app {
 .radar-row p {
   margin: 0.35rem 0 0;
   color: var(--color-muted);
-  font-size: 0.84rem;
+  font-size: 0.9rem;
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .radar-row__meta {

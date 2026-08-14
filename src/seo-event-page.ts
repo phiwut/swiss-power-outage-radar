@@ -426,9 +426,9 @@ export async function renderSeoEventAsset(
 
 export function renderHomeFeedLinks(items: PublicFeedItem[]): string {
   if (!items.length) {
-    return `<nav class="seo-feed-index" aria-label="Aktuelle Stromausfall-Meldungen"><p>Aktuell sind keine öffentlichen Meldungen verfügbar.</p><a href="/ratgeber/">Stromausfall-Ratgeber</a></nav>`;
+    return `<nav class="seo-feed-index" aria-hidden="true"><p>Aktuell sind keine öffentlichen Meldungen verfügbar.</p><a href="/ratgeber/">Stromausfall-Ratgeber</a></nav>`;
   }
-  return `<nav class="seo-feed-index" aria-label="Aktuelle Stromausfall-Meldungen">
+  return `<nav class="seo-feed-index" aria-hidden="true">
     <h2>Aktuelle Meldungen</h2>
     <ul>${items.map((item) => {
       const location = publicDisplayLocation(item.location);

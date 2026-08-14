@@ -52,11 +52,15 @@ const hideTopOnRadarMobile = shell === "radar";
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
-    <meta name="theme-color" content="#f2f6f7" />
+    <meta name="theme-color" content="#f1eee6" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" />
     <slot name="head" />
     <title>{title}</title>
   </head>
   <body class:list={["text-ink", "shell-app", hideTopOnRadarMobile && "shell-radar"]}>
+    <a class="skip-link" href="#app-main">Zum Inhalt springen</a>
     <div class="app-frame">
       <header class:list={["app-top", hideTopOnRadarMobile && "app-top--radar-desktop-only"]}>
         <a class="app-top__brand" href="/" aria-label="Zur Radar-Übersicht">
@@ -75,7 +79,7 @@ const hideTopOnRadarMobile = shell === "radar";
         </nav>
       </header>
 
-      <main class:list={["app-main", shell === "radar" ? "app-main--radar" : "app-main--content"]}>
+      <main id="app-main" class:list={["app-main", shell === "radar" ? "app-main--radar" : "app-main--content"]}>
         <slot />
       </main>
 
@@ -120,5 +124,9 @@ const hideTopOnRadarMobile = shell === "radar";
     stroke-width: 1.75;
     stroke-linecap: round;
     stroke-linejoin: round;
+  }
+
+  .app-dock a[aria-current="page"] svg {
+    stroke-width: 2.1;
   }
 </style>

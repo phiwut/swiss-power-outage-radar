@@ -22,39 +22,46 @@ const canonical = "https://outage.ch/ratgeber/";
     <div class="knowledge-grid">
       {knowledgeArticles.map((article, index) => (
         <a href={knowledgeArticleUrl(article)}>
-          <span>{String(index + 1).padStart(2, "0")}</span>
+          <span class="knowledge-index">{String(index + 1).padStart(2, "0")}</span>
           <div>
-            <small>{article.readingMinutes} Minuten</small>
+            <small>{article.readingMinutes} Minuten Lesezeit</small>
             <h2>{article.shortTitle}</h2>
             <p>{article.description}</p>
           </div>
-          <strong aria-hidden="true">→</strong>
+          <svg class="knowledge-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </a>
       ))}
     </div>
-    <a class="back-to-events" href="/">Aktuelle Stromausfälle ansehen</a>
+    <a class="back-to-events" href="/">
+      Aktuelle Stromausfälle ansehen
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
   </section>
 
   <style>
     .knowledge-hub { margin: 0 auto; max-width: 960px; padding: clamp(1.5rem, 4vw, 3rem) 0 2rem; }
     header { border-bottom: 1px solid var(--color-rule); padding-bottom: clamp(1.8rem, 5vw, 3rem); }
     header > p, small { color: var(--color-accent); font-family: var(--font-mono); font-size: .66rem; letter-spacing: .09em; text-transform: uppercase; }
-    h1 { font-family: var(--font-display); font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: -.045em; line-height: 1.05; margin: .8rem 0 1.2rem; max-width: 900px; text-wrap: balance; }
-    header > div { color: var(--color-muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.7; max-width: 720px; }
+    h1 { font-family: var(--font-display); font-size: clamp(2.05rem, 5vw, 3.15rem); letter-spacing: -.04em; line-height: 1.05; margin: .8rem 0 1.2rem; max-width: 18ch; text-wrap: balance; }
+    header > div { color: var(--color-muted); font-size: clamp(1.05rem, 2vw, 1.2rem); line-height: 1.7; max-width: 40rem; }
     .knowledge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .knowledge-grid > a { color: inherit; display: grid; gap: 1.2rem; grid-template-columns: 32px 1fr auto; min-height: 260px; padding: 2rem 1.5rem 2rem 0; text-decoration: none; }
+    .knowledge-grid > a { color: inherit; display: grid; gap: 1.2rem; grid-template-columns: 32px 1fr auto; min-height: 240px; padding: 2rem 1.35rem 2rem 0; text-decoration: none; }
     .knowledge-grid > a:nth-child(odd) { border-right: 1px solid var(--color-rule); }
     .knowledge-grid > a:nth-child(even) { padding-left: 1.5rem; }
     .knowledge-grid > a:nth-child(n+3) { border-top: 1px solid var(--color-rule); }
-    .knowledge-grid > a > span { color: var(--color-faint); font-family: var(--font-mono); font-size: .7rem; }
-    .knowledge-grid h2 { font-family: var(--font-display); font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.035em; margin: .45rem 0 .7rem; }
+    .knowledge-index { color: var(--color-faint); font-family: var(--font-mono); font-size: .7rem; }
+    .knowledge-grid h2 { font-family: var(--font-display); font-size: clamp(1.35rem, 3vw, 1.85rem); letter-spacing: -.03em; margin: .45rem 0 .7rem; }
     .knowledge-grid p { color: var(--color-muted); line-height: 1.65; margin: 0; }
-    .knowledge-grid strong { align-self: end; color: var(--color-accent); font-size: 1.4rem; }
-    .knowledge-grid > a:hover { background: color-mix(in oklch, var(--color-accent-soft) 25%, transparent); }
-    .back-to-events { color: var(--color-accent); display: inline-flex; font-weight: 700; margin-top: 3rem; text-decoration: none; }
+    .knowledge-arrow { align-self: end; width: 1.35rem; height: 1.35rem; stroke: var(--color-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .knowledge-grid > a:hover { background: color-mix(in oklch, var(--color-accent-soft) 55%, transparent); }
+    .knowledge-grid > a:hover .knowledge-arrow { transform: translateX(3px); }
+    .back-to-events { align-items: center; background: var(--color-ink); border-radius: 999px; color: var(--color-surface); display: inline-flex; font-weight: 700; gap: .5rem; margin-top: 2.5rem; min-height: 44px; padding: .85rem 1.15rem; text-decoration: none; }
+    .back-to-events svg { width: 1rem; height: 1rem; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .back-to-events:hover { transform: translateY(-1px); }
     @media (max-width: 680px) {
+      h1 { max-width: none; }
       .knowledge-grid { grid-template-columns: 1fr; }
-      .knowledge-grid > a, .knowledge-grid > a:nth-child(even) { border-left: 0; border-right: 0; border-top: 1px solid var(--color-rule); min-height: 0; padding: 1.7rem 0; }
+      .knowledge-grid > a, .knowledge-grid > a:nth-child(even) { border-left: 0; border-right: 0; border-top: 1px solid var(--color-rule); min-height: 0; padding: 1.5rem 0; }
     }
   </style>
 </RadarLayout>

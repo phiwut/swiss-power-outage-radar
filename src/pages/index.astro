@@ -21,19 +21,20 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   <section class="radar" data-radar>
     <div class="radar__map-wrap">
       <div id="radar-map" class="radar__map" role="img" aria-label="Karte der Stromausfall-Meldungen"></div>
-      <div class="radar__legend" aria-hidden="true">
-        <span data-tone="active">Aktiv</span>
-        <span data-tone="upcoming">Geplant</span>
-        <span data-tone="resolved">Behoben</span>
-        <span data-tone="other">Archiv</span>
+      <div class="radar__legend">
+        <span data-tone="active"><i aria-hidden="true"></i>Aktiv</span>
+        <span data-tone="upcoming"><i aria-hidden="true"></i>Geplant</span>
+        <span data-tone="resolved"><i aria-hidden="true"></i>Behoben</span>
+        <span data-tone="other"><i aria-hidden="true"></i>Archiv</span>
       </div>
-      <p class="radar__disclaimer">outage.ch ist ein unabhängiger öffentlicher Radar und kein offizieller Notfallkanal.</p>
+      <p class="radar__disclaimer">Unabhängiger öffentlicher Radar — kein offizieller Notfallkanal.</p>
     </div>
 
     <header class="radar__hud">
       <div class="radar__hud-bar">
-        <a class="radar__brand" href="/">outage.ch</a>
+        <a class="radar__brand" href="/" aria-label="outage.ch Radar">outage.ch</a>
         <label class="radar__search">
+          <svg class="radar__search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
           <span class="sr-only">Ort suchen</span>
           <input id="radar-search" type="search" placeholder="Ort oder Region" autocomplete="off" enterkeyhint="search" />
         </label>
@@ -41,14 +42,17 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
     </header>
 
-    <aside class="radar__panel" id="radar-panel">
+    <aside class="radar__panel" id="radar-panel" inert aria-hidden="true">
+      <div class="radar__handle" aria-hidden="true"></div>
       <div class="radar__panel-head">
         <div>
           <h1>Meldungen</h1>
           <p id="radar-count" class="radar__count">…</p>
         </div>
-        <button type="button" id="radar-refresh" class="radar__text-btn">Aktualisieren</button>
-        <button type="button" id="radar-panel-close" class="radar__text-btn radar__panel-close">Schliessen</button>
+        <div class="radar__panel-actions">
+          <button type="button" id="radar-refresh" class="radar__icon-btn">Aktualisieren</button>
+          <button type="button" id="radar-panel-close" class="radar__icon-btn radar__panel-close" aria-label="Liste schliessen">Schliessen</button>
+        </div>
       </div>
       <div id="radar-list" class="radar__list" aria-live="polite" aria-busy="true">
         <div class="radar-skel"></div>
@@ -62,12 +66,18 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     </aside>
 
     <div id="radar-sheet" class="radar__sheet" hidden>
-      <button type="button" id="radar-sheet-close" class="radar__sheet-x" aria-label="Schliessen">×</button>
+      <button type="button" id="radar-sheet-close" class="radar__sheet-x" aria-label="Vorschau schliessen">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
       <div id="radar-sheet-body"></div>
       <a id="radar-sheet-link" class="radar__cta" href="#">Details öffnen</a>
     </div>
 
-    <button type="button" id="radar-list-fab" class="radar__fab">Liste</button>
+    <button type="button" id="radar-list-fab" class="radar__fab" aria-controls="radar-panel">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="4" cy="18" r="1.2"/></svg>
+      Meldungen
+      <b id="radar-fab-count">–</b>
+    </button>
   </section>
 
   <script>
@@ -88,18 +98,18 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     type Category = "active" | "upcoming" | "resolved" | "other";
 
     const STATUS_FILTERS = [
-      { key: "", label: "Alle" },
-      { key: "active", label: "Aktiv" },
-      { key: "upcoming", label: "Geplant" },
-      { key: "resolved", label: "Behoben" },
-      { key: "historical", label: "Archiv" }
+      { key: "", label: "Alle", tone: "all" },
+      { key: "active", label: "Aktiv", tone: "active" },
+      { key: "upcoming", label: "Geplant", tone: "upcoming" },
+      { key: "resolved", label: "Behoben", tone: "resolved" },
+      { key: "historical", label: "Archiv", tone: "historical" }
     ] as const;
 
     const COLOR: Record<Category, string> = {
-      active: "#c2410c",
-      upcoming: "#b45309",
-      resolved: "#15803d",
-      other: "#64748b"
+      active: "#C41E3A",
+      upcoming: "#B45309",
+      resolved: "#1F7A4D",
+      other: "#5B6470"
     };
 
     const CANTON_CENTROIDS: Record<string, [number, number]> = {
@@ -145,6 +155,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     const sheetBody = document.querySelector<HTMLElement>("#radar-sheet-body")!;
     const sheetLink = document.querySelector<HTMLAnchorElement>("#radar-sheet-link")!;
     const fabEl = document.querySelector<HTMLButtonElement>("#radar-list-fab")!;
+    const fabCountEl = document.querySelector<HTMLElement>("#radar-fab-count");
     const mapWrap = document.querySelector<HTMLElement>(".radar__map-wrap");
 
     const escapeHtml = (value: unknown) =>
@@ -177,6 +188,21 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     };
 
     const isMobile = () => window.matchMedia("(max-width: 899px)").matches;
+
+    const shortLocation = (value: string) => value.split(",")[0]?.trim() || value;
+
+    const syncPanelA11y = () => {
+      if (isMobile()) {
+        const open = state.drawerOpen;
+        panelEl.toggleAttribute("inert", !open);
+        panelEl.setAttribute("aria-hidden", open ? "false" : "true");
+        fabEl.setAttribute("aria-expanded", open ? "true" : "false");
+      } else {
+        panelEl.removeAttribute("inert");
+        panelEl.removeAttribute("aria-hidden");
+        fabEl.setAttribute("aria-expanded", "true");
+      }
+    };
 
     const pinFor = (item: PublicItem): [number, number] | null => {
       if (typeof item.latitude === "number" && typeof item.longitude === "number") {
@@ -331,10 +357,11 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     function rowHtml(item: PublicItem, selected: boolean) {
       const badge = item.status ?? "historical";
+      const tone = categorize(item.status);
       return `
-        <a class="radar-row ${selected ? "is-selected" : ""}" href="${escapeHtml(item.url)}" data-id="${item.id}">
+        <a class="radar-row radar-row--${tone} ${selected ? "is-selected" : ""}" href="${escapeHtml(item.url)}" data-id="${item.id}">
           <div class="radar-row__top">
-            <h2>${escapeHtml(item.location)}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
+            <h2>${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
             <span class="radar-badge radar-badge--${escapeHtml(badge)}">${escapeHtml(statusLabel(item.status))}</span>
           </div>
           <p>${escapeHtml(item.summary)}</p>
@@ -353,7 +380,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       }
       chipsEl.innerHTML = STATUS_FILTERS.map(
         (f) =>
-          `<button type="button" class="radar-chip" data-status="${f.key}" aria-pressed="${state.status === f.key}">${f.label}<span class="n">${counts[f.key] ?? 0}</span></button>`
+          `<button type="button" class="radar-chip" data-status="${f.key}" data-tone="${f.tone}" aria-pressed="${state.status === f.key}"><i class="radar-chip__dot" aria-hidden="true"></i>${f.label}<span class="n">${counts[f.key] ?? 0}</span></button>`
       ).join("");
     }
 
@@ -368,11 +395,12 @@ import RadarLayout from "../layouts/RadarLayout.astro";
         return;
       }
       if (state.error && !state.items.length) {
-        listEl.innerHTML = `<p class="radar__empty">${escapeHtml(state.error)}</p>`;
+        listEl.innerHTML = `<div class="radar__empty" role="alert"><p>Meldungen konnten nicht geladen werden.</p><p>${escapeHtml(state.error)}</p><button type="button" class="radar__ghost" data-retry>Erneut versuchen</button></div>`;
         return;
       }
       if (!items.length) {
-        listEl.innerHTML = `<p class="radar__empty">Keine Meldungen für diesen Filter.</p>`;
+        const q = state.query.trim();
+        listEl.innerHTML = `<div class="radar__empty"><p>${q ? `Keine Meldungen für «${escapeHtml(q)}».` : "Keine Meldungen für diesen Filter."}</p><button type="button" class="radar__ghost" data-reset>Alle Meldungen zeigen</button></div>`;
         return;
       }
       listEl.innerHTML = items.map((i) => rowHtml(i, state.selectedId === i.id)).join("");
@@ -383,10 +411,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       if (!item) return;
       sheetBody.innerHTML = `
         <div class="radar-row__top">
-          <h2 style="margin:0;font:750 1.05rem/1.25 var(--font-display)">${escapeHtml(item.location)}</h2>
+          <h2>${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
           <span class="radar-badge radar-badge--${escapeHtml(item.status ?? "historical")}">${escapeHtml(statusLabel(item.status))}</span>
         </div>
-        <p style="margin:.5rem 0 0;color:var(--color-muted);font-size:.9rem;line-height:1.45">${escapeHtml(item.summary)}</p>
+        <p>${escapeHtml(item.summary)}</p>
         <div class="radar-row__meta">${escapeHtml(natureLabel(item.nature))} · ${escapeHtml(item.source.publisher)}</div>`;
       sheetLink.href = item.url;
       sheetEl.hidden = false;
@@ -401,6 +429,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       panelEl.classList.toggle("is-open", open);
       fabEl.hidden = open || !isMobile();
       document.body.classList.toggle("radar-drawer-open", open);
+      syncPanelA11y();
       if (open) {
         window.setTimeout(() => map?.resize(), 280);
       }
@@ -421,13 +450,15 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     function renderUi(opts: { fitMap?: boolean } = {}) {
       renderChips();
       renderList();
-      moreBtn.hidden = !state.nextCursor;
+      moreBtn.hidden = !state.nextCursor || (!filtered().length && !state.loading);
       noteEl.textContent = state.generatedAt
         ? `Stand ${new Date(state.generatedAt).toLocaleString("de-CH", { dateStyle: "short", timeStyle: "short" })}`
         : state.loading
           ? "Meldungen werden geladen …"
           : "";
       fabEl.hidden = !isMobile() || state.drawerOpen;
+      if (fabCountEl) fabCountEl.textContent = String(filtered().length);
+      syncPanelA11y();
       if (state.items.length || opts.fitMap) {
         void ensureMap().then(() => syncPins(Boolean(opts.fitMap)));
       }
@@ -474,6 +505,18 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     listEl.addEventListener("click", (ev) => {
       const t = ev.target as HTMLElement;
+      if (t.closest("[data-retry]")) {
+        void loadFeed(true);
+        return;
+      }
+      if (t.closest("[data-reset]")) {
+        state.query = "";
+        state.status = "";
+        searchEl.value = "";
+        lastFitKey = "";
+        renderUi({ fitMap: true });
+        return;
+      }
       const row = t.closest<HTMLAnchorElement>("a.radar-row[data-id]");
       if (!row) return;
       const mouse = ev as MouseEvent;
@@ -505,11 +548,12 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     fabEl.addEventListener("click", () => setDrawer(true));
 
     window.addEventListener("resize", () => {
-      fabEl.hidden = !isMobile() || state.drawerOpen;
       if (!isMobile()) {
         setDrawer(false);
         closeSheet();
       }
+      fabEl.hidden = !isMobile() || state.drawerOpen;
+      syncPanelA11y();
       window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(() => map?.resize(), 120);
     });
@@ -519,7 +563,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 </RadarLayout>
 
 <style is:global>
-  /* Lock radar shell to the viewport so long feeds scroll inside the panel. */
   body.shell-radar {
     overflow: hidden;
     height: 100dvh;
@@ -556,13 +599,17 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     min-height: 0;
     height: 100%;
     overflow: hidden;
-    background: var(--color-surface-2);
+    background: #d9e0d8;
   }
 
   .radar__map-wrap {
     position: absolute;
     inset: 0;
-    background: #d7e2dd;
+    background:
+      linear-gradient(180deg, rgb(241 238 230 / 0.35), transparent 28%),
+      repeating-linear-gradient(0deg, rgb(28 42 38 / 0.05) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgb(28 42 38 / 0.05) 0 1px, transparent 1px 28px),
+      #d9e0d8;
   }
 
   .radar__map-wrap:not(.is-ready)::after {
@@ -572,7 +619,8 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     display: grid;
     place-items: center;
     color: var(--color-muted);
-    font: 600 0.85rem/1.3 var(--font-body);
+    font: 650 0.9rem/1.3 var(--font-body);
+    letter-spacing: 0.02em;
     pointer-events: none;
     z-index: 1;
   }
@@ -587,24 +635,35 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     left: 0.65rem;
     bottom: calc(var(--app-dock-h) + 0.65rem);
     z-index: 2;
-    display: flex;
+    display: none;
     flex-wrap: wrap;
     gap: 0.35rem;
     pointer-events: none;
   }
 
   .radar__legend span {
-    background: rgb(255 255 255 / 0.92);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgb(255 252 247 / 0.92);
     border: 1px solid var(--color-rule);
     border-radius: 999px;
-    padding: 0.2rem 0.5rem;
+    padding: 0.28rem 0.55rem;
+    color: var(--color-ink);
     font: 650 0.65rem/1.2 var(--font-mono);
   }
 
-  .radar__legend [data-tone="active"] { color: var(--status-active); }
-  .radar__legend [data-tone="upcoming"] { color: var(--status-upcoming); }
-  .radar__legend [data-tone="resolved"] { color: var(--status-resolved); }
-  .radar__legend [data-tone="other"] { color: var(--status-other); }
+  .radar__legend i {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 99px;
+    background: currentColor;
+  }
+
+  .radar__legend [data-tone="active"] i { color: var(--status-active); }
+  .radar__legend [data-tone="upcoming"] i { color: var(--status-upcoming); }
+  .radar__legend [data-tone="resolved"] i { color: var(--status-resolved); }
+  .radar__legend [data-tone="other"] i { color: var(--status-other); }
 
   .radar__disclaimer {
     display: none;
@@ -613,7 +672,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   .radar__hud {
     position: relative;
     z-index: 5;
-    padding: 0.7rem;
+    padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0.7rem 0.45rem;
     pointer-events: none;
   }
 
@@ -624,19 +683,19 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   .radar__hud-bar {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 0.5rem;
+    gap: 0.55rem;
     align-items: center;
-    padding: 0.5rem 0.6rem;
+    padding: 0.42rem 0.5rem;
     border-radius: var(--app-radius);
-    background: rgb(255 255 255 / 0.9);
+    background: rgb(255 252 247 / 0.9);
     border: 1px solid rgb(255 255 255 / 0.55);
-    box-shadow: 0 10px 28px rgb(15 23 42 / 0.12);
+    box-shadow: 0 12px 32px rgb(18 21 26 / 0.12);
   }
 
   @supports (backdrop-filter: blur(12px)) {
     .radar__hud-bar {
-      background: rgb(255 255 255 / 0.72);
-      backdrop-filter: blur(14px) saturate(1.15);
+      background: rgb(255 252 247 / 0.72);
+      backdrop-filter: blur(16px) saturate(1.15);
     }
   }
 
@@ -644,23 +703,46 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     font: 800 0.95rem/1 var(--font-display);
     color: var(--color-ink);
     text-decoration: none;
+    letter-spacing: -0.03em;
+    padding: 0 0.25rem;
+  }
+
+  .radar__search {
+    position: relative;
+    display: block;
+    min-width: 0;
+  }
+
+  .radar__search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    stroke: var(--color-faint);
+    stroke-width: 2;
+    stroke-linecap: round;
+    pointer-events: none;
   }
 
   .radar__search input {
     width: 100%;
+    min-height: 44px;
     border: 1px solid var(--color-rule);
     border-radius: 999px;
-    padding: 0.52rem 0.85rem;
+    padding: 0.45rem 0.85rem 0.45rem 2.15rem;
     background: var(--color-surface);
-    font: 500 0.9rem/1.2 var(--font-body);
+    font: 500 1rem/1.2 var(--font-body);
   }
 
-  .radar__text-btn {
+  .radar__icon-btn {
     border: 0;
     background: transparent;
     border-radius: 999px;
-    padding: 0.25rem;
-    font: 650 0.75rem/1 var(--font-body);
+    min-height: 44px;
+    padding: 0.35rem 0.55rem;
+    font: 650 0.78rem/1 var(--font-body);
     cursor: pointer;
     color: var(--color-accent);
   }
@@ -670,12 +752,14 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     gap: 0.4rem;
     overflow-x: auto;
     margin-top: 0.55rem;
-    padding-bottom: 0.1rem;
+    padding: 0 0.1rem 0.2rem;
     -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 1.4rem), transparent);
   }
 
   .radar__chips .radar-chip {
-    box-shadow: 0 4px 12px rgb(15 23 42 / 0.08);
+    box-shadow: 0 4px 12px rgb(18 21 26 / 0.08);
+    flex: none;
   }
 
   .radar__panel {
@@ -690,7 +774,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     min-height: 0;
     background: var(--color-surface);
     border-radius: 18px 18px 0 0;
-    box-shadow: 0 -12px 40px rgb(15 23 42 / 0.18);
+    box-shadow: 0 -12px 40px rgb(18 21 26 / 0.18);
     transform: translateY(110%);
     transition: transform 0.28s var(--ease-out);
   }
@@ -699,18 +783,33 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     transform: translateY(0);
   }
 
+  .radar__handle {
+    width: 2.4rem;
+    height: 0.28rem;
+    margin: 0.55rem auto 0;
+    border-radius: 99px;
+    background: var(--color-rule-strong);
+  }
+
   .radar__panel-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 1rem 1rem 0.45rem;
+    padding: 0.55rem 1rem 0.45rem;
+    flex-shrink: 0;
+  }
+
+  .radar__panel-actions {
+    display: flex;
+    gap: 0.5rem;
     flex-shrink: 0;
   }
 
   .radar__panel-head h1 {
     margin: 0;
     font: 750 1.15rem/1.2 var(--font-display);
+    letter-spacing: -0.03em;
   }
 
   .radar__count,
@@ -718,10 +817,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     margin: 0.25rem 0 0;
     color: var(--color-muted);
     font: 500 0.75rem/1.3 var(--font-mono);
-  }
-
-  .radar__panel-close {
-    display: inline;
   }
 
   .radar__list {
@@ -738,22 +833,31 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     flex-shrink: 0;
   }
 
-  #radar-more {
+  #radar-more,
+  .radar__ghost {
     width: 100%;
     border: 1px solid var(--color-rule);
     background: var(--color-surface);
     border-radius: 999px;
+    min-height: 44px;
     padding: 0.65rem;
     font: 650 0.85rem/1 var(--font-body);
     cursor: pointer;
+    color: var(--color-ink);
+  }
+
+  #radar-more {
     margin-bottom: 0.45rem;
   }
 
   .radar__empty {
+    display: grid;
+    gap: 0.75rem;
     margin: 0;
-    padding: 1.25rem 1rem;
+    padding: 1.4rem 1rem;
     color: var(--color-muted);
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
   }
 
   .radar-skel {
@@ -779,38 +883,65 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     z-index: 7;
     left: 0.75rem;
     right: 0.75rem;
-    bottom: calc(var(--app-dock-h) + 3.6rem);
-    padding: 1rem 1rem 1.1rem;
+    bottom: calc(var(--app-dock-h) + 4.1rem);
+    padding: 1.1rem 1rem 1.1rem;
     border-radius: var(--app-radius);
     background: var(--color-surface);
     border: 1px solid var(--color-rule);
-    box-shadow: 0 16px 40px rgb(15 23 42 / 0.16);
+    box-shadow: 0 16px 40px rgb(18 21 26 / 0.16);
   }
 
   .radar__sheet[hidden] {
     display: none !important;
   }
 
+  .radar__sheet h2 {
+    margin: 0;
+    padding-right: 2.4rem;
+    font: 750 1.05rem/1.25 var(--font-display);
+  }
+
+  .radar__sheet p {
+    margin: 0.5rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
   .radar__sheet-x {
     position: absolute;
-    top: 0.4rem;
-    right: 0.5rem;
+    top: 0.45rem;
+    right: 0.45rem;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
     border: 0;
-    background: transparent;
-    font-size: 1.35rem;
-    line-height: 1;
+    border-radius: 99px;
+    background: var(--color-surface-2);
     color: var(--color-muted);
     cursor: pointer;
   }
 
+  .radar__sheet-x svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
   .radar__cta {
     display: inline-flex;
-    margin-top: 0.75rem;
-    padding: 0.65rem 1rem;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin-top: 0.85rem;
+    padding: 0.65rem 1.1rem;
     border-radius: 999px;
-    background: var(--color-accent);
-    color: white;
-    font: 750 0.88rem/1 var(--font-body);
+    background: var(--color-ink);
+    color: var(--color-surface);
+    font: 750 0.9rem/1 var(--font-body);
     text-decoration: none;
   }
 
@@ -819,14 +950,39 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     z-index: 6;
     right: 0.85rem;
     bottom: calc(var(--app-dock-h) + 0.85rem);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 44px;
     border: 0;
     border-radius: 999px;
-    padding: 0.78rem 1.15rem;
+    padding: 0.7rem 0.95rem 0.7rem 0.85rem;
     background: var(--color-ink);
-    color: white;
+    color: var(--color-surface);
     font: 750 0.88rem/1 var(--font-body);
     cursor: pointer;
-    box-shadow: 0 10px 24px rgb(15 23 42 / 0.22);
+    box-shadow: 0 12px 28px rgb(18 21 26 / 0.24);
+  }
+
+  .radar__fab svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+  }
+
+  .radar__fab[hidden] {
+    display: none !important;
+  }
+
+  .radar__fab b {
+    min-width: 1.4rem;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.16);
+    font: 650 0.72rem/1.2 var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   .seo-feed-index {
@@ -846,7 +1002,6 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     .radar-skel { animation: none; }
   }
 
-  /* Desktop: viewport-locked split cockpit */
   @media (min-width: 900px) {
     body.shell-radar .app-top--radar-desktop-only {
       display: flex;
@@ -855,18 +1010,19 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     .radar {
       display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(20rem, 0.85fr);
+      grid-template-columns: minmax(0, 1fr) minmax(22rem, 26rem);
       grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas:
+        "map hud"
+        "map panel";
       height: 100%;
       max-height: 100%;
     }
 
     .radar__hud {
-      grid-column: 1 / -1;
-      grid-row: 1;
+      grid-area: hud;
       padding: 0;
       pointer-events: auto;
-      flex-shrink: 0;
     }
 
     .radar__hud-bar {
@@ -876,19 +1032,23 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       border-bottom: 1px solid var(--color-rule);
       background: var(--color-surface);
       backdrop-filter: none;
-      padding: 0.65rem 1rem;
+      padding: 0.55rem 0.9rem;
       grid-template-columns: 1fr;
     }
 
-    .radar__brand {
+    .radar__brand,
+    .radar__handle {
       display: none;
     }
 
     .radar__chips {
       margin: 0;
-      padding: 0.5rem 1rem;
+      padding: 0.45rem 0.9rem 0.55rem;
       background: var(--color-surface);
       border-bottom: 1px solid var(--color-rule);
+      mask-image: none;
+      flex-wrap: wrap;
+      overflow: visible;
     }
 
     .radar__chips .radar-chip {
@@ -897,37 +1057,36 @@ import RadarLayout from "../layouts/RadarLayout.astro";
 
     .radar__map-wrap {
       position: relative;
-      grid-column: 1;
-      grid-row: 2;
+      grid-area: map;
       min-height: 0;
       border-right: 1px solid var(--color-rule);
     }
 
     .radar__legend {
-      bottom: 0.65rem;
+      display: flex;
+      bottom: 0.75rem;
     }
 
     .radar__disclaimer {
       display: block;
       position: absolute;
       left: 0.75rem;
-      bottom: 2.2rem;
+      bottom: 2.35rem;
       z-index: 3;
       margin: 0;
-      max-width: 18rem;
-      padding: 0.45rem 0.6rem;
+      max-width: 17rem;
+      padding: 0.5rem 0.65rem;
       border-radius: 8px;
-      background: rgb(255 255 255 / 0.88);
+      background: rgb(255 252 247 / 0.9);
       color: var(--color-muted);
-      font-size: 0.68rem;
-      line-height: 1.35;
+      font-size: 0.7rem;
+      line-height: 1.4;
       pointer-events: none;
     }
 
     .radar__panel {
+      grid-area: panel;
       position: relative;
-      grid-column: 2;
-      grid-row: 2;
       max-height: none;
       height: 100%;
       min-height: 0;
@@ -941,6 +1100,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     .radar__fab,
     .radar__sheet {
       display: none !important;
+    }
+
+    .radar__panel-head {
+      padding-top: 0.9rem;
     }
 
     .radar__panel-foot {

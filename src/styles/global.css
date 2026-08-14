@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap");
 @import "../../tokens.css";
 
 @tailwind base;
@@ -22,7 +21,29 @@ body {
   min-height: 100%;
   margin: 0;
   overflow-x: clip;
-  background: linear-gradient(180deg, color-mix(in oklch, white 65%, var(--color-bg)), var(--color-bg) 32rem);
+  background: var(--color-bg);
+}
+
+body.shell-app:not(.shell-radar) {
+  background-image:
+    linear-gradient(180deg, color-mix(in oklch, var(--color-surface) 78%, var(--color-bg)), var(--color-bg) 28rem);
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font: 650 0.875rem/1 var(--font-body);
+  padding: 0.65rem 1rem;
+}
+
+.skip-link:focus {
+  transform: none;
 }
 
 * {
