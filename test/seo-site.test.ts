@@ -82,6 +82,13 @@ describe("site SEO helpers", () => {
     expect(documents.events.indexOf("zurich-42")).toBeLessThan(documents.events.indexOf("geneve-7"));
     expect(documents.events).not.toContain("/events/");
     expect(documents.events).not.toContain(".000Z");
+    const eventBlock = documents.events.match(
+      /<url><loc>https:\/\/outage\.ch\/stromausfall\/zurich-42<\/loc>.*?<\/url>/
+    )?.[0] ?? "";
+    expect(eventBlock.match(/hreflang="de-CH"/g)).toHaveLength(1);
+    expect(eventBlock.match(/hreflang="fr-CH"/g)).toHaveLength(1);
+    expect(eventBlock.match(/hreflang="en"/g)).toHaveLength(1);
+    expect(eventBlock).not.toContain("/events/");
   });
 
   it("drops duplicate locs, unknown lastmods and non-canonical event URLs", () => {

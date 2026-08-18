@@ -54,7 +54,8 @@ const pageDescription = description ?? t(locale, "site.description");
 const canonicalUrl = canonical ?? absoluteUrl(Astro.url.pathname, SITE_ORIGIN);
 const hideTopOnRadarMobile = shell === "radar";
 const htmlLang = HTML_LANG[locale];
-const alternates = hreflangEntries(Astro.url.pathname, SITE_ORIGIN);
+const indexable = !robots?.includes("noindex");
+const alternates = indexable ? hreflangEntries(Astro.url.pathname, SITE_ORIGIN) : [];
 const homeHref = pathFor({ kind: "home" }, locale);
 const nav = [
   { href: homeHref, id: "radar" as const, label: t(locale, "nav.radar") },

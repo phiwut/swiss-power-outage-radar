@@ -45,6 +45,12 @@ export function dePrefixTarget(pathname: string): string | null {
   return null;
 }
 
+export function eventsTemplateTarget(pathname: string): string | null {
+  if (pathname === "/events" || pathname === "/events/") return "/";
+  const prefixed = pathname.match(/^\/(fr|it|en)\/events\/?$/);
+  return prefixed ? `/${prefixed[1]}/` : null;
+}
+
 export function pathFor(route: AppRoute, locale: AppLocale = "de"): string {
   const prefix = localePrefix(locale);
   switch (route.kind) {
@@ -113,6 +119,11 @@ export function canonicalEventPath(storedUrl: string, pathname: string): string 
   return localizeStoredEventUrl(storedUrl, locale);
 }
 
+export function eventCanonicalRedirect(pathname: string, storedUrl: string): string | null {
+  const expected = canonicalEventPath(storedUrl, pathname);
+  return pathname === expected ? null : expected;
+}
+
 export function alternatePath(pathname: string, target: AppLocale): string {
   const parsed = parseAppPath(pathname);
   if (!parsed) return pathFor({ kind: "home" }, target);
@@ -124,16 +135,22 @@ export function alternatePath(pathname: string, target: AppLocale): string {
 
 export function hreflangEntries(pathname: string, origin: string): Array<{ locale: AppLocale | "x-default"; href: string; hreflang: string }> {
   const parsed = parseAppPath(pathname);
-  const route = parsed?.route ?? { kind: "home" as const };
-  const isGuide = route.kind === "guide";
-  const locales = isGuide ? (["de"] as AppLocale[]) : [...APP_LOCALES];
-  const entries = locales.map((locale) => ({
-    locale,
-    href: `${origin}${isGuide ? pathFor(route, "de") : pathFor(route, locale)}`,
-    hreflang: HREFLANG[locale]
-  }));
+  if (!parsed || parsed.route.kind === "eventsTemplate") return [];
+  const route = parsed.route;
+  const locales: AppLocale[] = route.kind === "guide" ? ["de"] : [...APP_LOCALES];
+  const seen = new Set<string>();
+  const entries: Array<{ locale: AppLocale | "x-default"; href: string; hreflang: string }> = [];
+  for (const locale of locales) {
+    const hreflang = HREFLANG[locale];
+    if (seen.has(hreflang)) continue;
+    seen.add(hreflang);
+    entries.push({ locale, href: `${origin}${pathFor(route, locale)}`, hreflang });
+  }
   const defaultHref = `${origin}${pathFor(route, "de")}`;
-  return [...entries, { locale: "x-default", href: defaultHref, hreflang: "x-default" }];
+  if (!seen.has("x-default")) {
+    entries.push({ locale: "x-default", href: defaultHref, hreflang: "x-default" });
+  }
+  return entries;
 }
 
 export function isPrefixLocalePath(pathname: string): boolean {

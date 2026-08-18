@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventSeo, renderEventSeoMarkup, renderHomeFeedLinks } from "../src/seo-event-page";
+import { eventHreflangHrefMap, eventHreflangLinkTags, eventSeo, INDEXABLE_ROBOTS, renderEventSeoMarkup, renderHomeFeedLinks } from "../src/seo-event-page";
 import type { PublicEventDetail } from "../src/public-detail";
 
 function detail(): PublicEventDetail {
@@ -28,6 +28,23 @@ function detail(): PublicEventDetail {
 }
 
 describe("SEO event page", () => {
+  it("replaces the events-shell noindex with indexable robots and event hreflang", () => {
+    expect(INDEXABLE_ROBOTS).toBe("index,follow,max-image-preview:large");
+    expect(INDEXABLE_ROBOTS).not.toContain("noindex");
+    const links = eventHreflangHrefMap("/stromausfall/zurich-42", "https://outage.ch");
+    expect(links["de-CH"]).toBe("https://outage.ch/stromausfall/zurich-42");
+    expect(links["fr-CH"]).toBe("https://outage.ch/fr/panne-de-courant/zurich-42");
+    expect(links["it-CH"]).toBe("https://outage.ch/it/interruzione-di-corrente/zurich-42");
+    expect(links["en"]).toBe("https://outage.ch/en/power-outage/zurich-42");
+    expect(links["x-default"]).toBe("https://outage.ch/stromausfall/zurich-42");
+    expect(Object.values(links).some((href) => href.includes("/events/"))).toBe(false);
+    expect(Object.keys(links).sort()).toEqual(["de-CH", "en", "fr-CH", "it-CH", "x-default"]);
+    const tags = eventHreflangLinkTags("/stromausfall/zurich-42", "https://outage.ch");
+    expect(tags.match(/hreflang="/g)).toHaveLength(5);
+    expect(tags.match(/hreflang="de-CH"/g)).toHaveLength(1);
+    expect(tags).not.toContain("/events/");
+  });
+
   it("creates a canonical location URL and structured event data", () => {
     const seo = eventSeo(detail(), "https://outage.ch");
     expect(seo.canonical).toBe("https://outage.ch/stromausfall/zurich-42");

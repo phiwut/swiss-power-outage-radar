@@ -48,8 +48,9 @@ import {
   sitemapCacheControl
 } from "./seo-site";
 import {
-  canonicalEventPath,
+  eventCanonicalRedirect,
   dePrefixTarget,
+  eventsTemplateTarget,
   parseLocaleFromPath,
   t
 } from "./i18n";
@@ -311,7 +312,7 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
-const PUBLIC_CACHE_VERSION = "seo-v7";
+const PUBLIC_CACHE_VERSION = "seo-v8";
 
 function publicCacheRequest(request: Request): Request {
   const url = new URL(request.url);
@@ -336,6 +337,10 @@ export default {
     const strippedDe = dePrefixTarget(url.pathname);
     if (strippedDe && (request.method === "GET" || request.method === "HEAD")) {
       return Response.redirect(new URL(strippedDe + url.search, publicOrigin).toString(), 301);
+    }
+    const eventsShell = eventsTemplateTarget(url.pathname);
+    if (eventsShell && (request.method === "GET" || request.method === "HEAD")) {
+      return Response.redirect(new URL(eventsShell + url.search, publicOrigin).toString(), 301);
     }
     const isPublicGet = (request.method === "GET" || request.method === "HEAD") && (
       url.pathname === "/" ||
@@ -370,9 +375,9 @@ export default {
       const locale = parseLocaleFromPath(url.pathname);
       const detail = await loadPublicEventDetail(env, seoId);
       if (!detail) return new Response(t(locale, "notFound"), { status: 404 });
-      const expected = canonicalEventPath(detail.item.url, url.pathname);
-      if (url.pathname.replace(/\/+$/, "") !== expected) {
-        return Response.redirect(new URL(expected, publicOrigin).toString(), 301);
+      const redirectTo = eventCanonicalRedirect(url.pathname, detail.item.url);
+      if (redirectTo) {
+        return Response.redirect(new URL(redirectTo + url.search, publicOrigin).toString(), 301);
       }
       const liveProfile = resolveOperatorProfile({
         name: detail.operator?.name ?? detail.item.source.publisher,

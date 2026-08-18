@@ -1,5 +1,5 @@
 ---
-import { APP_LOCALES, alternatePath, t, type AppLocale } from "../../i18n";
+import { APP_LOCALES, HTML_LANG, alternatePath, t, type AppLocale } from "../../i18n";
 
 interface Props {
   locale: AppLocale;
@@ -14,9 +14,9 @@ const { locale, pathname = Astro.url.pathname, class: className } = Astro.props;
   {APP_LOCALES.map((code) => (
     <a
       href={alternatePath(pathname, code)}
-      hreflang={code === "en" ? "en" : `${code}-CH`}
+      data-locale={code}
+      lang={HTML_LANG[code]}
       aria-current={code === locale ? "page" : undefined}
-      lang={code === "en" ? "en" : `${code}-CH`}
     >
       {t(locale, `lang.${code}`)}
     </a>

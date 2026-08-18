@@ -15,12 +15,34 @@ import {
   HTML_LANG,
   formatAppDate,
   formatAppDuration,
+  hreflangEntries,
+  isAppLocale,
   localizeStoredEventUrl,
   parseLocaleFromPath,
   pathFor,
   t,
   type AppLocale
 } from "./i18n";
+
+export const INDEXABLE_ROBOTS = "index,follow,max-image-preview:large";
+
+export function eventHreflangHrefMap(storedUrl: string, origin = SITE_ORIGIN): Record<string, string> {
+  const path = localizeStoredEventUrl(storedUrl, "de");
+  const seen = new Set<string>();
+  return Object.fromEntries(
+    hreflangEntries(path, origin).flatMap((entry) => {
+      if (seen.has(entry.hreflang)) return [];
+      seen.add(entry.hreflang);
+      return [[entry.hreflang, entry.href] as const];
+    })
+  );
+}
+
+export function eventHreflangLinkTags(storedUrl: string, origin = SITE_ORIGIN): string {
+  return Object.entries(eventHreflangHrefMap(storedUrl, origin))
+    .map(([hreflang, href]) => `<link rel="alternate" hreflang="${escapeHtml(hreflang)}" href="${escapeHtml(href)}">`)
+    .join("");
+}
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -526,9 +548,11 @@ export async function renderSeoEventAsset(
   const asset = await env.ASSETS.fetch(new Request(assetUrl, request));
   const seo = eventSeo(detail, SITE_ORIGIN, locale);
   const data = JSON.stringify(detail).replace(/</g, "\\u003c");
+  const hreflangTags = eventHreflangLinkTags(detail.item.url, SITE_ORIGIN);
   return new HTMLRewriter()
     .on("title", { element(element) { element.setInnerContent(seo.title); } })
     .on('meta[name="description"]', setMetaContent(seo.description))
+    .on('meta[name="robots"]', setMetaContent(INDEXABLE_ROBOTS))
     .on('meta[property="og:title"]', setMetaContent(seo.title))
     .on('meta[property="og:description"]', setMetaContent(seo.description))
     .on('meta[property="og:type"]', setMetaContent("article"))
@@ -538,8 +562,15 @@ export async function renderSeoEventAsset(
     .on('meta[name="twitter:description"]', setMetaContent(seo.description))
     .on('meta[name="twitter:image"]', setMetaContent(seo.ogImage))
     .on('link[rel="canonical"]', { element(element) { element.setAttribute("href", seo.canonical); } })
+    .on('link[rel="alternate"][hreflang]', { element(element) { element.remove(); } })
+    .on("nav.app-langs a[data-locale]", {
+      element(element) {
+        const code = element.getAttribute("data-locale");
+        if (isAppLocale(code)) element.setAttribute("href", localizeStoredEventUrl(detail.item.url, code));
+      }
+    })
     .on("head", { element(element) {
-      element.append(`<meta name="robots" content="index,follow,max-image-preview:large"><script type="application/ld+json">${seo.jsonLd}</script><script id="outage-event-data" type="application/json">${data}</script>`, { html: true });
+      element.append(`${hreflangTags}<script type="application/ld+json">${seo.jsonLd}</script><script id="outage-event-data" type="application/json">${data}</script>`, { html: true });
     } })
     .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail, related, live, locale), { html: true }); element.setAttribute("aria-busy", "false"); } })
     .transform(new Response(asset.body, { status: asset.status, headers: { ...Object.fromEntries(asset.headers), "Cache-Control": "public,max-age=60,s-maxage=300,stale-while-revalidate=1800" } }));

@@ -3,7 +3,9 @@ import {
   alternatePath,
   canonicalEventPath,
   dePrefixTarget,
+  eventCanonicalRedirect,
   eventIdFromPath,
+  eventsTemplateTarget,
   hreflangEntries,
   localizeStoredEventUrl,
   parseAppPath,
@@ -40,16 +42,36 @@ describe("i18n routing", () => {
     expect(localizeStoredEventUrl("/stromausfall/zurich-42", "fr")).toBe("/fr/panne-de-courant/zurich-42");
     expect(canonicalEventPath("/stromausfall/zurich-42", "/fr/stromausfall/zurich-42"))
       .toBe("/fr/panne-de-courant/zurich-42");
+    expect(eventCanonicalRedirect("/stromausfall/zurich-42", "/stromausfall/zurich-42")).toBeNull();
+    expect(eventCanonicalRedirect("/stromausfall/zurich-42/", "/stromausfall/zurich-42"))
+      .toBe("/stromausfall/zurich-42");
+    expect(eventCanonicalRedirect("/fr/stromausfall/zurich-42", "/stromausfall/zurich-42"))
+      .toBe("/fr/panne-de-courant/zurich-42");
     expect(dePrefixTarget("/de/netzbetreiber/")).toBe("/netzbetreiber/");
     expect(dePrefixTarget("/fr/")).toBeNull();
+    expect(eventsTemplateTarget("/events/")).toBe("/");
+    expect(eventsTemplateTarget("/fr/events")).toBe("/fr/");
+    expect(eventsTemplateTarget("/it/events/")).toBe("/it/");
+    expect(eventsTemplateTarget("/en/events/")).toBe("/en/");
+    expect(eventsTemplateTarget("/stromausfall/zurich-42")).toBeNull();
   });
 
-  it("builds hreflang including x-default German", () => {
-    const links = hreflangEntries("/fr/panne-de-courant/zurich-42", "https://outage.ch");
-    expect(links.map((entry) => entry.hreflang)).toEqual(["de-CH", "fr-CH", "it-CH", "en", "x-default"]);
-    expect(links.find((entry) => entry.locale === "de")?.href).toBe("https://outage.ch/stromausfall/zurich-42");
-    expect(links.find((entry) => entry.locale === "x-default")?.href).toBe("https://outage.ch/stromausfall/zurich-42");
+  it("builds one URL per hreflang code and keeps German guides out of other locales", () => {
+    const eventLinks = hreflangEntries("/fr/panne-de-courant/zurich-42", "https://outage.ch");
+    expect(eventLinks.map((entry) => entry.hreflang)).toEqual(["de-CH", "fr-CH", "it-CH", "en", "x-default"]);
+    expect(new Set(eventLinks.map((entry) => entry.hreflang)).size).toBe(eventLinks.length);
+    expect(eventLinks.find((entry) => entry.locale === "de")?.href).toBe("https://outage.ch/stromausfall/zurich-42");
+    expect(eventLinks.find((entry) => entry.locale === "x-default")?.href).toBe("https://outage.ch/stromausfall/zurich-42");
+    expect(eventLinks.some((entry) => entry.href.includes("/events/"))).toBe(false);
+
+    const guideLinks = hreflangEntries("/ratgeber/stromausfall-was-tun/", "https://outage.ch");
+    expect(guideLinks.map((entry) => entry.hreflang)).toEqual(["de-CH", "x-default"]);
+    expect(guideLinks[0]?.href).toBe("https://outage.ch/ratgeber/stromausfall-was-tun/");
+    expect(guideLinks[1]?.href).toBe(guideLinks[0]?.href);
     expect(alternatePath("/ratgeber/stromausfall-was-tun/", "fr")).toBe("/fr/ratgeber/");
+
+    expect(hreflangEntries("/events/", "https://outage.ch")).toEqual([]);
+    expect(hreflangEntries("/fr/events/", "https://outage.ch")).toEqual([]);
   });
 
   it("uses sentence templates instead of machine-translating source quotes", () => {
