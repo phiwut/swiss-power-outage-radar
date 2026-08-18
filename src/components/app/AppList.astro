@@ -1,5 +1,4 @@
 ---
-import { ItemGroup } from "@/components/starwind/item";
 import type { HTMLAttributes } from "astro/types";
 
 type Props = HTMLAttributes<"div">;
@@ -7,6 +6,16 @@ type Props = HTMLAttributes<"div">;
 const { class: className, ...rest } = Astro.props;
 ---
 
-<ItemGroup class:list={["overflow-hidden rounded-xl border border-border bg-card", className]} {...rest}>
+<div class:list={["app-list", className]} role="list" {...rest}>
   <slot />
-</ItemGroup>
+</div>
+
+<style>
+  .app-list {
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: 0 1px 4px color-mix(in oklch, var(--foreground) 3%, transparent);
+  }
+</style>

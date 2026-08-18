@@ -1,6 +1,5 @@
 ---
 import { Button } from "@/components/starwind/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/starwind/card";
 import ArrowRight from "@tabler/icons/outline/arrow-right.svg";
 
 interface Props {
@@ -13,15 +12,76 @@ interface Props {
 const { title, description, href, label } = Astro.props;
 ---
 
-<Card size="sm" class="mt-5 flex-row flex-wrap items-center justify-between gap-3 py-3 max-sm:flex-col max-sm:items-stretch">
-  <CardHeader class="min-w-0 flex-1 py-0">
-    <CardTitle class="text-sm">{title}</CardTitle>
-    <CardDescription class="text-xs leading-snug">{description}</CardDescription>
-  </CardHeader>
-  <div class="px-(--card-spacing) max-sm:w-full">
-    <Button as="a" href={href} variant="secondary" size="sm" class="max-sm:w-full">
-      {label}
-      <ArrowRight class="size-4" />
-    </Button>
+<div class="page-cta">
+  <div class="page-cta__copy">
+    <span class="page-cta__title">{title}</span>
+    <span class="page-cta__desc">{description}</span>
   </div>
-</Card>
+  <Button as="a" href={href} size="sm" class="page-cta__btn">
+    {label}
+    <ArrowRight class="size-4" />
+  </Button>
+</div>
+
+<style>
+  .page-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    margin-top: 1.5rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg,
+      color-mix(in oklch, var(--foreground) 4%, var(--card)) 0%,
+      color-mix(in oklch, var(--brand-accent) 6%, var(--card)) 100%
+    );
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 12px color-mix(in oklch, var(--foreground) 4%, transparent);
+    transition: box-shadow var(--dur-mid) var(--ease-out),
+                transform var(--dur-short) var(--ease-out);
+  }
+
+  .page-cta:hover {
+    box-shadow: 0 4px 20px color-mix(in oklch, var(--foreground) 8%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .page-cta__copy {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .page-cta__title {
+    font-family: var(--font-display);
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+  }
+
+  .page-cta__desc {
+    font-size: 0.78rem;
+    color: var(--muted-foreground);
+    line-height: 1.4;
+  }
+
+  .page-cta__btn {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 480px) {
+    .page-cta {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .page-cta :global(.page-cta__btn) {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>

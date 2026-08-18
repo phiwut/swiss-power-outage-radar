@@ -1,9 +1,9 @@
-/* Event briefing · dispatch slip, not magazine cover */
+/* Event briefing · Swiss precision dispatch slip */
 
 .detail-page {
   margin: 0 auto;
   max-width: 1080px;
-  padding: 0.35rem 0 2.5rem;
+  padding: 0.4rem 0 2.75rem;
 }
 
 .back-link {
@@ -12,19 +12,21 @@
   display: inline-flex;
   font-size: 0.85rem;
   font-weight: 650;
-  gap: 0.4rem;
-  margin: 0.15rem 0 0.9rem;
+  gap: 0.45rem;
+  margin: 0.2rem 0 1rem;
   min-height: 44px;
   text-decoration: none;
+  transition: transform var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
 }
 
 .back-link:hover {
   color: var(--color-ink);
-  transform: translateX(-2px);
+  transform: translateX(-3px);
 }
 
 .event-brief {
-  animation: brief-in 0.4s var(--ease-out) both;
+  animation: brief-in 0.45s var(--ease-out) both;
 }
 
 .brief {
@@ -33,20 +35,23 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
   overflow: hidden;
   border: 1px solid var(--color-rule);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   background:
-    radial-gradient(rgba(18, 21, 26, 0.025) 0.55px, transparent 0.7px),
+    radial-gradient(circle at 0% 0%, color-mix(in oklch, var(--brief-stub, var(--muted)) 8%, transparent) 0%, transparent 50%),
+    radial-gradient(rgba(18, 21, 26, 0.02) 0.5px, transparent 0.6px),
     var(--color-surface);
-  background-size: 3px 3px, auto;
-  box-shadow: 0 8px 24px color-mix(in oklch, var(--color-ink) 5%, transparent);
+  background-size: 100% 100%, 3px 3px, auto;
+  box-shadow:
+    0 4px 12px color-mix(in oklch, var(--color-ink) 4%, transparent),
+    0 12px 32px color-mix(in oklch, var(--color-ink) 6%, transparent);
 }
 
 .brief::before {
   position: absolute;
   inset: 0 auto 0 0;
   z-index: 2;
-  width: 5px;
-  background: var(--brief-stub, var(--color-ink));
+  width: 4px;
+  background: linear-gradient(to bottom, var(--brief-stub, var(--color-ink)), color-mix(in oklch, var(--brief-stub, var(--color-ink)) 70%, transparent));
   content: "";
 }
 
@@ -57,8 +62,8 @@
 .brief__copy {
   display: grid;
   align-content: start;
-  gap: 0.65rem;
-  padding: 0.95rem 1.05rem 1.05rem;
+  gap: 0.7rem;
+  padding: 1rem 1.15rem 1.15rem;
   min-width: 0;
 }
 
@@ -66,37 +71,44 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem 0.8rem;
+  gap: 0.5rem 0.85rem;
   color: var(--color-faint);
   font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.06em;
+  font-size: 0.64rem;
+  font-weight: 550;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .trust-mark {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
   color: var(--color-ink);
-  font-weight: 650;
+  font-weight: 675;
 }
 
 .trust-mark i {
-  width: 0.4rem;
-  height: 0.4rem;
-  border: 3px solid color-mix(in oklch, var(--color-danger) 22%, transparent);
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 3px solid color-mix(in oklch, var(--color-danger) 25%, transparent);
   border-radius: 50%;
   background: var(--color-danger);
   box-sizing: content-box;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-danger) 30%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-danger) 0%, transparent); }
 }
 
 .hero-statusline {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.98rem;
+  font-weight: 725;
   letter-spacing: -0.02em;
   line-height: 1.35;
 }
@@ -104,10 +116,10 @@
 .brief h1,
 .brief__copy h1 {
   margin: 0;
-  max-width: 22ch;
+  max-width: 24ch;
   font-family: var(--font-display);
-  font-size: clamp(1.28rem, 4vw, 2.05rem);
-  font-weight: 800;
+  font-size: clamp(1.35rem, 4.2vw, 2.15rem);
+  font-weight: 850;
   letter-spacing: -0.04em;
   line-height: 1.08;
   overflow-wrap: anywhere;
@@ -117,8 +129,8 @@
 .brief__lede {
   margin: 0;
   color: var(--color-muted);
-  font-size: 0.98rem;
-  line-height: 1.5;
+  font-size: 0.95rem;
+  line-height: 1.55;
 }
 
 .brief__map.event-hero {
@@ -298,46 +310,53 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.85rem;
-  margin-top: 0.25rem;
-  padding: 0.85rem 1rem;
+  gap: 0.9rem;
+  margin-top: 0.3rem;
+  padding: 0.9rem 1.05rem;
   border: 1px solid var(--color-rule);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-2);
+  border-radius: var(--radius);
+  background: linear-gradient(to bottom, var(--color-surface-2), color-mix(in oklch, var(--color-surface-2) 60%, var(--color-surface)));
   color: var(--color-ink);
+  transition: box-shadow var(--dur-mid) var(--ease-out);
+}
+
+.operator-block:hover {
+  box-shadow: 0 2px 12px color-mix(in oklch, var(--color-ink) 6%, transparent);
 }
 
 .operator-copy > span {
-  color: var(--color-faint);
+  color: var(--brand-accent);
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.58rem;
+  font-weight: 575;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .operator-copy h2 {
-  margin: 0.15rem 0 0;
+  margin: 0.18rem 0 0;
   font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 650;
+  font-size: 1.08rem;
+  font-weight: 700;
   letter-spacing: -0.03em;
 }
 
 .operator-copy p {
-  margin: 0.25rem 0 0;
+  margin: 0.28rem 0 0;
   color: var(--color-muted);
   font-size: 0.85rem;
+  line-height: 1.45;
 }
 
 .operator-live-line {
   color: var(--color-ink) !important;
-  font-weight: 600;
+  font-weight: 625;
 }
 
 .operator-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.5rem;
   justify-content: flex-end;
 }
 
@@ -346,16 +365,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  min-height: 40px;
-  padding: 0.55rem 0.9rem;
-  border-radius: var(--radius-md);
+  gap: 0.45rem;
+  min-height: 42px;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
   background: var(--color-ink);
   color: var(--color-surface);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 625;
   text-decoration: none;
   white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
 }
 
 .operator-actions a.operator-official-btn {
@@ -366,13 +387,15 @@
 
 .operator-actions a:hover,
 .operator-block > a:hover {
-  background: color-mix(in oklch, var(--color-ink) 88%, white);
+  background: color-mix(in oklch, var(--color-ink) 85%, var(--brand-accent));
   color: var(--color-surface);
+  transform: translateY(-1px);
 }
 
 .operator-actions a.operator-official-btn:hover {
   background: var(--color-surface);
   color: var(--color-ink);
+  border-color: var(--color-ink);
 }
 
 .operator-block .operator-stats {
