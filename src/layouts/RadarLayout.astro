@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import "../styles/app-shell.css";
 import { Button } from "@/components/starwind/button";
+import { ButtonGroup } from "@/components/starwind/button-group";
 import { DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN, absoluteUrl } from "../public-url";
 import { siteJsonLd } from "../seo-site";
 import Bolt from "@tabler/icons/outline/bolt.svg";
@@ -86,27 +87,29 @@ const nav = [
           </span>
         </a>
         <nav class="app-top__nav" aria-label="Hauptnavigation">
-          {nav.map((item) => (
-            <Button
-              as="a"
-              href={item.href}
-              variant={activeNav === item.id ? "secondary" : "ghost"}
-              size="sm"
-              aria-current={activeNav === item.id ? "page" : undefined}
-            >
-              {item.label}
-            </Button>
-          ))}
+          <ButtonGroup>
+            {nav.map((item) => (
+              <Button
+                as="a"
+                href={item.href}
+                variant={activeNav === item.id ? "secondary" : "outline"}
+                size="sm"
+                aria-current={activeNav === item.id ? "page" : undefined}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </ButtonGroup>
         </nav>
       </header>
 
       <main id="app-main" class:list={["app-main", shell === "radar" ? "app-main--radar" : "app-main--content"]}>
         <slot />
         {shell === "content" && (
-          <nav class="app-legal" aria-label="Weitere Seiten">
-            <a href="/ueber/">Methodik</a>
-            <a href="/netzbetreiber/">Netzbetreiber</a>
-            <a href="/ratgeber/">Ratgeber</a>
+          <nav class="mt-8 flex flex-wrap gap-1" aria-label="Weitere Seiten">
+            <Button as="a" href="/ueber/" variant="ghost" size="sm">Methodik</Button>
+            <Button as="a" href="/netzbetreiber/" variant="ghost" size="sm">Netzbetreiber</Button>
+            <Button as="a" href="/ratgeber/" variant="ghost" size="sm">Ratgeber</Button>
           </nav>
         )}
       </main>

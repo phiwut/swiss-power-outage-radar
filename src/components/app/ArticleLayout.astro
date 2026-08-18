@@ -1,0 +1,31 @@
+---
+interface Link {
+  href: string;
+  label: string;
+}
+
+interface Props {
+  links?: Link[];
+}
+
+const { links = [] } = Astro.props;
+---
+
+<div class="grid gap-5 lg:grid-cols-[10.5rem_minmax(0,1fr)]">
+  {links.length > 0 && (
+    <nav class="sticky top-16 hidden self-start lg:grid gap-0.5" aria-label="Inhalt">
+      <p class="text-muted-foreground mb-1 font-mono text-[0.62rem] font-medium tracking-wider uppercase">Inhalt</p>
+      {links.map((link) => (
+        <a
+          href={link.href}
+          class="text-muted-foreground hover:border-foreground hover:text-foreground border-l-2 border-border py-1 pl-2.5 text-xs leading-snug"
+        >
+          {link.label}
+        </a>
+      ))}
+    </nav>
+  )}
+  <div class="min-w-0">
+    <slot />
+  </div>
+</div>

@@ -1,0 +1,33 @@
+---
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/starwind/item";
+import type { HTMLAttributes } from "astro/types";
+import ChevronRight from "@tabler/icons/outline/chevron-right.svg";
+
+interface Props extends HTMLAttributes<"a"> {
+  title: string;
+  description?: string;
+  kicker?: string;
+}
+
+const { title, description, kicker, class: className, href, ...rest } = Astro.props;
+---
+
+<Item
+  as="a"
+  href={href}
+  size="sm"
+  class:list={["w-full flex-nowrap rounded-none border-0 border-b border-border px-3.5 py-2.5 last:border-b-0 hover:bg-muted/60", className]}
+  role="listitem"
+  {...rest}
+>
+  <ItemContent class="min-w-0 gap-0.5">
+    {kicker && (
+      <span class="text-muted-foreground font-mono text-[0.62rem] tracking-wider uppercase">{kicker}</span>
+    )}
+    <ItemTitle class="font-heading font-semibold">{title}</ItemTitle>
+    {description && <ItemDescription class="line-clamp-1 text-xs">{description}</ItemDescription>}
+  </ItemContent>
+  <ItemActions>
+    <ChevronRight class="text-muted-foreground size-4" aria-hidden="true" />
+  </ItemActions>
+</Item>

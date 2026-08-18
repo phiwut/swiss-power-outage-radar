@@ -59,8 +59,11 @@ import List from "@tabler/icons/outline/list.svg";
         </InputGroup>
       </div>
       <div class="radar__filters">
-        <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
-        <div id="radar-nature" class="radar__chips radar__chips--nature" role="toolbar" aria-label="Art filtern"></div>
+        <div class="radar__chips-scroller">
+          <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
+          <span class="radar__chips-split" aria-hidden="true"></span>
+          <div id="radar-nature" class="radar__chips radar__chips--nature" role="toolbar" aria-label="Art filtern"></div>
+        </div>
       </div>
     </header>
 
@@ -92,14 +95,14 @@ import List from "@tabler/icons/outline/list.svg";
         <X class="size-4" />
       </Button>
       <div id="radar-sheet-body"></div>
-      <a id="radar-sheet-link" class="radar__cta" href="#">Meldung öffnen</a>
+      <Button as="a" id="radar-sheet-link" href="#" class="mt-3 w-full">Meldung öffnen</Button>
     </div>
 
-    <button type="button" id="radar-list-fab" class="radar__fab" aria-controls="radar-panel">
+    <Button type="button" id="radar-list-fab" class="radar__fab" aria-controls="radar-panel">
       <List class="size-[1.05rem]" aria-hidden="true" />
       Meldungen
       <b id="radar-fab-count">–</b>
-    </button>
+    </Button>
   </section>
 
   <script>
@@ -824,7 +827,7 @@ import List from "@tabler/icons/outline/list.svg";
   .radar__hud {
     position: relative;
     z-index: 5;
-    padding: calc(0.55rem + env(safe-area-inset-top, 0px)) 0.7rem 0.45rem;
+    padding: calc(0.38rem + env(safe-area-inset-top, 0px)) 0.6rem 0.32rem;
     pointer-events: none;
   }
 
@@ -835,9 +838,9 @@ import List from "@tabler/icons/outline/list.svg";
   .radar__hud-bar {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: 0.55rem;
+    gap: 0.42rem;
     align-items: center;
-    padding: 0.42rem 0.5rem;
+    padding: 0.28rem 0.38rem;
     border-radius: var(--app-radius);
     background: color-mix(in oklch, var(--color-surface) 88%, transparent);
     border: 1px solid var(--color-rule);
@@ -852,15 +855,22 @@ import List from "@tabler/icons/outline/list.svg";
   }
 
   .radar__brand {
-    font: 800 0.95rem/1 var(--font-display);
+    font: 800 0.9rem/1 var(--font-display);
     color: var(--color-ink);
     text-decoration: none;
     letter-spacing: -0.03em;
-    padding: 0 0.25rem;
+    padding: 0 0.2rem;
   }
 
   .radar__search {
     min-width: 0;
+    height: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .radar__hud [data-slot="input-group"] {
+    height: 2.5rem;
+    min-height: 2.5rem;
   }
 
   .radar__search-icon {
@@ -879,18 +889,33 @@ import List from "@tabler/icons/outline/list.svg";
   }
 
   .radar__filters {
-    display: grid;
-    gap: 0.35rem;
-    margin-top: 0.5rem;
+    margin-top: 0.35rem;
+  }
+
+  .radar__chips-scroller {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding: 0.05rem 0.05rem 0.12rem;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 1.2rem), transparent);
+  }
+
+  .radar__chips-split {
+    width: 1px;
+    align-self: stretch;
+    min-height: 1.1rem;
+    background: var(--color-rule);
+    flex-shrink: 0;
   }
 
   .radar__chips {
     display: flex;
-    gap: 0.35rem;
-    overflow-x: auto;
-    padding: 0 0.1rem 0.15rem;
-    -webkit-overflow-scrolling: touch;
-    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 1.4rem), transparent);
+    gap: 0.3rem;
+    overflow: visible;
+    flex: none;
+    padding: 0;
   }
 
   .radar__chips .radar-chip {
@@ -904,7 +929,7 @@ import List from "@tabler/icons/outline/list.svg";
     left: 0;
     right: 0;
     bottom: 0;
-    max-height: min(72dvh, calc(100dvh - var(--app-dock-h) - 6rem));
+    max-height: min(70dvh, calc(100dvh - var(--app-dock-h) - 5.25rem));
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -932,7 +957,7 @@ import List from "@tabler/icons/outline/list.svg";
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.55rem 1rem 0.45rem;
+    padding: 0.42rem 0.9rem 0.35rem;
     flex-shrink: 0;
   }
 
@@ -944,7 +969,7 @@ import List from "@tabler/icons/outline/list.svg";
 
   .radar__panel-head h2 {
     margin: 0;
-    font: 750 1.15rem/1.2 var(--font-display);
+    font: 750 1.05rem/1.2 var(--font-display);
     letter-spacing: -0.03em;
   }
 
@@ -1006,8 +1031,8 @@ import List from "@tabler/icons/outline/list.svg";
     z-index: 7;
     left: 0.75rem;
     right: 0.75rem;
-    bottom: calc(var(--app-dock-h) + 4.1rem);
-    padding: 1.1rem 1rem 1.1rem;
+    bottom: calc(var(--app-dock-h) + 3.6rem);
+    padding: 0.9rem 0.9rem 0.95rem;
     border-radius: var(--app-radius);
     background: var(--color-surface);
     border: 1px solid var(--color-rule);
@@ -1054,57 +1079,12 @@ import List from "@tabler/icons/outline/list.svg";
     stroke-linecap: round;
   }
 
-  .radar__cta {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    width: 100%;
-    min-height: 44px;
-    margin-top: 1rem;
-    padding: 0.7rem 1.1rem;
-    border-radius: var(--radius-md);
-    background: var(--color-ink);
-    color: var(--color-surface);
-    font: 600 0.95rem/1 var(--font-body);
-    text-decoration: none;
-  }
-
-  .radar__cta::after {
-    content: "";
-    width: 0.6rem;
-    height: 0.6rem;
-    border-right: 2.5px solid currentColor;
-    border-top: 2.5px solid currentColor;
-    transform: rotate(45deg);
-    translate: 0 -1px;
-  }
-
   .radar__fab {
     position: absolute;
     z-index: 6;
     right: 0.85rem;
     bottom: calc(var(--app-dock-h) + 0.85rem);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    min-height: 44px;
-    border: 0;
-    border-radius: var(--radius-md);
-    padding: 0.7rem 0.95rem 0.7rem 0.85rem;
-    background: var(--color-ink);
-    color: var(--color-surface);
-    font: 600 0.88rem/1 var(--font-body);
-    cursor: pointer;
     box-shadow: 0 8px 20px color-mix(in oklch, var(--color-ink) 16%, transparent);
-  }
-
-  .radar__fab svg {
-    width: 1.05rem;
-    height: 1.05rem;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
   }
 
   .radar__fab[hidden] {
@@ -1178,10 +1158,21 @@ import List from "@tabler/icons/outline/list.svg";
 
     .radar__filters {
       margin: 0;
-      padding: 0.4rem 0.9rem 0.5rem;
+      padding: 0.35rem 0.9rem 0.45rem;
       background: var(--color-surface);
       border-bottom: 1px solid var(--color-rule);
+    }
+
+    .radar__chips-scroller {
+      display: grid;
       gap: 0.3rem;
+      overflow: visible;
+      padding: 0;
+      mask-image: none;
+    }
+
+    .radar__chips-split {
+      display: none;
     }
 
     .radar__chips {
@@ -1246,7 +1237,7 @@ import List from "@tabler/icons/outline/list.svg";
     }
 
     .radar__panel-head {
-      padding-top: 0.9rem;
+      padding-top: 0.7rem;
     }
 
     .radar__panel-foot {

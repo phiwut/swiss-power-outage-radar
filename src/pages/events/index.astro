@@ -2,6 +2,7 @@
 import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import RadarLayout from "../../layouts/RadarLayout.astro";
 import { Button } from "@/components/starwind/button";
+import { Card } from "@/components/starwind/card";
 import { Skeleton } from "@/components/starwind/skeleton";
 import ArrowLeft from "@tabler/icons/outline/arrow-left.svg";
 import "../../styles/event-brief.css";
@@ -16,17 +17,19 @@ import "../../styles/event-brief.css";
 >
   <link slot="head" rel="stylesheet" href={maplibreCss} />
   <section class="detail-page">
-    <Button as="a" href="/" variant="ghost" size="sm" class="mb-3">
+    <Button as="a" href="/" variant="ghost" size="sm" class="mb-2 -ml-2">
       <ArrowLeft class="size-4" />
       Zum Radar
     </Button>
     <div id="event-shell" aria-live="polite" aria-busy="true">
-      <div class="grid gap-3 rounded-xl border border-border bg-card p-6" aria-label="Meldung wird geladen">
-        <Skeleton class="h-4 max-w-40" />
-        <Skeleton class="h-10 max-w-lg" />
-        <Skeleton class="h-4 max-w-md" />
-        <Skeleton class="mt-2 h-48 w-full" />
-      </div>
+      <Card size="sm" class="grid gap-2.5 py-4" aria-label="Meldung wird geladen">
+        <div class="px-(--card-spacing) grid gap-2.5">
+          <Skeleton class="h-4 max-w-40" />
+          <Skeleton class="h-10 max-w-lg" />
+          <Skeleton class="h-4 max-w-md" />
+          <Skeleton class="mt-2 h-48 w-full" />
+        </div>
+      </Card>
     </div>
   </section>
 

@@ -11,12 +11,15 @@ import { operatorProfileUrl, publicOperatorProfiles } from "../../operators";
 import { SITE_ORIGIN, DEFAULT_OG_IMAGE_PATH, absoluteUrl } from "../../public-url";
 import { organizationId } from "../../seo-site";
 import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
+import AppList from "@/components/app/AppList.astro";
+import AppListRow from "@/components/app/AppListRow.astro";
+import ArticleLayout from "@/components/app/ArticleLayout.astro";
 import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/starwind/accordion";
 import { Alert, AlertDescription } from "@/components/starwind/alert";
+import { Prose } from "@/components/starwind/prose";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/starwind/table";
-import { Badge } from "@/components/starwind/badge";
-import "../../styles/knowledge.css";
 
 export function getStaticPaths() {
   return knowledgeArticles.map((article) => ({
@@ -103,38 +106,29 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
       { label: article.shortTitle }
     ]} />
 
-    <header class="border-b border-border pb-10">
-      <Badge tone="neutral" appearance="soft" size="sm" class="font-mono uppercase tracking-wider">
-        Ratgeber · {article.readingMinutes} Minuten
-      </Badge>
-      <h1 class="font-heading mt-4 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
-        {article.title}
-      </h1>
-      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">{article.intro}</p>
-      <Alert class="mt-6 max-w-xl">
+    <PageHero
+      kicker={`Ratgeber · ${article.readingMinutes} Minuten`}
+      title={article.title}
+      lede={article.intro}
+    >
+      <Alert>
         <AlertDescription>{article.definition}</AlertDescription>
       </Alert>
-      <p class="mt-6 font-mono text-xs text-muted-foreground">
+      <p class="text-muted-foreground font-mono text-[0.68rem]">
         Veröffentlicht {dateLabel.format(new Date(published))}
         · Aktualisiert {dateLabel.format(new Date(modified))}
       </p>
-    </header>
+    </PageHero>
 
-    <div class="article-layout">
-      <aside class="article-toc">
-        <strong>Inhalt</strong>
-        {article.sections.map((section) => (
-          <a href={`#${knowledgeHeadingId(section.heading)}`}>{section.heading}</a>
-        ))}
-      </aside>
-      <div class="article-body">
+    <ArticleLayout links={article.sections.map((section) => ({ href: `#${knowledgeHeadingId(section.heading)}`, label: section.heading }))}>
+      <Prose class="max-w-none text-sm [--prose-heading-spacing:1.05em] [--prose-h2-size:1.2em] [--prose-spacing:0.75em] md:text-[0.95rem]">
         {article.sections.map((section) => (
           <section id={knowledgeHeadingId(section.heading)}>
             <h2>{section.heading}</h2>
-            {section.lead && <p class="article-lead">{section.lead}</p>}
+            {section.lead && <p>{section.lead}</p>}
             {section.paragraphs?.map((paragraph) => <p>{paragraph}</p>)}
             {section.steps && (
-              <ol class="article-steps">
+              <ol class="article-steps not-sw-prose">
                 {section.steps.map((step) => (
                   <li>
                     <strong>{step.title}</strong>
@@ -145,71 +139,77 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
             )}
             {section.bullets && <ul>{section.bullets.map((bullet) => <li>{bullet}</li>)}</ul>}
             {section.table && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {section.table.headers.map((header) => <TableHead>{header}</TableHead>)}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {section.table.rows.map((row) => (
+              <div class="not-sw-prose">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      {row.map((cell) => <TableCell>{cell}</TableCell>)}
+                      {section.table.headers.map((header) => <TableHead>{header}</TableHead>)}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {section.table.rows.map((row) => (
+                      <TableRow>
+                        {row.map((cell) => <TableCell>{cell}</TableCell>)}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </section>
         ))}
         {operators.length > 0 && (
           <section>
-            <p class="knowledge-eyebrow">Verzeichnis</p>
             <h2>Profilseiten der beobachteten Netzbetreiber</h2>
-            <div class="operator-list">
-              {operators.map((operator) => (
-                <a href={operatorProfileUrl(operator)}>
-                  <strong>{operator.name}</strong>
-                  <span>{operator.area}</span>
-                </a>
-              ))}
+            <div class="not-sw-prose">
+              <AppList>
+                {operators.map((operator) => (
+                  <AppListRow href={operatorProfileUrl(operator)} title={operator.name} description={operator.area} />
+                ))}
+              </AppList>
             </div>
           </section>
         )}
-        <section class="article-faq">
-          <p class="knowledge-eyebrow">Häufige Fragen</p>
-          <h2>Fragen und Antworten</h2>
-          <Accordion type="single">
-            {article.faqs.map((faq, index) => (
-              <AccordionItem value={`faq-${index}`}>
-                <AccordionTrigger>{faq.question}</AccordionTrigger>
-                <AccordionContent>{faq.answer}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </section>
-        <section class="article-sources">
-          <p class="knowledge-eyebrow">Grundlagen</p>
-          <h2>Offizielle Quellen und weiterführende Informationen</h2>
-          {article.sources.map((source) => (
-            <a href={source.url} target="_blank" rel="noreferrer">{source.label}<span>↗</span></a>
-          ))}
-        </section>
         <section>
-          <p class="knowledge-eyebrow">Weiterlesen</p>
-          <h2>Passende Ratgeber</h2>
-          <div class="related-guides">
-            {related.map((item) => (
-              <a href={knowledgeArticleUrl(item)}>
-                <small>{item.readingMinutes} Minuten</small>
-                <strong>{item.shortTitle}</strong>
-                <p>{item.description}</p>
-              </a>
-            ))}
+          <h2>Fragen und Antworten</h2>
+          <div class="not-sw-prose">
+            <Accordion type="single">
+              {article.faqs.map((faq, index) => (
+                <AccordionItem value={`faq-${index}`}>
+                  <AccordionTrigger class="py-2.5 text-sm">{faq.question}</AccordionTrigger>
+                  <AccordionContent>{faq.answer}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
         </section>
-      </div>
-    </div>
+        <section>
+          <h2>Offizielle Quellen und weiterführende Informationen</h2>
+          <div class="not-sw-prose">
+            <AppList>
+              {article.sources.map((source) => (
+                <AppListRow href={source.url} title={source.label} target="_blank" rel="noreferrer" />
+              ))}
+            </AppList>
+          </div>
+        </section>
+        <section>
+          <h2>Passende Ratgeber</h2>
+          <div class="not-sw-prose">
+            <AppList>
+              {related.map((item) => (
+                <AppListRow
+                  href={knowledgeArticleUrl(item)}
+                  kicker={`${item.readingMinutes} Minuten`}
+                  title={item.shortTitle}
+                  description={item.description}
+                />
+              ))}
+            </AppList>
+          </div>
+        </section>
+      </Prose>
+    </ArticleLayout>
     <PageCta
       title="Gibt es gerade einen Stromausfall?"
       description="Prüfen Sie die aktuellen und geplanten Meldungen."

@@ -4,9 +4,9 @@ import { SITE_ORIGIN } from "../../public-url";
 import { organizationId, SITE_DESCRIPTION } from "../../seo-site";
 import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
 import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
 import { Alert, AlertDescription } from "@/components/starwind/alert";
-import { Badge } from "@/components/starwind/badge";
-import "../../styles/knowledge.css";
+import { Prose } from "@/components/starwind/prose";
 
 const canonical = `${SITE_ORIGIN}/ueber/`;
 const jsonLd = {
@@ -46,26 +46,21 @@ const jsonLd = {
       { label: "Methodik" }
     ]} />
 
-    <header class="border-b border-border pb-10">
-      <Badge tone="neutral" appearance="soft" size="sm" class="font-mono uppercase tracking-wider">
-        Über outage.ch
-      </Badge>
-      <h1 class="font-heading mt-4 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
-        Ein öffentlicher Radar, kein Notfallkanal
-      </h1>
-      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
-        outage.ch sammelt öffentlich zugängliche Meldungen zu Stromausfällen und geplanten Unterbrüchen in der Schweiz. Die Seite ist unabhängig, quellentransparent und ersetzt weder Netzbetreiber noch Behörden.
-      </p>
-      <Alert class="mt-6 max-w-xl">
+    <PageHero
+      kicker="Über outage.ch"
+      title="Ein öffentlicher Radar, kein Notfallkanal"
+      lede="outage.ch sammelt öffentlich zugängliche Meldungen zu Stromausfällen und geplanten Unterbrüchen in der Schweiz. Die Seite ist unabhängig, quellentransparent und ersetzt weder Netzbetreiber noch Behörden."
+    >
+      <Alert>
         <AlertDescription>{SITE_DESCRIPTION}</AlertDescription>
       </Alert>
-      <p class="mt-6 font-mono text-xs text-muted-foreground">Aktualisiert am 18. August 2026</p>
-    </header>
+      <p class="text-muted-foreground font-mono text-[0.68rem]">Aktualisiert am 18. August 2026</p>
+    </PageHero>
 
-    <div class="article-body mt-10">
+    <Prose class="max-w-none text-sm [--prose-heading-spacing:1.05em] [--prose-h2-size:1.2em] [--prose-spacing:0.75em] md:text-[0.95rem]">
       <section>
         <h2>Was outage.ch zeigt</h2>
-        <p class="article-lead">
+        <p>
           Jede öffentliche Vorfallsseite nennt Ort, Art, Status, belegte Zeiten, Ursache soweit bekannt und die Originalquellen.
         </p>
         <p>
@@ -108,7 +103,7 @@ const jsonLd = {
           <a href="/netzbetreiber/">zuständigen Verteilnetzbetreiber</a>.
         </p>
       </section>
-    </div>
+    </Prose>
 
     <PageCta
       title="Zum Radar"

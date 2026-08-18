@@ -21,12 +21,15 @@ import {
 import { SITE_ORIGIN } from "../../public-url";
 import { operatorPageJsonLd } from "../../seo-operator-page";
 import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
+import AppList from "@/components/app/AppList.astro";
+import AppListRow from "@/components/app/AppListRow.astro";
+import ArticleLayout from "@/components/app/ArticleLayout.astro";
 import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
 import { Alert, AlertDescription } from "@/components/starwind/alert";
-import { Badge } from "@/components/starwind/badge";
 import { Button } from "@/components/starwind/button";
+import { Prose } from "@/components/starwind/prose";
 import ArrowUpRight from "@tabler/icons/outline/arrow-up-right.svg";
-import "../../styles/knowledge.css";
 
 export function getStaticPaths() {
   return publicOperatorProfiles().map((operator) => ({
@@ -66,43 +69,36 @@ const jsonLd = operatorPageJsonLd(operator, null);
       { label: operator.name }
     ]} />
 
-    <header class="border-b border-border pb-10">
-      <Badge tone="neutral" appearance="soft" size="sm" class="font-mono uppercase tracking-wider">
-        Verteilnetzbetreiber · {sourceCategoryLabel(operator.sourceCategory)}
-      </Badge>
-      <h1 class="font-heading mt-4 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
-        Störungen bei {operator.name}
-      </h1>
-      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
-        {operator.name} versorgt {operator.area}. Verbindliche Störungsmeldungen stehen auf der offiziellen Seite des Werks. outage.ch beobachtet diese Quelle und übernimmt nur öffentlich nachvollziehbare Stromereignisse in den Radar.
-      </p>
-      <Alert class="mt-6 max-w-xl">
+    <PageHero
+      kicker={`Verteilnetzbetreiber · ${sourceCategoryLabel(operator.sourceCategory)}`}
+      title={`Störungen bei ${operator.name}`}
+      lede={`${operator.name} versorgt ${operator.area}. Verbindliche Störungsmeldungen stehen auf der offiziellen Seite des Werks. outage.ch beobachtet diese Quelle und übernimmt nur öffentlich nachvollziehbare Stromereignisse in den Radar.`}
+    >
+      <Alert>
         <AlertDescription>{definition}</AlertDescription>
       </Alert>
-    </header>
+    </PageHero>
 
-    <div class="article-layout">
-      <aside class="article-toc">
-        <strong>Inhalt</strong>
-        <a href="#operator-live">Meldungen im Radar</a>
-        {elcom && <a href="#operator-facts">ElCom-Kennzahlen</a>}
-        <a href="#quelle">Offizielle Quelle</a>
-        <a href="#radar">Was outage.ch daraus macht</a>
-        <a href="#handeln">Was Sie tun</a>
-        <a href="#faq">Fragen</a>
-      </aside>
-      <div class="article-body min-w-0">
-        <section id="operator-live" class="operator-live">
+    <ArticleLayout links={[
+      { href: "#operator-live", label: "Meldungen im Radar" },
+      ...(elcom ? [{ href: "#operator-facts", label: "ElCom-Kennzahlen" }] : []),
+      { href: "#quelle", label: "Offizielle Quelle" },
+      { href: "#radar", label: "Was outage.ch daraus macht" },
+      { href: "#handeln", label: "Was Sie tun" },
+      { href: "#faq", label: "Fragen" }
+    ]}>
+      <Prose class="max-w-none text-sm [--prose-heading-spacing:1.05em] [--prose-h2-size:1.2em] [--prose-spacing:0.75em] md:text-[0.95rem]">
+        <section id="operator-live">
           <h2>Öffentliche Meldungen im Radar</h2>
-          <p class="article-lead">
+          <p>
             Sobald outage.ch eine öffentlich belegte Meldung aus der Quelle von {operator.name} übernimmt, erscheinen hier Anzahl, Status und Links zu den Vorfallsseiten. Ohne Eintrag im Radar bleibt {operator.name} trotzdem zuständig.
           </p>
         </section>
         {elcom && (
-          <section id="operator-facts" class="operator-live">
+          <section id="operator-facts">
             <h2>ElCom-Kennzahlen</h2>
-            <p class="article-lead">{elcomFactsInsight(operator.name, elcom)}</p>
-            <div class="operator-stats">
+            <p>{elcomFactsInsight(operator.name, elcom)}</p>
+            <div class="stat-grid not-sw-prose">
               <dl>
                 {elcomFactsRows(elcom).map(([label, value]) => (
                   <div>
@@ -111,9 +107,9 @@ const jsonLd = operatorPageJsonLd(operator, null);
                   </div>
                 ))}
               </dl>
-              <p class="operator-stats-note">{elcomFactsDisclaimer()}</p>
+              <p class="stat-grid__note">{elcomFactsDisclaimer()}</p>
             </div>
-            <p>
+            <p class="not-sw-prose">
               <Button as="a" href={ELCOM_PRICE_URL} variant="outline" size="sm">
                 ElCom-Strompreisübersicht öffnen
                 <ArrowUpRight class="size-4" />
@@ -123,12 +119,12 @@ const jsonLd = operatorPageJsonLd(operator, null);
         )}
         <section id="quelle">
           <h2>Offizielle Störungsseite</h2>
-          <p class="article-lead">
+          <p>
             {operator.name} veröffentlicht Störungen als {sourceCategoryLabel(operator.sourceCategory)}. Das ist die verbindliche Auskunft für {operator.area}.
           </p>
           <p>{sourceText}</p>
           {languageNote && <p>{languageNote}</p>}
-          <p>
+          <p class="not-sw-prose">
             <Button as="a" href={operator.officialUrl} variant="default" size="sm">
               Offizielle Seite von {operator.name} öffnen
               <ArrowUpRight class="size-4" />
@@ -146,7 +142,7 @@ const jsonLd = operatorPageJsonLd(operator, null);
         </section>
         <section id="handeln">
           <h2>Wenn bei Ihnen der Strom fehlt</h2>
-          <ol class="article-steps">
+          <ol class="article-steps not-sw-prose">
             <li>
               <strong>Umfang prüfen</strong>
               <p>Nur die eigene Wohnung oder auch Nachbarn und Strasse? Interne Defekte gehören zur Elektrofachperson, Netzstörungen zu {operator.name}.</p>
@@ -167,8 +163,7 @@ const jsonLd = operatorPageJsonLd(operator, null);
             {" "}<a href="/ratgeber/netzbetreiber-finden/">Netzbetreiber finden</a>.
           </p>
         </section>
-        <section id="faq" class="article-faq">
-          <p class="knowledge-eyebrow">Häufige Fragen</p>
+        <section id="faq">
           <h2>Fragen zu {operator.name}</h2>
           <div id="operator-faq">
             {faqs.map((faq) => (
@@ -180,20 +175,24 @@ const jsonLd = operatorPageJsonLd(operator, null);
           </div>
         </section>
         {related.length > 0 && (
-          <section class="related-guides" aria-labelledby="related-operators-heading">
-            <p class="knowledge-eyebrow">Weitere Werke</p>
+          <section aria-labelledby="related-operators-heading">
             <h2 id="related-operators-heading">Andere beobachtete Netzbetreiber</h2>
-            {related.map((profile) => (
-              <a href={`/netzbetreiber/${profile.slug}/`}>
-                <small>{sourceCategoryLabel(profile.sourceCategory)}</small>
-                <strong>{profile.name}</strong>
-                <p>{profile.area}</p>
-              </a>
-            ))}
+            <div class="not-sw-prose">
+              <AppList>
+                {related.map((profile) => (
+                  <AppListRow
+                    href={`/netzbetreiber/${profile.slug}/`}
+                    kicker={sourceCategoryLabel(profile.sourceCategory)}
+                    title={profile.name}
+                    description={profile.area}
+                  />
+                ))}
+              </AppList>
+            </div>
           </section>
         )}
-      </div>
-    </div>
+      </Prose>
+    </ArticleLayout>
     <PageCta
       title="Aktuelle Meldungen ansehen"
       description="Der Radar zeigt öffentlich belegte Ereignisse in der ganzen Schweiz."

@@ -106,28 +106,37 @@ function statsRows(stats: OperatorLiveStats): Array<[string, string]> {
 }
 
 export function renderOperatorStatsGrid(stats: OperatorLiveStats, footnote: string): string {
-  return `<div class="operator-stats">
+  return `<div class="stat-grid not-sw-prose">
     <dl>${statsRows(stats).map(([label, value]) =>
       `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`
     ).join("")}</dl>
-    <p class="operator-stats-note">${escapeHtml(footnote)}</p>
+    <p class="stat-grid__note">${escapeHtml(footnote)}</p>
   </div>`;
+}
+
+function itemLinkHtml(href: string, title: string, description: string, kicker?: string, attrs = ""): string {
+  return `<a href="${escapeHtml(href)}" ${attrs} class="flex w-full items-center gap-2 border-b border-border px-3.5 py-2.5 text-sm last:border-b-0 hover:bg-muted/60">
+    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+      ${kicker ? `<span class="text-muted-foreground font-mono text-[0.62rem] tracking-wider uppercase">${escapeHtml(kicker)}</span>` : ""}
+      <span class="font-heading font-semibold leading-snug">${escapeHtml(title)}</span>
+      <span class="text-muted-foreground line-clamp-1 text-xs leading-snug">${escapeHtml(description)}</span>
+    </span>
+  </a>`;
 }
 
 function renderEventList(items: PublicFeedItem[]): string {
   if (!items.length) return "";
-  return `<ul class="operator-event-list">${items.map((item) => {
+  return `<div class="not-sw-prose overflow-hidden rounded-xl border border-border bg-card">${items.map((item) => {
     const location = publicDisplayLocation(item.location);
     const kind = item.nature === "planned" ? "Geplanter Unterbruch" : "Stromausfall";
     const when = formatDate(item.started_at ?? item.updated_at);
-    return `<li>
-      <a href="${escapeHtml(item.url)}">
-        <span>${escapeHtml(statusLabel(item.status))}</span>
-        <strong>${escapeHtml(kind)} in ${escapeHtml(location)}</strong>
-        <small>${escapeHtml([when, item.nature === "planned" ? "geplant" : "ungeplant"].filter(Boolean).join(" · "))}</small>
-      </a>
-    </li>`;
-  }).join("")}</ul>`;
+    return itemLinkHtml(
+      item.url,
+      `${kind} in ${location}`,
+      [when, item.nature === "planned" ? "geplant" : "ungeplant"].filter(Boolean).join(" · "),
+      statusLabel(item.status)
+    );
+  }).join("")}</div>`;
 }
 
 export function renderOperatorLiveSection(live: OperatorLiveContext): string {
@@ -140,9 +149,9 @@ export function renderOperatorLiveSection(live: OperatorLiveContext): string {
         .join(", ")}.</p>`
     : "";
   const updated = formatDate(stats.lastUpdatedAt);
-  return `<section id="operator-live" class="operator-live">
+  return `<section id="operator-live">
     <h2>Öffentliche Meldungen im Radar</h2>
-    <p class="article-lead">${escapeHtml(insight)}</p>
+    <p>${escapeHtml(insight)}</p>
     ${renderOperatorStatsGrid(stats, footnote)}
     ${places}
     ${updated ? `<p>Zuletzt aktualisierte Meldung: ${escapeHtml(updated)}.</p>` : ""}
@@ -156,20 +165,17 @@ export function renderElcomFactsSection(operator: OperatorProfile): string {
   const facts = elcomFactsForSlug(operator.slug);
   if (!facts) return "";
   const rows = elcomFactsRows(facts);
-  return `<section id="operator-facts" class="operator-live">
+  return `<section id="operator-facts">
     <h2>ElCom-Kennzahlen</h2>
-    <p class="article-lead">${escapeHtml(elcomFactsInsight(operator.name, facts))}</p>
-    <div class="operator-stats">
+    <p>${escapeHtml(elcomFactsInsight(operator.name, facts))}</p>
+    <div class="stat-grid not-sw-prose">
       <dl>${rows.map(([label, value]) =>
         `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`
       ).join("")}</dl>
-      <p class="operator-stats-note">${escapeHtml(elcomFactsDisclaimer())}</p>
+      <p class="stat-grid__note">${escapeHtml(elcomFactsDisclaimer())}</p>
     </div>
-    <p>
-      <a class="operator-official" href="${escapeHtml(ELCOM_PRICE_URL)}" target="_blank" rel="noreferrer">
-        ElCom-Strompreisübersicht öffnen
-        <span>↗</span>
-      </a>
+    <p class="not-sw-prose">
+      <a class="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm hover:bg-muted" href="${escapeHtml(ELCOM_PRICE_URL)}" target="_blank" rel="noreferrer">ElCom-Strompreisübersicht öffnen</a>
     </p>
   </section>`;
 }
@@ -177,12 +183,11 @@ export function renderElcomFactsSection(operator: OperatorProfile): string {
 export function renderOperatorRelated(operator: OperatorProfile): string {
   const related = relatedOperatorProfiles(operator, 4);
   if (!related.length) return "";
-  return `<section class="related-guides" aria-labelledby="related-operators-heading">
-    <p class="knowledge-eyebrow">Weitere Werke</p>
+  return `<section aria-labelledby="related-operators-heading">
     <h2 id="related-operators-heading">Andere beobachtete Netzbetreiber</h2>
-    ${related.map((profile) =>
-      `<a href="${escapeHtml(operatorProfileUrl(profile))}"><small>${escapeHtml(sourceCategoryLabel(profile.sourceCategory))}</small><strong>${escapeHtml(profile.name)}</strong><p>${escapeHtml(profile.area)}</p></a>`
-    ).join("")}
+    <div class="not-sw-prose overflow-hidden rounded-xl border border-border bg-card">${related.map((profile) =>
+      itemLinkHtml(operatorProfileUrl(profile), profile.name, profile.area, sourceCategoryLabel(profile.sourceCategory))
+    ).join("")}</div>
   </section>`;
 }
 
@@ -291,10 +296,13 @@ export function renderOperatorHubLive(
         ? `${stats.total} Meldungen · ${stats.active} aktiv`
         : `${stats.total} öffentliche Meldungen`
       : sourceCategoryLabel(operator.sourceCategory);
-    return `<a href="${escapeHtml(operatorProfileUrl(operator))}" data-operator-slug="${escapeHtml(operator.slug)}" class="flex flex-col gap-1 border-b border-border py-4 no-underline transition-colors first:border-t hover:bg-muted/50">
-      <strong class="font-heading text-lg tracking-tight">${escapeHtml(operator.name)}</strong>
-      <span class="text-muted-foreground">${escapeHtml(operator.area)} · ${escapeHtml(countLabel)}</span>
-    </a>`;
+    return itemLinkHtml(
+      operatorProfileUrl(operator),
+      operator.name,
+      `${operator.area} · ${countLabel}`,
+      undefined,
+      `data-operator-slug="${escapeHtml(operator.slug)}"`
+    );
   }).join("");
   return { summary, list };
 }

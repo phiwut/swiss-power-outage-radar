@@ -1,0 +1,32 @@
+---
+import { Badge } from "@/components/starwind/badge";
+import { Separator } from "@/components/starwind/separator";
+
+interface Props {
+  kicker: string;
+  title: string;
+  lede?: string;
+}
+
+const { kicker, title, lede } = Astro.props;
+---
+
+<header class="mb-3">
+  <Badge tone="neutral" appearance="soft" eyebrow size="sm" class="font-mono">
+    {kicker}
+  </Badge>
+  <h1 class="font-heading mt-2 max-w-[22ch] text-[clamp(1.35rem,5.4vw,2.05rem)] font-extrabold tracking-tight text-balance leading-[1.12]">
+    {title}
+  </h1>
+  {lede && (
+    <p class="text-muted-foreground mt-1.5 max-w-xl text-sm leading-snug text-pretty md:text-[0.95rem] md:leading-relaxed">
+      {lede}
+    </p>
+  )}
+  {Astro.slots.has("default") && (
+    <div class="mt-2.5 max-w-xl space-y-2.5 [&_[data-slot=alert]]:p-3 [&_[data-slot=alert]]:text-sm">
+      <slot />
+    </div>
+  )}
+</header>
+<Separator class="mb-4" />

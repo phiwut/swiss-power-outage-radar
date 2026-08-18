@@ -1,5 +1,6 @@
 ---
 import { Button } from "@/components/starwind/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/starwind/card";
 import ArrowRight from "@tabler/icons/outline/arrow-right.svg";
 
 interface Props {
@@ -12,13 +13,15 @@ interface Props {
 const { title, description, href, label } = Astro.props;
 ---
 
-<section class="mt-12 flex flex-col gap-4 rounded-xl bg-foreground p-6 text-background sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-  <div class="grid gap-1">
-    <strong class="font-heading text-lg tracking-tight">{title}</strong>
-    <span class="text-sm text-background/70">{description}</span>
+<Card size="sm" class="mt-5 flex-row flex-wrap items-center justify-between gap-3 py-3 max-sm:flex-col max-sm:items-stretch">
+  <CardHeader class="min-w-0 flex-1 py-0">
+    <CardTitle class="text-sm">{title}</CardTitle>
+    <CardDescription class="text-xs leading-snug">{description}</CardDescription>
+  </CardHeader>
+  <div class="px-(--card-spacing) max-sm:w-full">
+    <Button as="a" href={href} variant="secondary" size="sm" class="max-sm:w-full">
+      {label}
+      <ArrowRight class="size-4" />
+    </Button>
   </div>
-  <Button as="a" href={href} variant="secondary" class="shrink-0">
-    {label}
-    <ArrowRight class="size-4" />
-  </Button>
-</section>
+</Card>

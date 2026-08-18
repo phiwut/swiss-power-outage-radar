@@ -1,7 +1,9 @@
 ---
 import RadarLayout from "../../layouts/RadarLayout.astro";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/starwind/card";
+import AppList from "@/components/app/AppList.astro";
+import AppListRow from "@/components/app/AppListRow.astro";
 import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
 import { knowledgeArticles, knowledgeArticleUrl } from "../../knowledge";
 import { SITE_ORIGIN } from "../../public-url";
 
@@ -48,32 +50,24 @@ const jsonLd = {
 >
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <section class="mx-auto w-full max-w-4xl">
-    <header class="border-b border-border pb-10">
-      <p class="font-mono text-[0.66rem] font-medium tracking-[0.12em] text-muted-foreground uppercase">Wissen · Schweiz</p>
-      <h1 class="font-heading mt-3 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
-        Stromausfall verstehen und richtig handeln
-      </h1>
-      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
-        Die Vorfallsseiten zeigen, was an einem konkreten Ort bekannt ist. Hier stehen die allgemeinen Fragen dahinter: Was tun, wen rufen, wie lange dauert es, und worin unterscheiden sich Ausfall, Mangellage und Blackout.
-      </p>
-    </header>
+    <PageHero
+      kicker="Wissen · Schweiz"
+      title="Stromausfall verstehen und richtig handeln"
+      lede="Die Vorfallsseiten zeigen, was an einem konkreten Ort bekannt ist. Hier stehen die allgemeinen Fragen dahinter: Was tun, wen rufen, wie lange dauert es, und worin unterscheiden sich Ausfall, Mangellage und Blackout."
+    />
 
-    <div class="mt-8 grid gap-4 sm:grid-cols-2">
+    <AppList>
       {knowledgeArticles.map((article, index) => (
-        <a href={knowledgeArticleUrl(article)} class="group block no-underline">
-          <Card class="h-full transition-colors group-hover:bg-muted/60">
-            <CardHeader>
-              <span class="font-mono text-xs text-muted-foreground tabular-nums">{String(index + 1).padStart(2, "0")}</span>
-              <p class="font-mono text-[0.66rem] tracking-wider text-muted-foreground uppercase">{article.readingMinutes} Minuten Lesezeit</p>
-              <CardTitle class="font-heading text-2xl tracking-tight">{article.shortTitle}</CardTitle>
-              <CardDescription class="text-pretty">{article.description}</CardDescription>
-            </CardHeader>
-          </Card>
-        </a>
+        <AppListRow
+          href={knowledgeArticleUrl(article)}
+          kicker={`${String(index + 1).padStart(2, "0")} · ${article.readingMinutes} Min.`}
+          title={article.shortTitle}
+          description={article.description}
+        />
       ))}
-    </div>
+    </AppList>
 
-    <p class="mt-8 max-w-xl leading-relaxed text-muted-foreground">
+    <p class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed">
       Den zuständigen Verteilnetzbetreiber und dessen offizielle Störungsseite finden Sie im
       {" "}<a href="/netzbetreiber/" class="underline underline-offset-4">Netzbetreiber-Verzeichnis</a>.
       Wie outage.ch Quellen prüft, steht in der
