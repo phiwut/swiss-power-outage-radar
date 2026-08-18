@@ -50,6 +50,15 @@ const LOW_VALUE_UNCERTAINTY = [
   /\b(?:causa|stato|durata|dettagli|informazioni).{0,100}\b(?:sconosciut[ao]|incert[ao]|non (?:chiar[ao]|not[ao]|specificat[ao]))\b/i
 ];
 
+const POWER_OUTAGE_EVIDENCE = /\b(?:stromausfall|stromunterbruch|netzunterbruch|ohne strom|panne de courant|coupure de courant|interruzione di corrente|power outage|blackout)\b/i;
+
+const NON_POWER_HAZARD = /feuerverbot|interdiction de faire du feu|divieto di accendere fuochi|risque d['’]incendie|waldbrandgefahr|s[ée]cheresse|trockenheit|hitzewelle|canicule/i;
+
+function isNonPowerIncident(text: string): boolean {
+  if (POWER_OUTAGE_EVIDENCE.test(text)) return false;
+  return NON_POWER_HAZARD.test(text);
+}
+
 function concreteSwissLocation(event: OutageEvent): boolean {
   const location = normalizeLocation(event.location_text);
   return (
@@ -65,6 +74,7 @@ function provesOutage(fact: OutageFact): boolean {
   if (!fact.evidence_excerpt.trim()) return false;
   if (NEGATIVE_EVIDENCE.some((pattern) => pattern.test(fact.evidence_excerpt))) return false;
   if (NON_INCIDENT_EVIDENCE.some((pattern) => pattern.test(fact.evidence_excerpt))) return false;
+  if (isNonPowerIncident(fact.evidence_excerpt)) return false;
   return fact.value_text.trim().toLowerCase() === "true" || fact.fact_type === "planned_outage_notice";
 }
 
@@ -113,7 +123,8 @@ function publicSummary(event: OutageEvent): string | null {
   if (
     !summary ||
     NEGATIVE_EVIDENCE.some((pattern) => pattern.test(summary)) ||
-    NON_INCIDENT_EVIDENCE.some((pattern) => pattern.test(summary))
+    NON_INCIDENT_EVIDENCE.some((pattern) => pattern.test(summary)) ||
+    isNonPowerIncident(summary)
   ) return null;
   const sentences = summary
     .split(/(?<=[.!?])\s+/)

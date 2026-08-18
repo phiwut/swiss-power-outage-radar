@@ -301,7 +301,7 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
-const PUBLIC_CACHE_VERSION = "seo-v4";
+const PUBLIC_CACHE_VERSION = "seo-v5";
 
 function publicCacheRequest(request: Request): Request {
   const url = new URL(request.url);

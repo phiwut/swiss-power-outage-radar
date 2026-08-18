@@ -630,6 +630,36 @@ describe("source registry observations", () => {
     expect(result.observations).toHaveLength(0);
   });
 
+  it("does not treat a fire ban as a power outage because electric barbecues are mentioned", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      heartbeatAgeInMillis: 3536,
+      renderTime: "18.08.2026 11:18:18.291 +0200",
+      alerts: [{
+        identifier: "POA-1357813895-3",
+        title: { title: "Risque d'incendie maximal : rappel de l'interdiction des feux en plein air" },
+        description: { description: "Dans l'espace privé, seuls les barbecues à gaz et électriques sont autorisés." },
+        event: "Interdiction de faire du feu",
+        allClear: false,
+        testAlert: false,
+        technicalTestAlert: false,
+        publisherName: "Canton de Genève",
+        areas: [{ description: { description: "Genève" } }]
+      }]
+    }), { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "alertswiss",
+        adapter_config_json: '{"api_url":"https://www.alert.swiss/content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json"}'
+      }),
+      "2026-08-18T09:30:47.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("no_current_outage");
+    expect(result.observations).toHaveLength(0);
+  });
+
   it("keeps single non-official discoveries below public corroboration while official sources pass", () => {
     const mediaOnly = scoreEvent(event({ confidence: 0.98 }), [
       source({

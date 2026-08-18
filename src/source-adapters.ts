@@ -603,7 +603,9 @@ async function parseEwzHtml(
   return { observations, schemaMatched: true };
 }
 
-const ELECTRICITY_ALERTSWISS_PATTERN = /stromausfall|stromunterbruch|stromversorgung|netzstörung|netzstoerung|\bblackout\b|strommangellage|coupure de courant|panne de courant|interruption de (?:courant|l['’]électricité)|interruzione di corrente|power outage|électri(?:cité|que)|electricit(?:y|é)/i;
+const ALERTSWISS_POWER_HEADLINE = /stromausfall|stromunterbruch|stromversorgung|netzstörung|netzstoerung|\bblackout\b|strommangellage|coupure de courant|panne de courant|interruption de (?:courant|l['’]électricité)|interruzione di corrente|power outage/i;
+
+const ALERTSWISS_NOT_POWER = /feuerverbot|interdiction de faire du feu|divieto di accendere fuochi|waldbrand|incendie|trockenheit|s[ée]cheresse|hitzewelle|canicule|chemikal|inondation|hochwasser|erdbeben|lawine|gewitter|\borage\b/i;
 
 function localizedAlertText(value: unknown): string {
   if (typeof value === "string") return compact(value);
@@ -620,11 +622,9 @@ function alertswissAreaText(alert: Record<string, unknown>): string | null {
 }
 
 function isElectricityAlertswissAlert(alert: Record<string, unknown>): boolean {
-  return ELECTRICITY_ALERTSWISS_PATTERN.test([
-    stringOrNull(alert.event),
-    localizedAlertText(alert.title),
-    localizedAlertText(alert.description)
-  ].join(" "));
+  const headline = [stringOrNull(alert.event), localizedAlertText(alert.title)].join(" ");
+  if (!headline.trim() || ALERTSWISS_NOT_POWER.test(headline)) return false;
+  return ALERTSWISS_POWER_HEADLINE.test(headline);
 }
 
 async function parseAlertswissPayload(

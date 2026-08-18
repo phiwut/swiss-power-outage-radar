@@ -247,6 +247,58 @@ describe("public event publication", () => {
     expect(contradictory.reasons).toContain("contradictory_evidence");
   });
 
+  it("rejects an Alertswiss fire ban even from an official host", () => {
+    const decision = evaluatePublicEvent(
+      event({
+        id: 194,
+        title: "Möglicher Stromausfall / Netzunterbruch: Genève",
+        location_text: "Genève",
+        normalized_location: "geneve",
+        summary: "Risque d'incendie maximal : rappel de l'interdiction des feux en plein air"
+      }),
+      [source({
+        source_url: "https://www.alert.swiss/",
+        source_title: "Risque d'incendie maximal : rappel de l'interdiction des feux en plein air",
+        source_name: "Alertswiss",
+        source_kind: "official",
+        independence_key: "alert.swiss",
+        is_official: 1
+      })],
+      [outageFact({
+        evidence_excerpt: "Risque d'incendie maximal : rappel de l'interdiction des feux en plein air Gebiet: Genève. Alertswiss-Meldung POA-1357813895-3. Quelle: www.alertswiss.ch."
+      })],
+      { authorityHosts: new Set(["alert.swiss"]) }
+    );
+
+    expect(decision.publishable).toBe(false);
+    expect(decision.reasons).toEqual(expect.arrayContaining([
+      "no_positive_outage_evidence"
+    ]));
+  });
+
+  it("still publishes a real outage in Feuerschaugemeinde Appenzell", () => {
+    const decision = evaluatePublicEvent(
+      event({
+        location_text: "Feuerschaugemeinde, Appenzell",
+        normalized_location: "feuerschaugemeinde appenzell",
+        summary: "Ein Vogel verursachte einen Stromunterbruch in der Feuerschaugemeinde Appenzell."
+      }),
+      [source({
+        source_url: "https://www.ai.ch/feuerschaugemeinde/news/stoerung",
+        source_title: "Störung Stromversorgung Appenzell",
+        source_name: "ai.ch",
+        independence_key: "ai.ch",
+        is_official: 1
+      })],
+      [outageFact({
+        evidence_excerpt: "Ein Vogel verursachte einen Stromunterbruch in der Feuerschaugemeinde Appenzell."
+      })],
+      { authorityHosts: new Set(["ai.ch"]) }
+    );
+
+    expect(decision.publishable).toBe(true);
+  });
+
   it("treats active followed by resolved as a lifecycle, not contradictory evidence", () => {
     const outageEvent = event({ status: "resolved", resolved_at_estimate: "2026-07-15T08:30:00.000Z" });
     const decision = evaluatePublicEvent(
