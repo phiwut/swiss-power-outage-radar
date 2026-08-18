@@ -1,0 +1,24 @@
+---
+import { Button } from "@/components/starwind/button";
+import ArrowRight from "@tabler/icons/outline/arrow-right.svg";
+
+interface Props {
+  title: string;
+  description: string;
+  href: string;
+  label: string;
+}
+
+const { title, description, href, label } = Astro.props;
+---
+
+<section class="mt-12 flex flex-col gap-4 rounded-xl bg-foreground p-6 text-background sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+  <div class="grid gap-1">
+    <strong class="font-heading text-lg tracking-tight">{title}</strong>
+    <span class="text-sm text-background/70">{description}</span>
+  </div>
+  <Button as="a" href={href} variant="secondary" class="shrink-0">
+    {label}
+    <ArrowRight class="size-4" />
+  </Button>
+</section>

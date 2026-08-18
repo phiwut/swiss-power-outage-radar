@@ -1,8 +1,14 @@
 ---
 import "../styles/global.css";
 import "../styles/app-shell.css";
+import { Button } from "@/components/starwind/button";
 import { DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN, absoluteUrl } from "../public-url";
 import { siteJsonLd } from "../seo-site";
+import Bolt from "@tabler/icons/outline/bolt.svg";
+import RadarIcon from "@tabler/icons/outline/radar-2.svg";
+import Building from "@tabler/icons/outline/building.svg";
+import Book from "@tabler/icons/outline/book-2.svg";
+import Help from "@tabler/icons/outline/help-circle.svg";
 
 interface Props {
   title: string;
@@ -31,6 +37,13 @@ const {
 
 const canonicalUrl = canonical ?? absoluteUrl(Astro.url.pathname, SITE_ORIGIN);
 const hideTopOnRadarMobile = shell === "radar";
+
+const nav = [
+  { href: "/", id: "radar" as const, label: "Radar" },
+  { href: "/netzbetreiber/", id: "operators" as const, label: "Betreiber" },
+  { href: "/ratgeber/", id: "ratgeber" as const, label: "Ratgeber" },
+  { href: "/ratgeber/stromausfall-was-tun/", id: "help" as const, label: "Was tun?" }
+];
 ---
 
 <!doctype html>
@@ -38,7 +51,7 @@ const hideTopOnRadarMobile = shell === "radar";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2307131a'/%3E%3Cpath d='M35 8 17 37h14l-3 19 20-31H35V8Z' fill='none' stroke='%23fff' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23131820'/%3E%3Cpath d='M35 8 17 37h14l-3 19 20-31H35V8Z' fill='none' stroke='%23fff' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <meta name="description" content={description} />
     {robots && <meta name="robots" content={robots} />}
     <link rel="canonical" href={canonicalUrl} />
@@ -54,21 +67,18 @@ const hideTopOnRadarMobile = shell === "radar";
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
-    <meta name="theme-color" content="#f4f4f5" />
+    <meta name="theme-color" content="#f6f4ef" />
     <script type="application/ld+json" set:html={siteJsonLd()} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" />
     <slot name="head" />
     <title>{title}</title>
   </head>
-  <body class:list={["text-ink", "shell-app", hideTopOnRadarMobile && "shell-radar"]}>
+  <body class:list={["text-foreground", "shell-app", hideTopOnRadarMobile && "shell-radar"]}>
     <a class="skip-link" href="#app-main">Zum Inhalt springen</a>
     <div class="app-frame">
       <header class:list={["app-top", hideTopOnRadarMobile && "app-top--radar-desktop-only"]}>
         <a class="app-top__brand" href="/" aria-label="Zur Radar-Übersicht">
           <span class="app-top__mark" aria-hidden="true">
-            <svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 10-13h-7l0-7Z"/></svg>
+            <Bolt class="size-4" />
           </span>
           <span class="min-w-0">
             <span class="app-top__eyebrow">{eyebrow}</span>
@@ -76,10 +86,17 @@ const hideTopOnRadarMobile = shell === "radar";
           </span>
         </a>
         <nav class="app-top__nav" aria-label="Hauptnavigation">
-          <a href="/" aria-current={activeNav === "radar" ? "page" : undefined}>Radar</a>
-          <a href="/netzbetreiber/" aria-current={activeNav === "operators" ? "page" : undefined}>Betreiber</a>
-          <a href="/ratgeber/" aria-current={activeNav === "ratgeber" ? "page" : undefined}>Ratgeber</a>
-          <a href="/ratgeber/stromausfall-was-tun/" aria-current={activeNav === "help" ? "page" : undefined}>Was tun?</a>
+          {nav.map((item) => (
+            <Button
+              as="a"
+              href={item.href}
+              variant={activeNav === item.id ? "secondary" : "ghost"}
+              size="sm"
+              aria-current={activeNav === item.id ? "page" : undefined}
+            >
+              {item.label}
+            </Button>
+          ))}
         </nav>
       </header>
 
@@ -96,52 +113,22 @@ const hideTopOnRadarMobile = shell === "radar";
 
       <nav class="app-dock" aria-label="App">
         <a href="/" aria-current={activeNav === "radar" ? "page" : undefined}>
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" opacity=".45"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+          <RadarIcon class="size-[1.15rem]" aria-hidden="true" />
           Radar
         </a>
         <a href="/netzbetreiber/" aria-current={activeNav === "operators" ? "page" : undefined}>
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg>
+          <Building class="size-[1.15rem]" aria-hidden="true" />
           Betreiber
         </a>
         <a href="/ratgeber/" aria-current={activeNav === "ratgeber" ? "page" : undefined}>
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19.5V6a2 2 0 0 1 2-2h11v15.5"/><path d="M6 19.5h13"/><path d="M8 8h7M8 12h7"/></svg>
+          <Book class="size-[1.15rem]" aria-hidden="true" />
           Ratgeber
         </a>
         <a href="/ratgeber/stromausfall-was-tun/" aria-current={activeNav === "help" ? "page" : undefined}>
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.8 2.1c-.8.5-1.3 1-1.3 2"/><path d="M12 17h.01"/></svg>
+          <Help class="size-[1.15rem]" aria-hidden="true" />
           Was tun?
         </a>
       </nav>
     </div>
   </body>
 </html>
-
-<style is:global>
-  .app-top--radar-desktop-only {
-    display: none;
-  }
-
-  @media (min-width: 900px) {
-    .app-top--radar-desktop-only {
-      display: flex;
-    }
-  }
-
-  .app-top__mark .icon {
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .app-dock svg {
-    stroke: currentColor;
-    stroke-width: 1.75;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .app-dock a[aria-current="page"] svg {
-    stroke-width: 2.1;
-  }
-</style>

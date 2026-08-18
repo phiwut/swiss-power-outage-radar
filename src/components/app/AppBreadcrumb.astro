@@ -1,0 +1,38 @@
+---
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator
+} from "@/components/starwind/breadcrumb";
+
+interface Crumb {
+  href?: string;
+  label: string;
+}
+
+interface Props {
+  items: Crumb[];
+}
+
+const { items } = Astro.props;
+---
+
+<Breadcrumb aria-label="Navigationspfad" class="mb-8">
+  <BreadcrumbList>
+    {items.map((item, index) => (
+      <>
+        {index > 0 && <BreadcrumbSeparator />}
+        <BreadcrumbItem>
+          {item.href && index < items.length - 1 ? (
+            <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
+          ) : (
+            <BreadcrumbPage>{item.label}</BreadcrumbPage>
+          )}
+        </BreadcrumbItem>
+      </>
+    ))}
+  </BreadcrumbList>
+</Breadcrumb>

@@ -2,7 +2,8 @@
 import RadarLayout from "../../layouts/RadarLayout.astro";
 import { operatorProfileUrl, publicOperatorProfiles, sourceCategoryLabel } from "../../operators";
 import { SITE_ORIGIN } from "../../public-url";
-import "../../styles/knowledge.css";
+import PageCta from "@/components/app/PageCta.astro";
+import { Alert, AlertDescription } from "@/components/starwind/alert";
 
 const operators = publicOperatorProfiles();
 const canonical = `${SITE_ORIGIN}/netzbetreiber/`;
@@ -48,32 +49,48 @@ const jsonLd = {
   activeNav="operators"
 >
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-  <section class="knowledge-hub">
-    <header>
-      <p>Verzeichnis · Schweiz</p>
-      <h1>Netzbetreiber und offizielle Störungsseiten</h1>
-      <div>
+  <section class="mx-auto w-full max-w-4xl">
+    <header class="border-b border-border pb-10">
+      <p class="font-mono text-[0.66rem] font-medium tracking-[0.12em] text-muted-foreground uppercase">Verzeichnis · Schweiz</p>
+      <h1 class="font-heading mt-3 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
+        Netzbetreiber und offizielle Störungsseiten
+      </h1>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
         Für die Behebung eines Stromausfalls ist der Verteilnetzbetreiber zuständig, nicht der Stromlieferant. Hier stehen die Werke, deren öffentliche Quellen der Radar regelmässig prüft – jeweils mit Gebiet und, sobald vorhanden, der Zahl öffentlicher Meldungen im Radar.
-      </div>
+      </p>
     </header>
-    <p id="operator-hub-live" class="operator-hub-live">
-      Die Meldezahlen erscheinen, sobald outage.ch öffentlich belegte Ereignisse einem beobachteten Werk zuordnen kann.
-    </p>
-    <div class="operator-list" id="operator-list">
+
+    <Alert class="mt-6 max-w-xl">
+      <AlertDescription id="operator-hub-live">
+        Die Meldezahlen erscheinen, sobald outage.ch öffentlich belegte Ereignisse einem beobachteten Werk zuordnen kann.
+      </AlertDescription>
+    </Alert>
+
+    <div class="operator-list mt-4 flex flex-col" id="operator-list">
       {operators.map((operator) => (
-        <a href={operatorProfileUrl(operator)}>
-          <strong>{operator.name}</strong>
-          <span>{operator.area} · {sourceCategoryLabel(operator.sourceCategory)}</span>
+        <a
+          href={operatorProfileUrl(operator)}
+          data-operator-slug={operator.slug}
+          class="flex flex-col gap-1 border-b border-border py-4 no-underline transition-colors first:border-t hover:bg-muted/50"
+        >
+          <strong class="font-heading text-lg tracking-tight">{operator.name}</strong>
+          <span class="text-muted-foreground">
+            {operator.area} · {sourceCategoryLabel(operator.sourceCategory)}
+          </span>
         </a>
       ))}
     </div>
-    <p style="margin-top:2rem;color:var(--color-muted);max-width:40rem;line-height:1.65;">
+
+    <p class="mt-8 max-w-xl leading-relaxed text-muted-foreground">
       Fehlt Ihr Werk, bleibt es trotzdem zuständig. Wie Sie den Betreiber auf der Rechnung finden, erklärt der Ratgeber
-      <a href="/ratgeber/netzbetreiber-finden/">Netzbetreiber finden</a>.
+      {" "}<a href="/ratgeber/netzbetreiber-finden/" class="underline underline-offset-4">Netzbetreiber finden</a>.
     </p>
-    <a class="back-to-events" href="/">
-      Aktuelle Stromausfälle ansehen
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-    </a>
+
+    <PageCta
+      title="Aktuelle Stromausfälle ansehen"
+      description="Öffentlich belegte Meldungen in der ganzen Schweiz."
+      href="/"
+      label="Zum Radar"
+    />
   </section>
 </RadarLayout>

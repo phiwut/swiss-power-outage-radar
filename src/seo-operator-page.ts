@@ -291,9 +291,9 @@ export function renderOperatorHubLive(
         ? `${stats.total} Meldungen · ${stats.active} aktiv`
         : `${stats.total} öffentliche Meldungen`
       : sourceCategoryLabel(operator.sourceCategory);
-    return `<a href="${escapeHtml(operatorProfileUrl(operator))}" data-operator-slug="${escapeHtml(operator.slug)}">
-      <strong>${escapeHtml(operator.name)}</strong>
-      <span>${escapeHtml(operator.area)} · ${escapeHtml(countLabel)}</span>
+    return `<a href="${escapeHtml(operatorProfileUrl(operator))}" data-operator-slug="${escapeHtml(operator.slug)}" class="flex flex-col gap-1 border-b border-border py-4 no-underline transition-colors first:border-t hover:bg-muted/50">
+      <strong class="font-heading text-lg tracking-tight">${escapeHtml(operator.name)}</strong>
+      <span class="text-muted-foreground">${escapeHtml(operator.area)} · ${escapeHtml(countLabel)}</span>
     </a>`;
   }).join("");
   return { summary, list };

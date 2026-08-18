@@ -20,6 +20,12 @@ import {
 } from "../../operators";
 import { SITE_ORIGIN } from "../../public-url";
 import { operatorPageJsonLd } from "../../seo-operator-page";
+import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
+import PageCta from "@/components/app/PageCta.astro";
+import { Alert, AlertDescription } from "@/components/starwind/alert";
+import { Badge } from "@/components/starwind/badge";
+import { Button } from "@/components/starwind/button";
+import ArrowUpRight from "@tabler/icons/outline/arrow-up-right.svg";
 import "../../styles/knowledge.css";
 
 export function getStaticPaths() {
@@ -53,21 +59,28 @@ const jsonLd = operatorPageJsonLd(operator, null);
   activeNav="operators"
 >
   <script slot="head" id="operator-jsonld" type="application/ld+json" set:html={jsonLd} />
-  <article class="knowledge-page">
-    <nav aria-label="Breadcrumb">
-      <a href="/">Stromausfälle</a><span>/</span>
-      <a href="/netzbetreiber/">Netzbetreiber</a>
-    </nav>
-    <header class="knowledge-hero">
-      <p class="knowledge-kicker">Verteilnetzbetreiber · {sourceCategoryLabel(operator.sourceCategory)}</p>
-      <h1>Störungen bei {operator.name}</h1>
-      <div class="lede">
+  <article class="mx-auto w-full max-w-4xl">
+    <AppBreadcrumb items={[
+      { href: "/", label: "Stromausfälle" },
+      { href: "/netzbetreiber/", label: "Netzbetreiber" },
+      { label: operator.name }
+    ]} />
+
+    <header class="border-b border-border pb-10">
+      <Badge tone="neutral" appearance="soft" size="sm" class="font-mono uppercase tracking-wider">
+        Verteilnetzbetreiber · {sourceCategoryLabel(operator.sourceCategory)}
+      </Badge>
+      <h1 class="font-heading mt-4 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
+        Störungen bei {operator.name}
+      </h1>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">
         {operator.name} versorgt {operator.area}. Verbindliche Störungsmeldungen stehen auf der offiziellen Seite des Werks. outage.ch beobachtet diese Quelle und übernimmt nur öffentlich nachvollziehbare Stromereignisse in den Radar.
-      </div>
-      <aside class="knowledge-definition">
-        <p>{definition}</p>
-      </aside>
+      </p>
+      <Alert class="mt-6 max-w-xl">
+        <AlertDescription>{definition}</AlertDescription>
+      </Alert>
     </header>
+
     <div class="article-layout">
       <aside class="article-toc">
         <strong>Inhalt</strong>
@@ -78,7 +91,7 @@ const jsonLd = operatorPageJsonLd(operator, null);
         <a href="#handeln">Was Sie tun</a>
         <a href="#faq">Fragen</a>
       </aside>
-      <div class="article-body">
+      <div class="article-body min-w-0">
         <section id="operator-live" class="operator-live">
           <h2>Öffentliche Meldungen im Radar</h2>
           <p class="article-lead">
@@ -101,10 +114,10 @@ const jsonLd = operatorPageJsonLd(operator, null);
               <p class="operator-stats-note">{elcomFactsDisclaimer()}</p>
             </div>
             <p>
-              <a class="operator-official" href={ELCOM_PRICE_URL} target="_blank" rel="noreferrer">
+              <Button as="a" href={ELCOM_PRICE_URL} variant="outline" size="sm">
                 ElCom-Strompreisübersicht öffnen
-                <span>↗</span>
-              </a>
+                <ArrowUpRight class="size-4" />
+              </Button>
             </p>
           </section>
         )}
@@ -115,10 +128,12 @@ const jsonLd = operatorPageJsonLd(operator, null);
           </p>
           <p>{sourceText}</p>
           {languageNote && <p>{languageNote}</p>}
-          <a class="operator-official" href={operator.officialUrl} target="_blank" rel="noreferrer">
-            Offizielle Seite von {operator.name} öffnen
-            <span>↗</span>
-          </a>
+          <p>
+            <Button as="a" href={operator.officialUrl} variant="default" size="sm">
+              Offizielle Seite von {operator.name} öffnen
+              <ArrowUpRight class="size-4" />
+            </Button>
+          </p>
         </section>
         <section id="radar">
           <h2>Was outage.ch daraus macht</h2>
@@ -147,9 +162,9 @@ const jsonLd = operatorPageJsonLd(operator, null);
           </ol>
           <p>
             Praktische Schritte für den Haushalt stehen im Ratgeber
-            {' '}<a href="/ratgeber/stromausfall-was-tun/">Was tun bei Stromausfall?</a>
-            {' '}Die Unterscheidung von Lieferant und Netzbetreiber erklärt
-            {' '}<a href="/ratgeber/netzbetreiber-finden/">Netzbetreiber finden</a>.
+            {" "}<a href="/ratgeber/stromausfall-was-tun/">Was tun bei Stromausfall?</a>
+            {" "}Die Unterscheidung von Lieferant und Netzbetreiber erklärt
+            {" "}<a href="/ratgeber/netzbetreiber-finden/">Netzbetreiber finden</a>.
           </p>
         </section>
         <section id="faq" class="article-faq">
@@ -179,9 +194,11 @@ const jsonLd = operatorPageJsonLd(operator, null);
         )}
       </div>
     </div>
-    <footer class="knowledge-cta">
-      <div><strong>Aktuelle Meldungen ansehen</strong><span>Der Radar zeigt öffentlich belegte Ereignisse in der ganzen Schweiz.</span></div>
-      <a href="/">Zur Übersicht</a>
-    </footer>
+    <PageCta
+      title="Aktuelle Meldungen ansehen"
+      description="Der Radar zeigt öffentlich belegte Ereignisse in der ganzen Schweiz."
+      href="/"
+      label="Zur Übersicht"
+    />
   </article>
 </RadarLayout>

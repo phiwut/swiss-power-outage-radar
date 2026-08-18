@@ -10,6 +10,12 @@ import {
 import { operatorProfileUrl, publicOperatorProfiles } from "../../operators";
 import { SITE_ORIGIN, DEFAULT_OG_IMAGE_PATH, absoluteUrl } from "../../public-url";
 import { organizationId } from "../../seo-site";
+import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
+import PageCta from "@/components/app/PageCta.astro";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/starwind/accordion";
+import { Alert, AlertDescription } from "@/components/starwind/alert";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/starwind/table";
+import { Badge } from "@/components/starwind/badge";
 import "../../styles/knowledge.css";
 
 export function getStaticPaths() {
@@ -90,20 +96,30 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
   activeNav={article.slug === "stromausfall-was-tun" ? "help" : "ratgeber"}
 >
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-  <article class="knowledge-page">
-    <nav aria-label="Breadcrumb"><a href="/">Stromausfälle</a><span>/</span><a href="/ratgeber/">Ratgeber</a></nav>
-    <header class="knowledge-hero">
-      <p class="knowledge-kicker">Ratgeber · {article.readingMinutes} Minuten</p>
-      <h1>{article.title}</h1>
-      <div class="lede">{article.intro}</div>
-      <aside class="knowledge-definition">
-        <p>{article.definition}</p>
-      </aside>
-      <small class="knowledge-meta">
+  <article class="mx-auto w-full max-w-4xl">
+    <AppBreadcrumb items={[
+      { href: "/", label: "Stromausfälle" },
+      { href: "/ratgeber/", label: "Ratgeber" },
+      { label: article.shortTitle }
+    ]} />
+
+    <header class="border-b border-border pb-10">
+      <Badge tone="neutral" appearance="soft" size="sm" class="font-mono uppercase tracking-wider">
+        Ratgeber · {article.readingMinutes} Minuten
+      </Badge>
+      <h1 class="font-heading mt-4 max-w-[18ch] text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
+        {article.title}
+      </h1>
+      <p class="mt-5 max-w-xl text-lg leading-relaxed text-pretty text-muted-foreground">{article.intro}</p>
+      <Alert class="mt-6 max-w-xl">
+        <AlertDescription>{article.definition}</AlertDescription>
+      </Alert>
+      <p class="mt-6 font-mono text-xs text-muted-foreground">
         Veröffentlicht {dateLabel.format(new Date(published))}
         · Aktualisiert {dateLabel.format(new Date(modified))}
-      </small>
+      </p>
     </header>
+
     <div class="article-layout">
       <aside class="article-toc">
         <strong>Inhalt</strong>
@@ -129,18 +145,20 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
             )}
             {section.bullets && <ul>{section.bullets.map((bullet) => <li>{bullet}</li>)}</ul>}
             {section.table && (
-              <div class="article-table-wrap">
-                <table class="article-table">
-                  <thead>
-                    <tr>{section.table.headers.map((header) => <th>{header}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {section.table.rows.map((row) => (
-                      <tr>{row.map((cell) => <td>{cell}</td>)}</tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {section.table.headers.map((header) => <TableHead>{header}</TableHead>)}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {section.table.rows.map((row) => (
+                    <TableRow>
+                      {row.map((cell) => <TableCell>{cell}</TableCell>)}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </section>
         ))}
@@ -161,12 +179,14 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
         <section class="article-faq">
           <p class="knowledge-eyebrow">Häufige Fragen</p>
           <h2>Fragen und Antworten</h2>
-          {article.faqs.map((faq) => (
-            <details>
-              <summary>{faq.question}</summary>
-              <p>{faq.answer}</p>
-            </details>
-          ))}
+          <Accordion type="single">
+            {article.faqs.map((faq, index) => (
+              <AccordionItem value={`faq-${index}`}>
+                <AccordionTrigger>{faq.question}</AccordionTrigger>
+                <AccordionContent>{faq.answer}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </section>
         <section class="article-sources">
           <p class="knowledge-eyebrow">Grundlagen</p>
@@ -190,9 +210,11 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
         </section>
       </div>
     </div>
-    <footer class="knowledge-cta">
-      <div><strong>Gibt es gerade einen Stromausfall?</strong><span>Prüfen Sie die aktuellen und geplanten Meldungen.</span></div>
-      <a href="/">Zur Stromausfall-Übersicht</a>
-    </footer>
+    <PageCta
+      title="Gibt es gerade einen Stromausfall?"
+      description="Prüfen Sie die aktuellen und geplanten Meldungen."
+      href="/"
+      label="Zur Übersicht"
+    />
   </article>
 </RadarLayout>

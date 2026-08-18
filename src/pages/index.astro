@@ -5,6 +5,12 @@
 import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import RadarLayout from "../layouts/RadarLayout.astro";
 import { homeJsonLd } from "../seo-site";
+import { Button } from "@/components/starwind/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/starwind/input-group";
+import { Skeleton } from "@/components/starwind/skeleton";
+import Search from "@tabler/icons/outline/search.svg";
+import X from "@tabler/icons/outline/x.svg";
+import List from "@tabler/icons/outline/list.svg";
 ---
 
 <RadarLayout
@@ -38,11 +44,19 @@ import { homeJsonLd } from "../seo-site";
     <header class="radar__hud">
       <div class="radar__hud-bar">
         <a class="radar__brand" href="/" aria-label="outage.ch Radar">outage.ch</a>
-        <label class="radar__search">
-          <svg class="radar__search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
-          <span class="sr-only">Ort suchen</span>
-          <input id="radar-search" type="search" placeholder="Ort oder Region" autocomplete="off" enterkeyhint="search" />
-        </label>
+        <InputGroup class="radar__search min-w-0 bg-card">
+          <InputGroupAddon>
+            <Search class="size-4" aria-hidden="true" />
+          </InputGroupAddon>
+          <label class="sr-only" for="radar-search">Ort suchen</label>
+          <InputGroupInput
+            id="radar-search"
+            type="search"
+            placeholder="Ort oder Region"
+            autocomplete="off"
+            enterkeyhint="search"
+          />
+        </InputGroup>
       </div>
       <div class="radar__filters">
         <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
@@ -58,31 +72,31 @@ import { homeJsonLd } from "../seo-site";
           <p id="radar-count" class="radar__count">…</p>
         </div>
         <div class="radar__panel-actions">
-          <button type="button" id="radar-refresh" class="radar__icon-btn">Aktualisieren</button>
-          <button type="button" id="radar-panel-close" class="radar__icon-btn radar__panel-close" aria-label="Liste schliessen">Schliessen</button>
+          <Button type="button" id="radar-refresh" variant="ghost" size="sm">Aktualisieren</Button>
+          <Button type="button" id="radar-panel-close" variant="ghost" size="sm" class="radar__panel-close" aria-label="Liste schliessen">Schliessen</Button>
         </div>
       </div>
       <div id="radar-list" class="radar__list" aria-live="polite" aria-busy="true">
-        <div class="radar-skel"></div>
-        <div class="radar-skel"></div>
-        <div class="radar-skel"></div>
+        <Skeleton class="mx-4 my-2.5 h-20" />
+        <Skeleton class="mx-4 my-2.5 h-20" />
+        <Skeleton class="mx-4 my-2.5 h-20" />
       </div>
       <div class="radar__panel-foot">
-        <button type="button" id="radar-more" hidden>Weitere laden</button>
+        <Button type="button" id="radar-more" variant="outline" size="sm" class="w-full" hidden>Weitere laden</Button>
         <p id="radar-note" class="radar__note">Meldungen werden geladen …</p>
       </div>
     </aside>
 
     <div id="radar-sheet" class="radar__sheet" hidden>
-      <button type="button" id="radar-sheet-close" class="radar__sheet-x" aria-label="Vorschau schliessen">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-      </button>
+      <Button type="button" id="radar-sheet-close" variant="ghost" size="icon-sm" class="radar__sheet-x" aria-label="Vorschau schliessen">
+        <X class="size-4" />
+      </Button>
       <div id="radar-sheet-body"></div>
       <a id="radar-sheet-link" class="radar__cta" href="#">Meldung öffnen</a>
     </div>
 
     <button type="button" id="radar-list-fab" class="radar__fab" aria-controls="radar-panel">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="4" cy="18" r="1.2"/></svg>
+      <List class="size-[1.05rem]" aria-hidden="true" />
       Meldungen
       <b id="radar-fab-count">–</b>
     </button>
@@ -846,33 +860,11 @@ import { homeJsonLd } from "../seo-site";
   }
 
   .radar__search {
-    position: relative;
-    display: block;
     min-width: 0;
   }
 
   .radar__search-icon {
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    width: 1rem;
-    height: 1rem;
-    transform: translateY(-50%);
-    stroke: var(--color-faint);
-    stroke-width: 2;
-    stroke-linecap: round;
-    pointer-events: none;
-  }
-
-  .radar__search input {
-    width: 100%;
-    min-height: 40px;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md);
-    padding: 0.45rem 0.85rem 0.45rem 2.15rem;
-    background: var(--color-surface);
-    color: var(--color-ink);
-    font: 500 0.95rem/1.2 var(--font-body);
+    display: none;
   }
 
   .radar__icon-btn {
@@ -975,19 +967,6 @@ import { homeJsonLd } from "../seo-site";
     padding: 0.65rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0));
     border-top: 1px solid var(--color-rule);
     flex-shrink: 0;
-  }
-
-  #radar-more,
-  .radar__ghost {
-    width: 100%;
-    border: 1px solid var(--color-rule);
-    background: var(--color-surface);
-    border-radius: var(--radius-md);
-    min-height: 40px;
-    padding: 0.65rem;
-    font: 550 0.85rem/1 var(--font-body);
-    cursor: pointer;
-    color: var(--color-ink);
   }
 
   #radar-more {

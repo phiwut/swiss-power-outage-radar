@@ -2,15 +2,11 @@
 
 :root {
   --app-dock-h: 3.65rem;
-  --app-radius: 0.625rem;
-  --status-active: var(--color-danger);
-  --status-upcoming: var(--color-warn);
-  --status-resolved: var(--color-ok);
+  --app-radius: 0.5rem;
+  --status-active: var(--error);
+  --status-upcoming: var(--warning-foreground);
+  --status-resolved: var(--success-foreground);
   --status-other: var(--color-faint);
-}
-
-body.shell-app {
-  background: var(--color-bg);
 }
 
 .app-frame {
@@ -29,9 +25,13 @@ body.shell-app {
   gap: 1rem;
   min-height: 3.65rem;
   padding: 0.55rem 1.1rem;
-  border-bottom: 1px solid var(--color-rule);
-  background: color-mix(in oklch, var(--color-surface) 88%, transparent);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 82%, transparent);
   backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.app-top--radar-desktop-only {
+  display: none;
 }
 
 .app-top__brand {
@@ -48,9 +48,9 @@ body.shell-app {
   place-items: center;
   width: 2.15rem;
   height: 2.15rem;
-  border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-surface);
+  border-radius: var(--radius);
+  background: var(--foreground);
+  color: var(--background);
   flex-shrink: 0;
 }
 
@@ -69,36 +69,13 @@ body.shell-app {
   font-size: 0.62rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-muted);
+  color: var(--muted-foreground);
 }
 
 .app-top__nav {
   display: none;
   align-items: center;
   gap: 0.15rem;
-  font-size: 0.9rem;
-  font-weight: 650;
-}
-
-.app-top__nav a {
-  position: relative;
-  color: var(--color-muted);
-  text-decoration: none;
-  padding: 0.45rem 0.7rem;
-  border-radius: var(--radius-md);
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-}
-
-.app-top__nav a:hover {
-  color: var(--color-ink);
-  background: var(--color-surface-2);
-}
-
-.app-top__nav a[aria-current="page"] {
-  color: var(--color-ink);
-  background: var(--color-surface-2);
 }
 
 .app-main {
@@ -127,8 +104,8 @@ body.shell-app {
   grid-template-columns: repeat(4, 1fr);
   min-height: var(--app-dock-h);
   padding-bottom: env(safe-area-inset-bottom, 0);
-  border-top: 1px solid var(--color-rule);
-  background: color-mix(in oklch, var(--color-surface) 94%, white);
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 94%, white);
 }
 
 .app-dock a {
@@ -139,22 +116,36 @@ body.shell-app {
   gap: 0.18rem;
   min-height: 44px;
   padding: 0.4rem 0.25rem;
-  color: var(--color-muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 650;
   text-decoration: none;
 }
 
 .app-dock a[aria-current="page"] {
-  color: var(--color-ink);
+  color: var(--foreground);
 }
 
-.app-dock svg {
-  width: 1.15rem;
-  height: 1.15rem;
+.app-dock a[aria-current="page"] svg {
+  stroke-width: 2.1;
+}
+
+.app-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.2rem;
+  margin-top: auto;
+  padding: 1.25rem 0 0.5rem;
+  color: var(--color-faint);
+  font-size: 0.8rem;
+}
+
+.app-legal a {
+  color: inherit;
 }
 
 @media (min-width: 900px) {
+  .app-top--radar-desktop-only,
   .app-top__nav {
     display: flex;
   }
@@ -166,13 +157,8 @@ body.shell-app {
   .app-main--content {
     padding: 1.25rem 1.5rem 2.5rem;
   }
-
-  .app-main--radar {
-    padding-bottom: 0;
-  }
 }
 
-/* Radar status chips / rows shared */
 .radar-mark {
   display: inline-block;
   flex-shrink: 0;
@@ -206,17 +192,16 @@ body.shell-app {
   display: inline-flex;
   align-items: center;
   gap: 0.38rem;
-  border: 1px solid var(--color-rule);
-  background: var(--color-surface);
-  color: var(--color-muted);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  border-radius: var(--radius);
   min-height: 40px;
   padding: 0.3rem 0.7rem;
-  font: 500 0.8rem/1.2 var(--font-body);
+  font: 500 0.8rem/1.2 var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
-  box-shadow: none;
 }
 
 .radar-chip__dot {
@@ -234,14 +219,14 @@ body.shell-app {
 .radar-chip[data-tone="historical"] .radar-chip__dot { background: var(--status-other); }
 
 .radar-chip[aria-pressed="true"] {
-  background: var(--color-surface-2);
-  color: var(--color-ink);
-  border-color: color-mix(in oklch, var(--color-ink) 16%, var(--color-rule));
+  background: var(--muted);
+  color: var(--foreground);
+  border-color: color-mix(in oklch, var(--foreground) 16%, var(--border));
 }
 
 .radar-chip:hover {
-  border-color: color-mix(in oklch, var(--color-ink) 14%, var(--color-rule));
-  background: var(--color-surface-2);
+  border-color: color-mix(in oklch, var(--foreground) 14%, var(--border));
+  background: var(--muted);
 }
 
 .radar-chip .n {
@@ -256,30 +241,30 @@ body.shell-app {
   font: 550 0.66rem/1 var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 0.28rem 0.42rem;
-  border-radius: var(--radius-sm);
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
   white-space: nowrap;
 }
 
 .radar-badge--active {
   background: var(--color-danger-soft);
-  color: var(--color-danger);
+  color: var(--error);
 }
 
 .radar-badge--upcoming {
   background: var(--color-warn-soft);
-  color: var(--color-warn);
+  color: var(--warning-foreground);
 }
 
 .radar-badge--resolved {
   background: var(--color-ok-soft);
-  color: var(--color-ok);
+  color: var(--success-foreground);
 }
 
 .radar-badge--historical,
 .radar-badge--stale_unconfirmed {
-  background: var(--color-surface-2);
-  color: var(--color-muted);
+  background: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .radar-row {
@@ -287,8 +272,8 @@ body.shell-app {
   width: 100%;
   text-align: left;
   border: 0;
-  border-bottom: 1px solid var(--color-rule);
-  border-left: 2px solid var(--row-tone, var(--color-rule));
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid var(--row-tone, var(--border));
   background: transparent;
   padding: 0.95rem 1rem 0.95rem 0.95rem;
   color: inherit;
@@ -302,7 +287,7 @@ body.shell-app {
 .radar-row--other { --row-tone: var(--status-other); }
 
 .radar-row:hover {
-  background: color-mix(in oklch, var(--color-surface-2) 70%, var(--color-surface));
+  background: color-mix(in oklch, var(--muted) 70%, var(--card));
 }
 
 .radar-row:active {
@@ -310,7 +295,7 @@ body.shell-app {
 }
 
 .radar-row.is-selected {
-  background: color-mix(in oklch, var(--row-tone) 8%, var(--color-surface));
+  background: color-mix(in oklch, var(--row-tone) 8%, var(--card));
 }
 
 .radar-row__foot {
@@ -329,19 +314,19 @@ body.shell-app {
   width: 100%;
   min-height: 40px;
   padding: 0 1rem;
-  border-radius: var(--radius-md);
-  background: var(--color-ink);
-  color: var(--color-surface);
-  font: 600 0.875rem/1 var(--font-body);
+  border-radius: var(--radius);
+  background: var(--foreground);
+  color: var(--background);
+  font: 600 0.875rem/1 var(--font-sans);
   white-space: nowrap;
 }
 
 .radar-row:hover .radar-row__cta {
-  background: color-mix(in oklch, var(--color-ink) 88%, white);
+  background: color-mix(in oklch, var(--foreground) 88%, white);
 }
 
 .radar-row.is-selected .radar-row__cta {
-  background: var(--color-ink);
+  background: var(--foreground);
 }
 
 .radar-row__cta::after {
@@ -376,7 +361,7 @@ body.shell-app {
 
 .radar-row p {
   margin: 0.35rem 0 0;
-  color: var(--color-muted);
+  color: var(--muted-foreground);
   font-size: 0.9rem;
   line-height: 1.4;
   display: -webkit-box;
@@ -393,16 +378,7 @@ body.shell-app {
   color: var(--color-faint);
 }
 
-.app-legal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem 1.2rem;
-  margin-top: auto;
-  padding: 1.25rem 0 0.5rem;
-  color: var(--color-faint);
-  font-size: 0.8rem;
-}
-
-.app-legal a {
-  color: inherit;
+.radar-row__canton {
+  font-weight: 500;
+  color: var(--muted-foreground);
 }
