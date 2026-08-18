@@ -38,16 +38,17 @@ const { title, description, kicker, class: className, href, ...rest } = Astro.pr
     color: inherit;
     text-decoration: none;
     transition: background var(--dur-fast) var(--ease-out),
-                padding-left var(--dur-fast) var(--ease-out);
+                padding-inline-start var(--dur-fast) var(--ease-out);
   }
 
   .app-list-row:last-child {
     border-bottom: 0;
   }
 
-  .app-list-row:hover {
+  .app-list-row:hover,
+  .app-list-row:focus-visible {
     background: color-mix(in oklch, var(--muted) 55%, var(--card));
-    padding-left: 1rem;
+    padding-inline-start: 1rem;
   }
 
   .app-list-row:active {
@@ -63,7 +64,7 @@ const { title, description, kicker, class: className, href, ...rest } = Astro.pr
 
   .app-list-row__kicker {
     font-family: var(--font-mono);
-    font-size: 0.6rem;
+    font-size: 0.68rem;
     font-weight: 575;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -96,7 +97,8 @@ const { title, description, kicker, class: className, href, ...rest } = Astro.pr
                 color var(--dur-fast) var(--ease-out);
   }
 
-  .app-list-row:hover .app-list-row__chevron {
+  .app-list-row:hover .app-list-row__chevron,
+  .app-list-row:focus-visible .app-list-row__chevron {
     transform: translateX(2px);
     color: var(--foreground);
   }

@@ -133,7 +133,7 @@ const nav = [
       <main id="app-main" class:list={["app-main", shell === "radar" ? "app-main--radar" : "app-main--content"]}>
         <slot />
         {shell === "content" && (
-          <nav class="mt-8 flex flex-wrap gap-1" aria-label={t(locale, "nav.morePages")}>
+          <nav class="mt-10 flex flex-wrap gap-2" aria-label={t(locale, "nav.morePages")}>
             <Button as="a" href={pathFor({ kind: "about" }, locale)} variant="ghost" size="sm">{t(locale, "nav.about")}</Button>
             <Button as="a" href={pathFor({ kind: "operators" }, locale)} variant="ghost" size="sm">{t(locale, "nav.operators")}</Button>
             <Button as="a" href={pathFor({ kind: "guides" }, locale)} variant="ghost" size="sm">{t(locale, "nav.guides")}</Button>

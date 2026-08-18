@@ -1,4 +1,6 @@
 ---
+import { t, type AppLocale } from "../../i18n";
+
 interface Link {
   href: string;
   label: string;
@@ -6,26 +8,150 @@ interface Link {
 
 interface Props {
   links?: Link[];
+  locale?: AppLocale;
 }
 
-const { links = [] } = Astro.props;
+const { links = [], locale = "de" } = Astro.props;
+const tocNav = t(locale, "article.tocNav");
+const tocLabel = t(locale, "article.tocLabel");
 ---
 
-<div class="grid gap-5 lg:grid-cols-[10.5rem_minmax(0,1fr)]">
+<div class="article-layout">
   {links.length > 0 && (
-    <nav class="sticky top-16 hidden self-start lg:grid gap-0.5" aria-label="Inhalt">
-      <p class="text-muted-foreground mb-1 font-mono text-[0.62rem] font-medium tracking-wider uppercase">Inhalt</p>
-      {links.map((link) => (
-        <a
-          href={link.href}
-          class="text-muted-foreground hover:border-foreground hover:text-foreground border-l-2 border-border py-1 pl-2.5 text-xs leading-snug"
-        >
-          {link.label}
-        </a>
-      ))}
+    <nav class="article-toc-mobile" aria-label={tocNav}>
+      <p class="article-toc-mobile__label">{tocLabel}</p>
+      <div class="article-toc-mobile__scroller">
+        {links.map((link) => (
+          <a href={link.href} class="article-toc-chip">
+            {link.label}
+          </a>
+        ))}
+      </div>
     </nav>
   )}
-  <div class="min-w-0">
-    <slot />
+
+  <div class="article-layout__grid">
+    {links.length > 0 && (
+      <nav class="article-toc-desktop" aria-label={tocNav}>
+        <p class="article-toc-desktop__label">{tocLabel}</p>
+        {links.map((link) => (
+          <a href={link.href} class="article-toc-desktop__link">
+            {link.label}
+          </a>
+        ))}
+      </nav>
+    )}
+    <div class="min-w-0">
+      <slot />
+    </div>
   </div>
 </div>
+
+<style>
+  .article-layout {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .article-toc-mobile {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .article-toc-mobile__label {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .article-toc-mobile__scroller {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    margin-inline: -0.15rem;
+    padding: 0.05rem 0.15rem 0.15rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .article-toc-chip {
+    flex: none;
+    max-width: 14rem;
+    padding: 0.38rem 0.72rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 550;
+    line-height: 1.25;
+    text-decoration: none;
+    white-space: nowrap;
+    scroll-margin-top: calc(var(--app-top-offset) + 0.5rem);
+  }
+
+  .article-toc-chip:hover,
+  .article-toc-chip:focus-visible {
+    border-color: color-mix(in oklch, var(--foreground) 18%, var(--border));
+    background: var(--muted);
+    color: var(--foreground);
+  }
+
+  .article-layout__grid {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .article-toc-desktop {
+    display: none;
+  }
+
+  .article-toc-desktop__label {
+    margin: 0 0 0.35rem;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .article-toc-desktop__link {
+    color: var(--muted-foreground);
+    border-inline-start: 2px solid var(--border);
+    padding-block: 0.25rem;
+    padding-inline-start: 0.65rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    text-decoration: none;
+    scroll-margin-top: calc(var(--app-top-offset) + 0.5rem);
+  }
+
+  .article-toc-desktop__link:hover,
+  .article-toc-desktop__link:focus-visible {
+    border-inline-start-color: var(--foreground);
+    color: var(--foreground);
+  }
+
+  @media (min-width: 900px) {
+    .article-toc-mobile {
+      display: none;
+    }
+
+    .article-layout__grid {
+      grid-template-columns: 10.5rem minmax(0, 1fr);
+      gap: 1.25rem;
+    }
+
+    .article-toc-desktop {
+      position: sticky;
+      top: var(--app-top-offset);
+      display: grid;
+      gap: 0.2rem;
+      align-self: start;
+    }
+  }
+</style>

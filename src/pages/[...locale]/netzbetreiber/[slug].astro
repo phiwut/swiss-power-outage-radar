@@ -71,7 +71,7 @@ const jsonLd = operatorPageJsonLd(operator, null, SITE_ORIGIN, locale);
 >
   <script slot="head" id="operator-jsonld" type="application/ld+json" set:html={jsonLd} />
   <article class="mx-auto w-full max-w-4xl">
-    <AppBreadcrumb items={[
+    <AppBreadcrumb locale={locale} items={[
       { href: pathFor({ kind: "home" }, locale), label: t(locale, "site.breadcrumbHomeShort") },
       { href: pathFor({ kind: "operators" }, locale), label: t(locale, "operator.crumb") },
       { label: operator.name }
@@ -87,7 +87,7 @@ const jsonLd = operatorPageJsonLd(operator, null, SITE_ORIGIN, locale);
       </Alert>
     </PageHero>
 
-    <ArticleLayout links={[
+    <ArticleLayout locale={locale} links={[
       { href: "#operator-live", label: t(locale, "operator.tocLive") },
       ...(elcom ? [{ href: "#operator-facts", label: t(locale, "operator.tocElcom") }] : []),
       { href: "#quelle", label: t(locale, "operator.tocSource") },

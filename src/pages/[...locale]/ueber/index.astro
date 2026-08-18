@@ -50,7 +50,7 @@ const jsonLd = {
 >
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <article class="mx-auto w-full max-w-4xl">
-    <AppBreadcrumb items={[
+    <AppBreadcrumb locale={locale} items={[
       { href: pathFor({ kind: "home" }, locale), label: t(locale, "site.breadcrumbHomeShort") },
       { label: t(locale, "about.crumb") }
     ]} />

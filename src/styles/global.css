@@ -69,6 +69,15 @@ html {
   scroll-behavior: smooth;
 }
 
+article h2[id],
+article h3[id],
+article section[id],
+.prose h2[id],
+.prose h3[id],
+.prose section[id] {
+  scroll-margin-top: calc(var(--app-top-offset, 4.25rem) + 0.5rem);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

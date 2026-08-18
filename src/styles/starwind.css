@@ -107,7 +107,7 @@
   --secondary-foreground: oklch(22% 0.025 265);
   --secondary-accent: oklch(22% 0.025 265);
   --muted: oklch(95.2% 0.007 95);
-  --muted-foreground: oklch(45% 0.015 265);
+  --muted-foreground: oklch(38% 0.018 265);
   --accent: oklch(94.5% 0.01 95);
   --accent-foreground: oklch(22% 0.025 265);
 
@@ -141,7 +141,7 @@
   --color-surface-2: var(--muted);
   --color-ink: var(--foreground);
   --color-muted: var(--muted-foreground);
-  --color-faint: oklch(56% 0.012 265);
+  --color-faint: oklch(44% 0.014 265);
   --color-rule: var(--border);
   --color-rule-strong: oklch(76% 0.015 265);
   --color-accent: var(--foreground);
@@ -155,7 +155,7 @@
   --color-focus: var(--outline);
 
   /* Brand accent */
-  --brand-accent: oklch(54% 0.18 35);
+  --brand-accent: oklch(40% 0.15 35);
   --brand-accent-soft: oklch(92% 0.04 35);
 
   --font-body: var(--font-sans);

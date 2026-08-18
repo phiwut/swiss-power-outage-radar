@@ -11,7 +11,12 @@ export const it: Catalog = {
     help: "Cosa fare?",
     about: "Metodo",
     morePages: "Altre pagine",
-    dock: "App"
+    dock: "App",
+    breadcrumbAria: "Percorso di navigazione"
+  },
+  article: {
+    tocNav: "Indice dei contenuti",
+    tocLabel: "In questa pagina"
   },
   lang: {
     switcher: "Lingua",
@@ -436,7 +441,12 @@ export const en: Catalog = {
     help: "What to do",
     about: "Method",
     morePages: "More pages",
-    dock: "App"
+    dock: "App",
+    breadcrumbAria: "Breadcrumb"
+  },
+  article: {
+    tocNav: "Table of contents",
+    tocLabel: "On this page"
   },
   lang: {
     switcher: "Language",

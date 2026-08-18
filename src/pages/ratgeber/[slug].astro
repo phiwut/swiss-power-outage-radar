@@ -100,7 +100,7 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
 >
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <article class="mx-auto w-full max-w-4xl">
-    <AppBreadcrumb items={[
+    <AppBreadcrumb locale="de" items={[
       { href: "/", label: "Stromausfälle" },
       { href: "/ratgeber/", label: "Ratgeber" },
       { label: article.shortTitle }
@@ -120,7 +120,7 @@ const jsonLd = { "@context": "https://schema.org", "@graph": graph };
       </p>
     </PageHero>
 
-    <ArticleLayout links={article.sections.map((section) => ({ href: `#${knowledgeHeadingId(section.heading)}`, label: section.heading }))}>
+    <ArticleLayout locale="de" links={article.sections.map((section) => ({ href: `#${knowledgeHeadingId(section.heading)}`, label: section.heading }))}>
       <Prose class="max-w-none text-sm [--prose-heading-spacing:1.05em] [--prose-h2-size:1.2em] [--prose-spacing:0.75em] md:text-[0.95rem]">
         {article.sections.map((section) => (
           <section id={knowledgeHeadingId(section.heading)}>

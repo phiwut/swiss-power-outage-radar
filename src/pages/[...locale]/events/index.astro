@@ -27,7 +27,7 @@ const locale: AppLocale = Astro.props.locale ?? localeFromParam(
 >
   <link slot="head" rel="stylesheet" href={maplibreCss} />
   <section class="detail-page">
-    <Button as="a" href={pathFor({ kind: "home" }, locale)} variant="ghost" size="sm" class="mb-2 -ml-2">
+    <Button as="a" href={pathFor({ kind: "home" }, locale)} variant="ghost" size="sm" class="mb-2">
       <ArrowLeft class="size-4" />
       {t(locale, "event.backToRadar")}
     </Button>

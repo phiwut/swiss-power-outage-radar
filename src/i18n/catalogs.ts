@@ -11,7 +11,12 @@ export const de = {
     help: "Was tun?",
     about: "Methodik",
     morePages: "Weitere Seiten",
-    dock: "App"
+    dock: "App",
+    breadcrumbAria: "Navigationspfad"
+  },
+  article: {
+    tocNav: "Inhaltsverzeichnis",
+    tocLabel: "Auf dieser Seite"
   },
   lang: {
     switcher: "Sprache",
@@ -438,7 +443,12 @@ export const fr: Catalog = {
     help: "Que faire ?",
     about: "Méthode",
     morePages: "Autres pages",
-    dock: "App"
+    dock: "App",
+    breadcrumbAria: "Fil d'Ariane"
+  },
+  article: {
+    tocNav: "Table des matières",
+    tocLabel: "Sur cette page"
   },
   lang: {
     switcher: "Langue",

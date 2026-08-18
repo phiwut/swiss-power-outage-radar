@@ -7,6 +7,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator
 } from "@/components/starwind/breadcrumb";
+import { t, type AppLocale } from "../../i18n";
 
 interface Crumb {
   href?: string;
@@ -15,12 +16,13 @@ interface Crumb {
 
 interface Props {
   items: Crumb[];
+  locale?: AppLocale;
 }
 
-const { items } = Astro.props;
+const { items, locale = "de" } = Astro.props;
 ---
 
-<Breadcrumb aria-label="Navigationspfad" class="page-crumb">
+<Breadcrumb aria-label={t(locale, "nav.breadcrumbAria")} class="page-crumb">
   <BreadcrumbList>
     {items.map((item, index) => (
       <>
