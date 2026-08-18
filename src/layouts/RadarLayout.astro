@@ -26,7 +26,7 @@ const {
   ogImage = absoluteUrl(DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN),
   robots,
   shell = "content",
-  activeNav = "radar"
+  activeNav
 } = Astro.props;
 
 const canonicalUrl = canonical ?? absoluteUrl(Astro.url.pathname, SITE_ORIGIN);

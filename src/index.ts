@@ -363,7 +363,10 @@ export default {
     }
 
     if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
-      const headers = { "Content-Type": "application/xml; charset=utf-8" };
+      const headers = {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Tag": "sitemap"
+      };
       let xml: string;
       try {
         const items = await getPublicSitemapItems(env.DB);
