@@ -6,6 +6,7 @@ import {
   HTML_LANG,
   homeFaqs as faqsForLocale,
   hreflangEntries,
+  localizeStoredEventUrl,
   pathFor,
   t,
   type AppLocale,
@@ -181,20 +182,52 @@ ${guides}
 `;
 }
 
+export const SITEMAP_INDEX_PATH = "/sitemap.xml";
+export const SITEMAP_PAGES_PATH = "/sitemap-pages.xml";
+export const SITEMAP_EVENTS_PATH = "/sitemap-events.xml";
+
+const SITEMAP_LASTMOD_RE =
+  /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+const STORED_EVENT_PATH_RE = /^\/stromausfall\/[a-z0-9-]+-\d+\/?$/;
+
 export type SitemapEntry = {
   loc: string;
   lastmod?: string;
   alternates?: Array<{ hreflang: string; href: string }>;
 };
 
-function alternatesFor(path: string, origin: string): Array<{ hreflang: string; href: string }> {
-  return hreflangEntries(path, origin).map((entry) => ({
-    hreflang: entry.hreflang,
-    href: entry.href
-  }));
+export type SitemapEventItem = {
+  url: string;
+  updated_at: string;
+};
+
+function asLastmodMap(value: Map<string, string> | Record<string, string>): Map<string, string> {
+  return value instanceof Map ? value : new Map(Object.entries(value));
 }
 
-function localizedStaticPages(route: AppRoute, lastmod: string, origin: string): SitemapEntry[] {
+export function sitemapLastmodValue(value: string | null | undefined): string | undefined {
+  const lastmod = toSitemapLastmod(value);
+  return lastmod && SITEMAP_LASTMOD_RE.test(lastmod) ? lastmod : undefined;
+}
+
+export function latestSitemapLastmod(values: Array<string | null | undefined>): string | undefined {
+  return values
+    .map((value) => sitemapLastmodValue(value))
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
+}
+
+function alternatesFor(path: string, origin: string): Array<{ hreflang: string; href: string }> {
+  const seen = new Set<string>();
+  return hreflangEntries(path, origin).flatMap((entry) => {
+    if (seen.has(entry.hreflang)) return [];
+    seen.add(entry.hreflang);
+    return [{ hreflang: entry.hreflang, href: entry.href }];
+  });
+}
+
+function localizedStaticPages(route: AppRoute, lastmod: string | undefined, origin: string): SitemapEntry[] {
   return APP_LOCALES.map((locale) => {
     const path = pathFor(route, locale);
     return { loc: `${origin}${path}`, lastmod, alternates: alternatesFor(path, origin) };
@@ -203,44 +236,146 @@ function localizedStaticPages(route: AppRoute, lastmod: string, origin: string):
 
 export function staticIndexablePages(
   origin = SITE_ORIGIN,
-  operatorLastmods: Map<string, string> | Record<string, string> = new Map()
+  operatorLastmods: Map<string, string> | Record<string, string> = new Map(),
+  latestContentAt?: string
 ): SitemapEntry[] {
-  const lastmods = operatorLastmods instanceof Map ? operatorLastmods : new Map(Object.entries(operatorLastmods));
-  const guideUpdated = knowledgeArticles.reduce(
-    (latest, article) => (article.updatedAt > latest ? article.updatedAt : latest),
-    STATIC_CONTENT_UPDATED_AT
-  );
-  const hubLastmod = [...lastmods.values()].sort().at(-1) ?? STATIC_CONTENT_UPDATED_AT;
+  const lastmods = asLastmodMap(operatorLastmods);
+  const guideUpdated = latestSitemapLastmod(knowledgeArticles.map((article) => article.updatedAt))
+    ?? STATIC_CONTENT_UPDATED_AT;
+  const hubLastmod = latestSitemapLastmod([...lastmods.values()]) ?? STATIC_CONTENT_UPDATED_AT;
+  const homeLastmod = latestSitemapLastmod([latestContentAt, hubLastmod, STATIC_CONTENT_UPDATED_AT])
+    ?? STATIC_CONTENT_UPDATED_AT;
   return [
-    ...localizedStaticPages({ kind: "home" }, STATIC_CONTENT_UPDATED_AT, origin),
+    ...localizedStaticPages({ kind: "home" }, homeLastmod, origin),
     ...localizedStaticPages({ kind: "about" }, STATIC_CONTENT_UPDATED_AT, origin),
     ...localizedStaticPages({ kind: "guides" }, guideUpdated, origin),
-    ...localizedStaticPages({ kind: "operators" }, toSitemapLastmod(hubLastmod), origin),
+    ...localizedStaticPages({ kind: "operators" }, hubLastmod, origin),
     ...knowledgeArticles.map((article) => {
       const path = knowledgeArticleUrl(article);
-      return { loc: `${origin}${path}`, lastmod: article.updatedAt, alternates: alternatesFor(path, origin) };
+      return {
+        loc: `${origin}${path}`,
+        lastmod: sitemapLastmodValue(article.updatedAt) ?? article.updatedAt,
+        alternates: alternatesFor(path, origin)
+      };
     }),
     ...publicOperatorProfiles().flatMap((operator) =>
       localizedStaticPages(
         { kind: "operator", slug: operator.slug },
-        toSitemapLastmod(lastmods.get(operator.slug) ?? STATIC_CONTENT_UPDATED_AT),
+        sitemapLastmodValue(lastmods.get(operator.slug)) ?? STATIC_CONTENT_UPDATED_AT,
         origin
       )
     )
   ];
 }
 
+export function eventIndexablePages(
+  events: SitemapEventItem[],
+  origin = SITE_ORIGIN
+): SitemapEntry[] {
+  return [...events]
+    .filter((item) => STORED_EVENT_PATH_RE.test(item.url))
+    .sort((left, right) => {
+      const lastmod = (latestSitemapLastmod([right.updated_at]) ?? "").localeCompare(
+        latestSitemapLastmod([left.updated_at]) ?? ""
+      );
+      return lastmod !== 0 ? lastmod : left.url.localeCompare(right.url);
+    })
+    .flatMap((item) => {
+      const lastmod = sitemapLastmodValue(item.updated_at);
+      return APP_LOCALES.map((locale) => {
+        const path = localizeStoredEventUrl(item.url, locale);
+        return {
+          loc: `${origin}${path}`,
+          lastmod,
+          alternates: alternatesFor(path, origin)
+        };
+      });
+    });
+}
+
+function lastmodXml(value: string | undefined): string {
+  const lastmod = sitemapLastmodValue(value);
+  return lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : "";
+}
+
 export function buildSitemapXml(entries: SitemapEntry[]): string {
+  const seen = new Set<string>();
   const body = entries
+    .filter((entry) => {
+      if (!entry.loc.startsWith("http") || seen.has(entry.loc)) return false;
+      seen.add(entry.loc);
+      return true;
+    })
     .map((entry) => {
-      const lastmod = entry.lastmod ? `<lastmod>${escapeXml(entry.lastmod)}</lastmod>` : "";
+      const seenHreflang = new Set<string>();
       const links = (entry.alternates ?? [])
+        .filter((alternate) => {
+          if (!alternate.hreflang || !alternate.href || seenHreflang.has(alternate.hreflang)) return false;
+          seenHreflang.add(alternate.hreflang);
+          return true;
+        })
         .map((alternate) =>
           `<xhtml:link rel="alternate" hreflang="${escapeXml(alternate.hreflang)}" href="${escapeXml(alternate.href)}"/>`
         )
         .join("");
-      return `<url><loc>${escapeXml(entry.loc)}</loc>${lastmod}${links}</url>`;
+      return `<url><loc>${escapeXml(entry.loc)}</loc>${lastmodXml(entry.lastmod)}${links}</url>`;
     })
     .join("");
-  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${body}</urlset>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>`;
+}
+
+export function buildSitemapIndexXml(sitemaps: Array<{ loc: string; lastmod?: string }>): string {
+  const seen = new Set<string>();
+  const body = sitemaps
+    .filter((entry) => {
+      if (!entry.loc.startsWith("http") || seen.has(entry.loc)) return false;
+      seen.add(entry.loc);
+      return true;
+    })
+    .map((entry) => `<sitemap><loc>${escapeXml(entry.loc)}</loc>${lastmodXml(entry.lastmod)}</sitemap>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</sitemapindex>`;
+}
+
+export function buildPublicSitemapDocuments(input: {
+  origin?: string;
+  events?: SitemapEventItem[];
+  operatorLastmods?: Map<string, string> | Record<string, string>;
+} = {}): { index: string; pages: string; events: string } {
+  const origin = input.origin ?? SITE_ORIGIN;
+  const events = input.events ?? [];
+  const pageEntries = staticIndexablePages(
+    origin,
+    input.operatorLastmods ?? new Map(),
+    latestSitemapLastmod(events.map((item) => item.updated_at))
+  );
+  const eventEntries = eventIndexablePages(events, origin);
+  return {
+    index: buildSitemapIndexXml([
+      {
+        loc: `${origin}${SITEMAP_PAGES_PATH}`,
+        lastmod: latestSitemapLastmod(pageEntries.map((entry) => entry.lastmod))
+      },
+      {
+        loc: `${origin}${SITEMAP_EVENTS_PATH}`,
+        lastmod: latestSitemapLastmod(eventEntries.map((entry) => entry.lastmod))
+      }
+    ]),
+    pages: buildSitemapXml(pageEntries),
+    events: buildSitemapXml(eventEntries)
+  };
+}
+
+export function sitemapCacheControl(pathname: string): string {
+  if (pathname === SITEMAP_EVENTS_PATH) {
+    return "public,max-age=60,s-maxage=300,stale-while-revalidate=600";
+  }
+  if (pathname === SITEMAP_PAGES_PATH) {
+    return "public,max-age=300,s-maxage=1800,stale-while-revalidate=3600";
+  }
+  return "public,max-age=120,s-maxage=300,stale-while-revalidate=600";
+}
+
+export function isSitemapPath(pathname: string): boolean {
+  return pathname === SITEMAP_INDEX_PATH || pathname === SITEMAP_PAGES_PATH || pathname === SITEMAP_EVENTS_PATH;
 }

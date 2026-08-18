@@ -8,7 +8,6 @@ import {
   getOutageEventSources,
   getOutageEventSnapshots,
   getPublicFeedItems,
-  getPublicSitemapItems,
   getRelatedPublicFeedItems,
   listPublishedPublicFeedLite,
   isPublicEvidenceSnapshot,
@@ -28,10 +27,8 @@ import { loadPublicEventDetail } from "./public-detail";
 import {
   SITE_ORIGIN,
   httpsRedirect,
-  localizeStoredEventUrl,
   publicEventIdFromPath,
-  siteOriginFromRequest,
-  toSitemapLastmod
+  siteOriginFromRequest
 } from "./public-url";
 import { evidenceScreenshotKey } from "./snapshots";
 import { operatorBySlug, resolveOperatorProfile } from "./operators";
@@ -43,12 +40,16 @@ import {
   renderSeoOperatorAsset,
   renderSeoOperatorHubAsset
 } from "./seo-operator-page";
-import { buildLlmsTxt, buildRobotsTxt, buildSitemapXml, staticIndexablePages } from "./seo-site";
 import {
-  APP_LOCALES,
+  buildLlmsTxt,
+  buildPublicSitemapDocuments,
+  buildRobotsTxt,
+  isSitemapPath,
+  sitemapCacheControl
+} from "./seo-site";
+import {
   canonicalEventPath,
   dePrefixTarget,
-  hreflangEntries,
   parseLocaleFromPath,
   t
 } from "./i18n";
@@ -310,7 +311,7 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
-const PUBLIC_CACHE_VERSION = "seo-v6";
+const PUBLIC_CACHE_VERSION = "seo-v7";
 
 function publicCacheRequest(request: Request): Request {
   const url = new URL(request.url);
@@ -348,7 +349,7 @@ export default {
       url.pathname === "/netzbetreiber/" ||
       url.pathname.startsWith("/netzbetreiber/") ||
       /^\/(fr|it|en)\/netzbetreiber(?:\/|$)/.test(url.pathname) ||
-      url.pathname === "/sitemap.xml" ||
+      isSitemapPath(url.pathname) ||
       url.pathname === "/robots.txt" ||
       url.pathname === "/llms.txt"
     );
@@ -425,38 +426,31 @@ export default {
       }
     }
 
-    if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
+    if (isSitemapPath(url.pathname) && (request.method === "GET" || request.method === "HEAD")) {
       const headers = {
         "Content-Type": "application/xml; charset=utf-8",
         "Cache-Tag": "sitemap"
       };
-      let xml: string;
+      const cacheControl = sitemapCacheControl(url.pathname);
+      let documents = buildPublicSitemapDocuments();
       try {
-        const [items, operatorItems] = await Promise.all([
-          getPublicSitemapItems(env.DB),
-          listPublishedPublicFeedLite(env.DB)
-        ]);
-        xml = buildSitemapXml([
-          ...staticIndexablePages(SITE_ORIGIN, operatorSitemapLastmods(operatorItems)),
-          ...items.flatMap((item) => APP_LOCALES.map((locale) => {
-            const path = localizeStoredEventUrl(item.url, locale);
-            return {
-              loc: `${SITE_ORIGIN}${path}`,
-              lastmod: toSitemapLastmod(item.updated_at),
-              alternates: hreflangEntries(path, SITE_ORIGIN).map((entry) => ({
-                hreflang: entry.hreflang,
-                href: entry.href
-              }))
-            };
-          }))
-        ]);
+        const items = await listPublishedPublicFeedLite(env.DB, 2000);
+        documents = buildPublicSitemapDocuments({
+          events: items.map((item) => ({ url: item.url, updated_at: item.updated_at })),
+          operatorLastmods: operatorSitemapLastmods(items)
+        });
       } catch {
-        xml = buildSitemapXml(staticIndexablePages(SITE_ORIGIN));
+        documents = buildPublicSitemapDocuments();
       }
+      const xml = url.pathname === "/sitemap-pages.xml"
+        ? documents.pages
+        : url.pathname === "/sitemap-events.xml"
+          ? documents.events
+          : documents.index;
       if (request.method === "HEAD") {
-        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
+        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": cacheControl } });
       }
-      return cachePublic(new Response(xml, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
+      return cachePublic(new Response(xml, { headers }), request, ctx, cacheControl);
     }
 
     if (url.pathname === "/robots.txt" && (request.method === "GET" || request.method === "HEAD")) {

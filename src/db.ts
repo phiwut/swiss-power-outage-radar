@@ -30,7 +30,6 @@ import type {
 } from "./types";
 import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { attachPublicMapCoords, parsePublicFeedCursor, publicFeedCursor, toPublicFeedItem } from "./publication";
-import { publicEventPath } from "./public-url";
 import type { HistoricalBackfillTarget } from "./historical-backfill";
 import { operatorHostnames, type OperatorProfile } from "./operators";
 
@@ -2052,20 +2051,6 @@ export async function getUnplannedEventsDueForResearchRefresh(
      LIMIT ?`
   ).bind(activeWindowStart, staleBefore, dayBefore, Math.max(1, Math.min(2, limit))).all<OutageEvent>();
   return result.results;
-}
-
-export async function getPublicSitemapItems(db: D1Database): Promise<Array<{ url: string; updated_at: string }>> {
-  const result = await db.prepare(
-    `SELECT event.id, event.location_text, event.updated_at
-     FROM outage_events event
-     INNER JOIN publication_decisions decision ON decision.outage_event_id = event.id
-     WHERE decision.publishable = 1 AND event.status != 'dismissed' AND event.country = 'CH'
-     ORDER BY event.updated_at DESC LIMIT 5000`
-  ).all<{ id: number; location_text: string; updated_at: string }>();
-  return result.results.map((event) => ({
-    url: publicEventPath({ id: event.id, location: event.location_text || "Schweiz" }),
-    updated_at: event.updated_at
-  }));
 }
 
 export async function getRelatedPublicFeedItems(

@@ -22,9 +22,12 @@ describe("public URL helpers", () => {
       .toBe("/stromausfall/seewen-110");
   });
 
-  it("formats sitemap lastmod as ISO timestamps", () => {
-    expect(toSitemapLastmod("2026-08-04 19:15:15")).toBe("2026-08-04T19:15:15.000Z");
-    expect(toSitemapLastmod("2026-07-30")).toMatch(/^2026-07-30/);
+  it("formats sitemap lastmod as W3C datetimes and omits unknown values", () => {
+    expect(toSitemapLastmod("2026-08-04 19:15:15")).toBe("2026-08-04T19:15:15Z");
+    expect(toSitemapLastmod("2026-08-04T19:15:15.000Z")).toBe("2026-08-04T19:15:15Z");
+    expect(toSitemapLastmod("2026-07-30")).toBe("2026-07-30");
+    expect(toSitemapLastmod("")).toBeUndefined();
+    expect(toSitemapLastmod("not-a-date")).toBeUndefined();
   });
 
   it("forces production HTTP and www hosts onto https://outage.ch", () => {

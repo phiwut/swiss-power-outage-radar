@@ -40,16 +40,20 @@ export function publicEventPath(event: { id: number; location: string }): string
 
 export { eventIdFromPath as publicEventIdFromPath, localizeStoredEventUrl } from "./i18n/routes";
 
-export function toSitemapLastmod(value: string | null | undefined): string {
-  if (!value) return new Date().toISOString().slice(0, 10);
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+const SITEMAP_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function toSitemapLastmod(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (SITEMAP_DAY.test(trimmed)) return trimmed;
+  const normalized = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
   const withZone = /Z$|[+-]\d{2}:\d{2}$/.test(normalized) ? normalized : `${normalized}Z`;
   const date = new Date(withZone);
   if (!Number.isFinite(date.getTime())) {
-    const day = value.slice(0, 10);
-    return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : new Date().toISOString().slice(0, 10);
+    const day = trimmed.slice(0, 10);
+    return SITEMAP_DAY.test(day) ? day : undefined;
   }
-  return date.toISOString();
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
 function clientProtocol(request: Request): string {
