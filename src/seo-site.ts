@@ -1,38 +1,32 @@
 import { SITE_ORIGIN, absoluteUrl, DEFAULT_OG_IMAGE_PATH, toSitemapLastmod } from "./public-url";
 import { knowledgeArticles, knowledgeArticleUrl } from "./knowledge";
-import { operatorProfileUrl, publicOperatorProfiles } from "./operators";
+import { publicOperatorProfiles } from "./operators";
+import {
+  APP_LOCALES,
+  HTML_LANG,
+  homeFaqs as faqsForLocale,
+  hreflangEntries,
+  pathFor,
+  t,
+  type AppLocale,
+  type AppRoute
+} from "./i18n";
 
 export const SITE_NAME = "outage.ch";
 export const SITE_DESCRIPTION =
   "Unabhängiger Radar für aktuelle und geplante Stromausfälle in der Schweiz. Quellenbasiert, ohne erfundene Endzeiten, kein offizieller Notfallkanal.";
+
+export function siteDescription(locale: AppLocale = "de"): string {
+  return t(locale, "site.description");
+}
 
 export const ABOUT_PATH = "/ueber/";
 export const OPERATORS_HUB_PATH = "/netzbetreiber/";
 export const GUIDES_HUB_PATH = "/ratgeber/";
 export const STATIC_CONTENT_UPDATED_AT = "2026-08-18";
 
-export const homeFaqs = [
-  {
-    question: "Was ist outage.ch?",
-    answer:
-      "outage.ch ist ein unabhängiger öffentlicher Radar für Stromausfälle und geplante Stromunterbrüche in der Schweiz. Die Seite bündelt öffentlich zugängliche Meldungen von Netzbetreibern, Behörden und Medien und zeigt Ort, Status, Zeitangaben und Quellen."
-  },
-  {
-    question: "Ist outage.ch ein offizieller Störungsdienst?",
-    answer:
-      "Nein. Verbindliche Angaben und die Behebung liegen beim zuständigen Verteilnetzbetreiber. outage.ch nimmt keine Störungsmeldungen entgegen und ersetzt weder Pikettdienst, Alertswiss noch Notruf."
-  },
-  {
-    question: "Wie entscheidet outage.ch, welche Meldungen öffentlich sind?",
-    answer:
-      "Ein Ereignis wird nur veröffentlicht, wenn mindestens eine offizielle Netzbetreiber- oder Behördenquelle vorliegt oder mindestens zwei unabhängige glaubwürdige Quellen dasselbe Ereignis belegen. Einzelne unbestätigte Hinweise bleiben unsichtbar."
-  },
-  {
-    question: "Nennt outage.ch eine genaue Wiederherstellungszeit?",
-    answer:
-      "Nur wenn eine öffentliche Quelle sie bestätigt. Fehlende Endzeiten werden als offen gekennzeichnet. Schätzungen werden nicht als Tatsache dargestellt."
-  }
-];
+export const homeFaqs = faqsForLocale("de");
+export const localizedHomeFaqs = faqsForLocale;
 
 export function escapeXml(value: string): string {
   return value
@@ -51,7 +45,7 @@ export function websiteId(origin = SITE_ORIGIN): string {
   return `${origin}/#website`;
 }
 
-export function siteGraph(origin = SITE_ORIGIN) {
+export function siteGraph(origin = SITE_ORIGIN, locale: AppLocale = "de") {
   const logo = absoluteUrl(DEFAULT_OG_IMAGE_PATH, origin);
   return [
     {
@@ -59,7 +53,7 @@ export function siteGraph(origin = SITE_ORIGIN) {
       "@id": organizationId(origin),
       name: SITE_NAME,
       url: `${origin}/`,
-      description: SITE_DESCRIPTION,
+      description: siteDescription(locale),
       email: "alert@outage.ch",
       areaServed: { "@type": "Country", name: "Switzerland" },
       knowsAbout: ["Stromausfall", "Stromunterbruch", "Verteilnetz Schweiz"],
@@ -71,37 +65,38 @@ export function siteGraph(origin = SITE_ORIGIN) {
       "@id": websiteId(origin),
       url: `${origin}/`,
       name: SITE_NAME,
-      description: SITE_DESCRIPTION,
-      inLanguage: "de-CH",
+      description: siteDescription(locale),
+      inLanguage: HTML_LANG[locale],
       publisher: { "@id": organizationId(origin) }
     }
   ];
 }
 
-export function siteJsonLd(origin = SITE_ORIGIN): string {
-  return JSON.stringify({ "@context": "https://schema.org", "@graph": siteGraph(origin) });
+export function siteJsonLd(origin = SITE_ORIGIN, locale: AppLocale = "de"): string {
+  return JSON.stringify({ "@context": "https://schema.org", "@graph": siteGraph(origin, locale) });
 }
 
-export function homeJsonLd(origin = SITE_ORIGIN): string {
+export function homeJsonLd(origin = SITE_ORIGIN, locale: AppLocale = "de"): string {
+  const home = `${origin}${pathFor({ kind: "home" }, locale)}`;
   return JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
-      ...siteGraph(origin),
+      ...siteGraph(origin, locale),
       {
         "@type": "WebPage",
-        "@id": `${origin}/#webpage`,
-        url: `${origin}/`,
-        name: "Stromausfälle Schweiz: aktuell & geplant",
-        description: SITE_DESCRIPTION,
-        inLanguage: "de-CH",
+        "@id": `${home}#webpage`,
+        url: home,
+        name: t(locale, "site.homeH1"),
+        description: siteDescription(locale),
+        inLanguage: HTML_LANG[locale],
         isPartOf: { "@id": websiteId(origin) },
         about: { "@id": organizationId(origin) },
-        mainEntity: { "@id": `${origin}/#faq` }
+        mainEntity: { "@id": `${home}#faq` }
       },
       {
         "@type": "FAQPage",
-        "@id": `${origin}/#faq`,
-        mainEntity: homeFaqs.map((faq) => ({
+        "@id": `${home}#faq`,
+        mainEntity: faqsForLocale(locale).map((faq) => ({
           "@type": "Question",
           name: faq.question,
           acceptedAnswer: { "@type": "Answer", text: faq.answer }
@@ -186,10 +181,30 @@ ${guides}
 `;
 }
 
+export type SitemapEntry = {
+  loc: string;
+  lastmod?: string;
+  alternates?: Array<{ hreflang: string; href: string }>;
+};
+
+function alternatesFor(path: string, origin: string): Array<{ hreflang: string; href: string }> {
+  return hreflangEntries(path, origin).map((entry) => ({
+    hreflang: entry.hreflang,
+    href: entry.href
+  }));
+}
+
+function localizedStaticPages(route: AppRoute, lastmod: string, origin: string): SitemapEntry[] {
+  return APP_LOCALES.map((locale) => {
+    const path = pathFor(route, locale);
+    return { loc: `${origin}${path}`, lastmod, alternates: alternatesFor(path, origin) };
+  });
+}
+
 export function staticIndexablePages(
   origin = SITE_ORIGIN,
   operatorLastmods: Map<string, string> | Record<string, string> = new Map()
-): Array<{ loc: string; lastmod: string }> {
+): SitemapEntry[] {
   const lastmods = operatorLastmods instanceof Map ? operatorLastmods : new Map(Object.entries(operatorLastmods));
   const guideUpdated = knowledgeArticles.reduce(
     (latest, article) => (article.updatedAt > latest ? article.updatedAt : latest),
@@ -197,27 +212,35 @@ export function staticIndexablePages(
   );
   const hubLastmod = [...lastmods.values()].sort().at(-1) ?? STATIC_CONTENT_UPDATED_AT;
   return [
-    { loc: `${origin}/`, lastmod: STATIC_CONTENT_UPDATED_AT },
-    { loc: `${origin}${ABOUT_PATH}`, lastmod: STATIC_CONTENT_UPDATED_AT },
-    { loc: `${origin}${GUIDES_HUB_PATH}`, lastmod: guideUpdated },
-    { loc: `${origin}${OPERATORS_HUB_PATH}`, lastmod: toSitemapLastmod(hubLastmod) },
-    ...knowledgeArticles.map((article) => ({
-      loc: `${origin}${knowledgeArticleUrl(article)}`,
-      lastmod: article.updatedAt
-    })),
-    ...publicOperatorProfiles().map((operator) => ({
-      loc: `${origin}${operatorProfileUrl(operator)}`,
-      lastmod: toSitemapLastmod(lastmods.get(operator.slug) ?? STATIC_CONTENT_UPDATED_AT)
-    }))
+    ...localizedStaticPages({ kind: "home" }, STATIC_CONTENT_UPDATED_AT, origin),
+    ...localizedStaticPages({ kind: "about" }, STATIC_CONTENT_UPDATED_AT, origin),
+    ...localizedStaticPages({ kind: "guides" }, guideUpdated, origin),
+    ...localizedStaticPages({ kind: "operators" }, toSitemapLastmod(hubLastmod), origin),
+    ...knowledgeArticles.map((article) => {
+      const path = knowledgeArticleUrl(article);
+      return { loc: `${origin}${path}`, lastmod: article.updatedAt, alternates: alternatesFor(path, origin) };
+    }),
+    ...publicOperatorProfiles().flatMap((operator) =>
+      localizedStaticPages(
+        { kind: "operator", slug: operator.slug },
+        toSitemapLastmod(lastmods.get(operator.slug) ?? STATIC_CONTENT_UPDATED_AT),
+        origin
+      )
+    )
   ];
 }
 
-export function buildSitemapXml(entries: Array<{ loc: string; lastmod?: string }>): string {
+export function buildSitemapXml(entries: SitemapEntry[]): string {
   const body = entries
     .map((entry) => {
       const lastmod = entry.lastmod ? `<lastmod>${escapeXml(entry.lastmod)}</lastmod>` : "";
-      return `<url><loc>${escapeXml(entry.loc)}</loc>${lastmod}</url>`;
+      const links = (entry.alternates ?? [])
+        .map((alternate) =>
+          `<xhtml:link rel="alternate" hreflang="${escapeXml(alternate.hreflang)}" href="${escapeXml(alternate.href)}"/>`
+        )
+        .join("");
+      return `<url><loc>${escapeXml(entry.loc)}</loc>${lastmod}${links}</url>`;
     })
     .join("");
-  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${body}</urlset>`;
 }

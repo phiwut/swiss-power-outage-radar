@@ -72,10 +72,46 @@
   color: var(--muted-foreground);
 }
 
+.app-top__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
 .app-top__nav {
   display: none;
   align-items: center;
   gap: 0.1rem;
+}
+
+.app-langs {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-langs a {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+
+.app-langs a[aria-current="page"] {
+  color: var(--foreground);
+  font-weight: 800;
+}
+
+.app-langs--header {
+  flex-shrink: 0;
+}
+
+.app-langs--hud {
+  margin-left: auto;
 }
 
 .app-main {
@@ -257,6 +293,10 @@
   }
 
   .app-dock {
+    display: none;
+  }
+
+  .app-langs--hud {
     display: none;
   }
 

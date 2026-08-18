@@ -1,0 +1,202 @@
+---
+import RadarLayout from "../../../layouts/RadarLayout.astro";
+import {
+  ELCOM_PRICE_URL,
+  elcomFactsDisclaimer,
+  elcomFactsForSlug,
+  elcomFactsInsight,
+  elcomFactsRows
+} from "../../../elcom-operator-facts";
+import {
+  operatorBySlug,
+  operatorDefinition,
+  operatorFaqs,
+  operatorLanguageNote,
+  operatorProfileUrl,
+  operatorSourceExplanation,
+  publicOperatorProfiles,
+  relatedOperatorProfiles,
+  sourceCategoryLabel
+} from "../../../operators";
+import { SITE_ORIGIN, absoluteUrl } from "../../../public-url";
+import { operatorPageJsonLd } from "../../../seo-operator-page";
+import { localeFromParam, localeParam, pathFor, t, APP_LOCALES, type AppLocale } from "../../../i18n";
+import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
+import AppList from "@/components/app/AppList.astro";
+import AppListRow from "@/components/app/AppListRow.astro";
+import ArticleLayout from "@/components/app/ArticleLayout.astro";
+import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
+import { Alert, AlertDescription } from "@/components/starwind/alert";
+import { Button } from "@/components/starwind/button";
+import { Prose } from "@/components/starwind/prose";
+import ArrowUpRight from "@tabler/icons/outline/arrow-up-right.svg";
+
+export function getStaticPaths() {
+  return APP_LOCALES.flatMap((locale) =>
+    publicOperatorProfiles().map((operator) => ({
+      params: { locale: localeParam(locale), slug: operator.slug },
+      props: { locale }
+    }))
+  );
+}
+
+const locale: AppLocale = Astro.props.locale ?? localeFromParam(
+  Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale
+);
+const slug = Astro.params.slug as string;
+const operator = operatorBySlug(slug);
+if (!operator) {
+  throw new Error(`Unknown operator ${slug}`);
+}
+
+const canonical = absoluteUrl(operatorProfileUrl(operator, locale), SITE_ORIGIN);
+const definition = operatorDefinition(operator, locale);
+const languageNote = operatorLanguageNote(operator, locale);
+const sourceText = operatorSourceExplanation(operator, locale);
+const faqs = operatorFaqs(operator, null, locale);
+const related = relatedOperatorProfiles(operator, 4);
+const elcom = elcomFactsForSlug(operator.slug);
+const jsonLd = operatorPageJsonLd(operator, null, SITE_ORIGIN, locale);
+---
+
+<RadarLayout
+  title={t(locale, "operator.pageTitle", { name: operator.name })}
+  description={definition}
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+  activeNav="operators"
+  locale={locale}
+>
+  <script slot="head" id="operator-jsonld" type="application/ld+json" set:html={jsonLd} />
+  <article class="mx-auto w-full max-w-4xl">
+    <AppBreadcrumb items={[
+      { href: pathFor({ kind: "home" }, locale), label: t(locale, "site.breadcrumbHomeShort") },
+      { href: pathFor({ kind: "operators" }, locale), label: t(locale, "operator.crumb") },
+      { label: operator.name }
+    ]} />
+
+    <PageHero
+      kicker={t(locale, "operator.kicker", { source: sourceCategoryLabel(operator.sourceCategory, locale) })}
+      title={t(locale, "operator.pageH1", { name: operator.name })}
+      lede={t(locale, "operator.lede", { name: operator.name, area: operator.area })}
+    >
+      <Alert>
+        <AlertDescription>{definition}</AlertDescription>
+      </Alert>
+    </PageHero>
+
+    <ArticleLayout links={[
+      { href: "#operator-live", label: t(locale, "operator.tocLive") },
+      ...(elcom ? [{ href: "#operator-facts", label: t(locale, "operator.tocElcom") }] : []),
+      { href: "#quelle", label: t(locale, "operator.tocSource") },
+      { href: "#radar", label: t(locale, "operator.tocRadar") },
+      { href: "#handeln", label: t(locale, "operator.tocAct") },
+      { href: "#faq", label: t(locale, "operator.tocFaq") }
+    ]}>
+      <Prose class="max-w-none text-sm [--prose-heading-spacing:1.05em] [--prose-h2-size:1.2em] [--prose-spacing:0.75em] md:text-[0.95rem]">
+        <section id="operator-live">
+          <h2>{t(locale, "operator.liveHeading")}</h2>
+          <p>{t(locale, "operator.liveEmpty", { name: operator.name })}</p>
+        </section>
+        {elcom && (
+          <section id="operator-facts">
+            <h2>{t(locale, "elcom.heading")}</h2>
+            <p>{elcomFactsInsight(operator.name, elcom, locale)}</p>
+            <div class="stat-grid not-sw-prose">
+              <dl>
+                {elcomFactsRows(elcom, locale).map(([label, value]) => (
+                  <div>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p class="stat-grid__note">{elcomFactsDisclaimer(locale)}</p>
+            </div>
+            <p class="not-sw-prose">
+              <Button as="a" href={ELCOM_PRICE_URL} variant="outline" size="sm">
+                {t(locale, "elcom.open")}
+                <ArrowUpRight class="size-4" />
+              </Button>
+            </p>
+          </section>
+        )}
+        <section id="quelle">
+          <h2>{t(locale, "operator.sourceHeading")}</h2>
+          <p>{t(locale, "operator.sourceIntro", { name: operator.name, source: sourceCategoryLabel(operator.sourceCategory, locale), area: operator.area })}</p>
+          <p>{sourceText}</p>
+          {languageNote && <p>{languageNote}</p>}
+          <p class="not-sw-prose">
+            <Button as="a" href={operator.officialUrl} variant="default" size="sm">
+              {t(locale, "operator.officialOpen", { name: operator.name })}
+              <ArrowUpRight class="size-4" />
+            </Button>
+          </p>
+        </section>
+        <section id="radar">
+          <h2>{t(locale, "operator.radarHeading")}</h2>
+          <p>{t(locale, "operator.radarP1", { name: operator.name, minutes: operator.checkMinutes })}</p>
+          <p>{t(locale, "operator.radarP2", { name: operator.name })}</p>
+        </section>
+        <section id="handeln">
+          <h2>{t(locale, "operator.actHeading")}</h2>
+          <ol class="article-steps not-sw-prose">
+            <li>
+              <strong>{t(locale, "operator.act1Title")}</strong>
+              <p>{t(locale, "operator.act1Body", { name: operator.name })}</p>
+            </li>
+            <li>
+              <strong>{t(locale, "operator.act2Title")}</strong>
+              <p>{t(locale, "operator.act2Body", { name: operator.name })}</p>
+            </li>
+            <li>
+              <strong>{t(locale, "operator.act3Title")}</strong>
+              <p>{t(locale, "operator.act3Body", { name: operator.name })}</p>
+            </li>
+          </ol>
+          <p>
+            {t(locale, "operator.actGuides")}
+            {" "}<a href="/ratgeber/stromausfall-was-tun/">{t(locale, "operator.helpGuide")}</a>
+            {" "}<a href="/ratgeber/netzbetreiber-finden/">{t(locale, "operator.findGuide")}</a>
+          </p>
+        </section>
+        <section id="faq">
+          <h2>{t(locale, "operator.faqHeading", { name: operator.name })}</h2>
+          <div id="operator-faq">
+            {faqs.map((faq) => (
+              <details>
+                <summary>{faq.question}</summary>
+                <p>{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+        {related.length > 0 && (
+          <section aria-labelledby="related-operators-heading">
+            <h2 id="related-operators-heading">{t(locale, "operator.relatedHeading")}</h2>
+            <div class="not-sw-prose">
+              <AppList>
+                {related.map((profile) => (
+                  <AppListRow
+                    href={operatorProfileUrl(profile, locale)}
+                    kicker={sourceCategoryLabel(profile.sourceCategory, locale)}
+                    title={profile.name}
+                    description={profile.area}
+                  />
+                ))}
+              </AppList>
+            </div>
+          </section>
+        )}
+      </Prose>
+    </ArticleLayout>
+    <PageCta
+      title={t(locale, "operator.ctaReportsTitle")}
+      description={t(locale, "operator.ctaReportsDescription")}
+      href={pathFor({ kind: "home" }, locale)}
+      label={t(locale, "operator.ctaReportsLabel")}
+    />
+  </article>
+</RadarLayout>

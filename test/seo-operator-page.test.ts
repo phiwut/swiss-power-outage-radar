@@ -34,8 +34,9 @@ function item(overrides: Partial<PublicFeedItem> = {}): PublicFeedItem {
 
 describe("operator live SEO pages", () => {
   it("parses hub and profile paths", () => {
-    expect(parseOperatorPath("/netzbetreiber/")).toEqual({ hub: true });
-    expect(parseOperatorPath("/netzbetreiber/bkw/")).toEqual({ hub: false, slug: "bkw" });
+    expect(parseOperatorPath("/netzbetreiber/")).toEqual({ hub: true, locale: "de" });
+    expect(parseOperatorPath("/netzbetreiber/bkw/")).toEqual({ hub: false, slug: "bkw", locale: "de" });
+    expect(parseOperatorPath("/fr/netzbetreiber/bkw/")).toEqual({ hub: false, slug: "bkw", locale: "fr" });
     expect(parseOperatorPath("/ratgeber/bkw/")).toBeNull();
   });
 

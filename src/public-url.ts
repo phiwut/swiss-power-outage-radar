@@ -38,12 +38,7 @@ export function publicEventPath(event: { id: number; location: string }): string
   return `/stromausfall/${publicEventSlug(event.location)}-${event.id}`;
 }
 
-export function publicEventIdFromPath(pathname: string): number | null {
-  const match = pathname.match(/^\/stromausfall\/[a-z0-9-]*-(\d+)\/?$/);
-  if (!match) return null;
-  const id = Number(match[1]);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
+export { eventIdFromPath as publicEventIdFromPath, localizeStoredEventUrl } from "./i18n/routes";
 
 export function toSitemapLastmod(value: string | null | undefined): string {
   if (!value) return new Date().toISOString().slice(0, 10);

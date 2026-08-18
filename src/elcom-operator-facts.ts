@@ -1,3 +1,5 @@
+import { DATE_LOCALE, t, type AppLocale } from "./i18n";
+
 export interface ElcomOperatorFacts {
   elcomId: number;
   elcomName: string;
@@ -57,8 +59,9 @@ const FACTS_BY_SLUG: Record<string, ElcomOperatorFacts> = {
   tbgn: { elcomId: 825, elcomName: "TBGN", municipalityCount: 1, totalRp: 32.85, energyRp: 13.2, gridRp: 15.4 }
 };
 
-export function formatRpPerKwh(value: number): string {
-  return `${value.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Rp./kWh`;
+export function formatRpPerKwh(value: number, locale: AppLocale = "de"): string {
+  const formatted = value.toLocaleString(DATE_LOCALE[locale], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return t(locale, "elcom.unit", { value: formatted });
 }
 
 export function elcomFactsForSlug(slug: string): ElcomOperatorFacts | null {
@@ -69,63 +72,82 @@ export function elcomMappedSlugs(): string[] {
   return Object.keys(FACTS_BY_SLUG);
 }
 
-function municipalityPhrase(count: number): string {
-  return count === 1 ? "einer Gemeinde" : `${count} Gemeinden`;
+function municipalityPhrase(count: number, locale: AppLocale = "de"): string {
+  return count === 1
+    ? t(locale, "elcom.municipalitiesOne")
+    : t(locale, "elcom.municipalitiesMany", { count });
 }
 
-export function elcomComparisonText(facts: ElcomOperatorFacts): string {
+export function elcomComparisonText(facts: ElcomOperatorFacts, locale: AppLocale = "de"): string {
   const delta = facts.totalRp - ELCOM_H4_SWISS_MEAN_RP;
-  const abs = Math.abs(delta).toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const mean = formatRpPerKwh(ELCOM_H4_SWISS_MEAN_RP);
+  const abs = Math.abs(delta).toLocaleString(DATE_LOCALE[locale], { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const mean = formatRpPerKwh(ELCOM_H4_SWISS_MEAN_RP, locale);
   if (Math.abs(delta) < 0.15) {
-    return `liegt nahe am Mittel der ElCom-H4-Beobachtungen ${ELCOM_H4_YEAR} von ${mean}`;
+    return t(locale, "elcom.near", { year: ELCOM_H4_YEAR, mean });
   }
   if (delta < 0) {
-    return `liegt ${abs} Rp. unter dem Mittel der ElCom-H4-Beobachtungen ${ELCOM_H4_YEAR} von ${mean}`;
+    return t(locale, "elcom.below", { delta: abs, year: ELCOM_H4_YEAR, mean });
   }
-  return `liegt ${abs} Rp. über dem Mittel der ElCom-H4-Beobachtungen ${ELCOM_H4_YEAR} von ${mean}`;
+  return t(locale, "elcom.above", { delta: abs, year: ELCOM_H4_YEAR, mean });
 }
 
-export function elcomFactsInsight(operatorName: string, facts: ElcomOperatorFacts): string {
-  return `Die ElCom weist für ${facts.elcomName} im H4-Standardprodukt ${ELCOM_H4_YEAR} (Haushalt mit ${ELCOM_H4_ANNUAL_KWH} kWh/Jahr) einen Mittelwert von ${formatRpPerKwh(facts.totalRp)} über ${municipalityPhrase(facts.municipalityCount)} aus. Davon entfallen ${formatRpPerKwh(facts.energyRp)} auf die Energie und ${formatRpPerKwh(facts.gridRp)} auf die Netznutzung. Dieser Wert ${elcomComparisonText(facts)}. Das ist kein individueller Rechnungsbetrag von ${operatorName}: Gemeinde, Produkt, Leistung und ob Lieferant und Netzbetreiber identisch sind, können abweichen.`;
+export function elcomFactsInsight(operatorName: string, facts: ElcomOperatorFacts, locale: AppLocale = "de"): string {
+  return t(locale, "elcom.insight", {
+    elcomName: facts.elcomName,
+    year: ELCOM_H4_YEAR,
+    kwh: ELCOM_H4_ANNUAL_KWH,
+    total: formatRpPerKwh(facts.totalRp, locale),
+    municipalities: municipalityPhrase(facts.municipalityCount, locale),
+    energy: formatRpPerKwh(facts.energyRp, locale),
+    grid: formatRpPerKwh(facts.gridRp, locale),
+    comparison: elcomComparisonText(facts, locale),
+    name: operatorName
+  });
 }
 
-export function elcomFactsDisclaimer(): string {
-  return `Quelle: ElCom-Strompreisdaten via LINDAS, H4-Standardprodukt ${ELCOM_H4_YEAR}, Auswertung ${new Date(`${ELCOM_SNAPSHOT_DATE}T12:00:00+02:00`).toLocaleDateString("de-CH")}. outage.ch speichert einen Snapshot, nicht den Live-Tarifrechner.`;
+export function elcomFactsDisclaimer(locale: AppLocale = "de"): string {
+  const date = new Date(`${ELCOM_SNAPSHOT_DATE}T12:00:00+02:00`).toLocaleDateString(DATE_LOCALE[locale]);
+  return t(locale, "elcom.disclaimer", { year: ELCOM_H4_YEAR, date });
 }
 
-export function elcomFaq(operatorName: string, facts: ElcomOperatorFacts): { question: string; answer: string } {
+export function elcomFaq(
+  operatorName: string,
+  facts: ElcomOperatorFacts,
+  locale: AppLocale = "de"
+): { question: string; answer: string } {
+  const insight = elcomFactsInsight(operatorName, facts, locale);
   return {
-    question: `Was sagt die ElCom zu den Strompreisen von ${operatorName}?`,
-    answer: `${elcomFactsInsight(operatorName, facts)} Die Originaldaten stehen auf ${ELCOM_PRICE_URL}.`
+    question: t(locale, "elcom.faqQ", { name: operatorName }),
+    answer: t(locale, "elcom.faqA", { insight, url: ELCOM_PRICE_URL })
   };
 }
 
-export function elcomFactsRows(facts: ElcomOperatorFacts): Array<[string, string]> {
+export function elcomFactsRows(facts: ElcomOperatorFacts, locale: AppLocale = "de"): Array<[string, string]> {
   return [
-    [`H4-Total ${ELCOM_H4_YEAR}`, formatRpPerKwh(facts.totalRp)],
-    ["Energie", formatRpPerKwh(facts.energyRp)],
-    ["Netznutzung", formatRpPerKwh(facts.gridRp)],
-    ["Gemeinden in der ElCom-Auswertung", String(facts.municipalityCount)],
-    [`Schweizer H4-Mittel ${ELCOM_H4_YEAR}`, formatRpPerKwh(ELCOM_H4_SWISS_MEAN_RP)]
+    [t(locale, "elcom.rowTotal", { year: ELCOM_H4_YEAR }), formatRpPerKwh(facts.totalRp, locale)],
+    [t(locale, "elcom.rowEnergy"), formatRpPerKwh(facts.energyRp, locale)],
+    [t(locale, "elcom.rowGrid"), formatRpPerKwh(facts.gridRp, locale)],
+    [t(locale, "elcom.rowMunicipalities"), String(facts.municipalityCount)],
+    [t(locale, "elcom.rowMean", { year: ELCOM_H4_YEAR }), formatRpPerKwh(ELCOM_H4_SWISS_MEAN_RP, locale)]
   ];
 }
 
 export function elcomDatasetJsonLd(
   operatorName: string,
   facts: ElcomOperatorFacts,
-  canonical: string
+  canonical: string,
+  locale: AppLocale = "de"
 ): Record<string, unknown> {
   return {
     "@type": "Dataset",
     "@id": `${canonical}#elcom`,
-    name: `ElCom H4-Strompreis ${operatorName} ${ELCOM_H4_YEAR}`,
-    description: elcomFactsInsight(operatorName, facts),
+    name: t(locale, "elcom.datasetName", { name: operatorName, year: ELCOM_H4_YEAR }),
+    description: elcomFactsInsight(operatorName, facts, locale),
     creator: { "@type": "Organization", name: "Eidgenössische Elektrizitätskommission ElCom" },
     isBasedOn: ELCOM_PRICE_URL,
     license: ELCOM_PRICE_URL,
     temporalCoverage: String(ELCOM_H4_YEAR),
-    variableMeasured: elcomFactsRows(facts).map(([name, value]) => ({
+    variableMeasured: elcomFactsRows(facts, locale).map(([name, value]) => ({
       "@type": "PropertyValue",
       name,
       value

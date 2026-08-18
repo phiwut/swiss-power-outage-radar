@@ -3,8 +3,19 @@ import "../styles/global.css";
 import "../styles/app-shell.css";
 import { Button } from "@/components/starwind/button";
 import { ButtonGroup } from "@/components/starwind/button-group";
+import AppLangSwitch from "@/components/app/AppLangSwitch.astro";
 import { DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN, absoluteUrl } from "../public-url";
 import { siteJsonLd } from "../seo-site";
+import {
+  HELP_GUIDE_PATH,
+  HTML_LANG,
+  OG_LOCALE,
+  hreflangEntries,
+  localeFromParam,
+  pathFor,
+  t,
+  type AppLocale
+} from "../i18n";
 import Bolt from "@tabler/icons/outline/bolt.svg";
 import RadarIcon from "@tabler/icons/outline/radar-2.svg";
 import Building from "@tabler/icons/outline/building.svg";
@@ -22,62 +33,74 @@ interface Props {
   /** radar = full-bleed map home; content = article/detail shell */
   shell?: "radar" | "content";
   activeNav?: "radar" | "ratgeber" | "help" | "operators";
+  locale?: AppLocale;
 }
 
+const paramLocale = Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale;
 const {
   title,
-  eyebrow = "Stromausfälle Schweiz",
-  description = "Aktuelle Hinweise zu Stromausfällen und Netzunterbrüchen in der Schweiz aus öffentlichen Quellen und Google Alerts.",
+  description,
   canonical,
   ogType = "website",
   ogImage = absoluteUrl(DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN),
   robots,
   shell = "content",
-  activeNav
+  activeNav,
+  locale = localeFromParam(paramLocale)
 } = Astro.props;
 
+const eyebrow = Astro.props.eyebrow ?? t(locale, "site.eyebrow");
+const pageDescription = description ?? t(locale, "site.description");
 const canonicalUrl = canonical ?? absoluteUrl(Astro.url.pathname, SITE_ORIGIN);
 const hideTopOnRadarMobile = shell === "radar";
-
+const htmlLang = HTML_LANG[locale];
+const alternates = hreflangEntries(Astro.url.pathname, SITE_ORIGIN);
+const homeHref = pathFor({ kind: "home" }, locale);
 const nav = [
-  { href: "/", id: "radar" as const, label: "Radar" },
-  { href: "/netzbetreiber/", id: "operators" as const, label: "Betreiber" },
-  { href: "/ratgeber/", id: "ratgeber" as const, label: "Ratgeber" },
-  { href: "/ratgeber/stromausfall-was-tun/", id: "help" as const, label: "Was tun?" }
+  { href: homeHref, id: "radar" as const, label: t(locale, "nav.radar") },
+  { href: pathFor({ kind: "operators" }, locale), id: "operators" as const, label: t(locale, "nav.operators") },
+  { href: pathFor({ kind: "guides" }, locale), id: "ratgeber" as const, label: t(locale, "nav.guides") },
+  { href: HELP_GUIDE_PATH, id: "help" as const, label: t(locale, "nav.help") }
 ];
 ---
 
 <!doctype html>
-<html lang="de-CH">
+<html lang={htmlLang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23131820'/%3E%3Cpath d='M35 8 17 37h14l-3 19 20-31H35V8Z' fill='none' stroke='%23fff' stroke-width='5' stroke-linejoin='round'/%3E%3C/svg%3E" />
-    <meta name="description" content={description} />
+    <meta name="description" content={pageDescription} />
     {robots && <meta name="robots" content={robots} />}
     <link rel="canonical" href={canonicalUrl} />
+    {alternates.map((entry) => (
+      <link rel="alternate" hreflang={entry.hreflang} href={entry.href} />
+    ))}
     <link rel="alternate" type="text/plain" href="https://outage.ch/llms.txt" title="llms.txt" />
     <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:description" content={pageDescription} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:image" content={ogImage} />
-    <meta property="og:locale" content="de_CH" />
+    <meta property="og:locale" content={OG_LOCALE[locale]} />
+    {alternates.filter((entry) => entry.locale !== "x-default" && entry.locale !== locale).map((entry) => (
+      <meta property="og:locale:alternate" content={OG_LOCALE[entry.locale as AppLocale]} />
+    ))}
     <meta property="og:site_name" content="outage.ch" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
+    <meta name="twitter:description" content={pageDescription} />
     <meta name="twitter:image" content={ogImage} />
     <meta name="theme-color" content="#f6f4ef" />
-    <script type="application/ld+json" set:html={siteJsonLd()} />
+    <script type="application/ld+json" set:html={siteJsonLd(SITE_ORIGIN, locale)} />
     <slot name="head" />
     <title>{title}</title>
   </head>
   <body class:list={["text-foreground", "shell-app", hideTopOnRadarMobile && "shell-radar"]}>
-    <a class="skip-link" href="#app-main">Zum Inhalt springen</a>
+    <a class="skip-link" href="#app-main">{t(locale, "nav.skip")}</a>
     <div class="app-frame">
       <header class:list={["app-top", hideTopOnRadarMobile && "app-top--radar-desktop-only"]}>
-        <a class="app-top__brand" href="/" aria-label="Zur Radar-Übersicht">
+        <a class="app-top__brand" href={homeHref} aria-label={t(locale, "nav.brandAria")}>
           <span class="app-top__mark" aria-hidden="true">
             <Bolt class="size-4" />
           </span>
@@ -86,50 +109,53 @@ const nav = [
             <span class="app-top__word">outage.ch</span>
           </span>
         </a>
-        <nav class="app-top__nav" aria-label="Hauptnavigation">
-          <ButtonGroup>
-            {nav.map((item) => (
-              <Button
-                as="a"
-                href={item.href}
-                variant={activeNav === item.id ? "secondary" : "outline"}
-                size="sm"
-                aria-current={activeNav === item.id ? "page" : undefined}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </ButtonGroup>
-        </nav>
+        <div class="app-top__tools">
+          <nav class="app-top__nav" aria-label={t(locale, "nav.main")}>
+            <ButtonGroup>
+              {nav.map((item) => (
+                <Button
+                  as="a"
+                  href={item.href}
+                  variant={activeNav === item.id ? "secondary" : "outline"}
+                  size="sm"
+                  aria-current={activeNav === item.id ? "page" : undefined}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </nav>
+          <AppLangSwitch locale={locale} class="app-langs--header" />
+        </div>
       </header>
 
       <main id="app-main" class:list={["app-main", shell === "radar" ? "app-main--radar" : "app-main--content"]}>
         <slot />
         {shell === "content" && (
-          <nav class="mt-8 flex flex-wrap gap-1" aria-label="Weitere Seiten">
-            <Button as="a" href="/ueber/" variant="ghost" size="sm">Methodik</Button>
-            <Button as="a" href="/netzbetreiber/" variant="ghost" size="sm">Netzbetreiber</Button>
-            <Button as="a" href="/ratgeber/" variant="ghost" size="sm">Ratgeber</Button>
+          <nav class="mt-8 flex flex-wrap gap-1" aria-label={t(locale, "nav.morePages")}>
+            <Button as="a" href={pathFor({ kind: "about" }, locale)} variant="ghost" size="sm">{t(locale, "nav.about")}</Button>
+            <Button as="a" href={pathFor({ kind: "operators" }, locale)} variant="ghost" size="sm">{t(locale, "nav.operators")}</Button>
+            <Button as="a" href={pathFor({ kind: "guides" }, locale)} variant="ghost" size="sm">{t(locale, "nav.guides")}</Button>
           </nav>
         )}
       </main>
 
-      <nav class="app-dock" aria-label="App">
-        <a href="/" aria-current={activeNav === "radar" ? "page" : undefined}>
+      <nav class="app-dock" aria-label={t(locale, "nav.dock")}>
+        <a href={homeHref} aria-current={activeNav === "radar" ? "page" : undefined}>
           <RadarIcon class="size-[1.15rem]" aria-hidden="true" />
-          Radar
+          {t(locale, "nav.radar")}
         </a>
-        <a href="/netzbetreiber/" aria-current={activeNav === "operators" ? "page" : undefined}>
+        <a href={pathFor({ kind: "operators" }, locale)} aria-current={activeNav === "operators" ? "page" : undefined}>
           <Building class="size-[1.15rem]" aria-hidden="true" />
-          Betreiber
+          {t(locale, "nav.operators")}
         </a>
-        <a href="/ratgeber/" aria-current={activeNav === "ratgeber" ? "page" : undefined}>
+        <a href={pathFor({ kind: "guides" }, locale)} aria-current={activeNav === "ratgeber" ? "page" : undefined}>
           <Book class="size-[1.15rem]" aria-hidden="true" />
-          Ratgeber
+          {t(locale, "nav.guides")}
         </a>
-        <a href="/ratgeber/stromausfall-was-tun/" aria-current={activeNav === "help" ? "page" : undefined}>
+        <a href={HELP_GUIDE_PATH} aria-current={activeNav === "help" ? "page" : undefined}>
           <Help class="size-[1.15rem]" aria-hidden="true" />
-          Was tun?
+          {t(locale, "nav.help")}
         </a>
       </nav>
     </div>

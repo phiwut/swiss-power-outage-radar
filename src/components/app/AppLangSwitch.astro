@@ -1,0 +1,24 @@
+---
+import { APP_LOCALES, alternatePath, t, type AppLocale } from "../../i18n";
+
+interface Props {
+  locale: AppLocale;
+  pathname?: string;
+  class?: string;
+}
+
+const { locale, pathname = Astro.url.pathname, class: className } = Astro.props;
+---
+
+<nav class:list={["app-langs", className]} aria-label={t(locale, "lang.switcher")}>
+  {APP_LOCALES.map((code) => (
+    <a
+      href={alternatePath(pathname, code)}
+      hreflang={code === "en" ? "en" : `${code}-CH`}
+      aria-current={code === locale ? "page" : undefined}
+      lang={code === "en" ? "en" : `${code}-CH`}
+    >
+      {t(locale, `lang.${code}`)}
+    </a>
+  ))}
+</nav>

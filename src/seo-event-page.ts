@@ -9,32 +9,39 @@ import {
   publicDisplayLocation
 } from "./public-url";
 import { renderOperatorStatsGrid } from "./seo-operator-page";
-import { homeFaqs, organizationId, SITE_DESCRIPTION, websiteId } from "./seo-site";
+import { localizedHomeFaqs, organizationId, siteDescription, websiteId } from "./seo-site";
+import {
+  DATE_LOCALE,
+  HTML_LANG,
+  formatAppDate,
+  formatAppDuration,
+  localizeStoredEventUrl,
+  parseLocaleFromPath,
+  pathFor,
+  t,
+  type AppLocale
+} from "./i18n";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function formatDate(value: string | null): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("de-CH", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Zurich" }).format(date)
-    : null;
+function formatDate(value: string | null | undefined, locale: AppLocale = "de"): string | null {
+  return formatAppDate(value, locale);
 }
 
-function statusText(detail: PublicEventDetail): string {
+function statusText(detail: PublicEventDetail, locale: AppLocale = "de"): string {
   const status = detail.item.status;
-  if (status === "upcoming") return "Bevorstehend";
-  if (status === "active") return "Noch aktiv";
+  if (status === "upcoming") return t(locale, "status.upcoming");
+  if (status === "active") return t(locale, "status.active");
   if (status === "resolved") {
-    if (isAutoClosed(detail)) return "Automatisch abgeschlossen";
-    return detail.item.resolved_at ? "Behoben" : "Behoben gemeldet";
+    if (isAutoClosed(detail)) return t(locale, "status.autoClosed");
+    return detail.item.resolved_at ? t(locale, "status.resolved") : t(locale, "status.resolvedReported");
   }
-  if (status === "stale_unconfirmed") return "Status nicht mehr bestätigt";
-  if (status === "historical") return "Historische Meldung";
-  return "Noch nicht bestätigt";
+  if (status === "stale_unconfirmed") return t(locale, "status.stale");
+  if (status === "historical") return t(locale, "status.historical");
+  return t(locale, "status.unknown");
 }
 
 function isAutoClosed(detail: PublicEventDetail): boolean {
@@ -43,56 +50,64 @@ function isAutoClosed(detail: PublicEventDetail): boolean {
     !detail.item.resolved_at;
 }
 
-function formatDuration(minutes: number | null): string | null {
-  if (minutes === null || minutes < 0) return null;
-  if (minutes < 60) return `${minutes} Min.`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours} Std.${rest ? ` ${rest} Min.` : ""}`;
+function formatDuration(minutes: number | null, locale: AppLocale = "de"): string | null {
+  return formatAppDuration(minutes, locale);
 }
 
-function statusLine(detail: PublicEventDetail): string {
+function statusLine(detail: PublicEventDetail, locale: AppLocale = "de"): string {
   const item = detail.item;
   if (item.status === "active") {
     return [
-      "Noch aktiv",
-      item.started_at ? `Beginn gemeldet ${formatDate(item.started_at)}` : null,
-      item.last_confirmed_active_at ? `zuletzt bestätigt ${formatDate(item.last_confirmed_active_at)}` : null
+      t(locale, "status.active"),
+      item.started_at ? t(locale, "event.statusLine.started", { date: formatDate(item.started_at, locale) }) : null,
+      item.last_confirmed_active_at ? t(locale, "event.statusLine.lastConfirmed", { date: formatDate(item.last_confirmed_active_at, locale) }) : null
     ].filter(Boolean).join(" · ");
   }
   if (item.status === "stale_unconfirmed") {
     return [
-      "Status nicht mehr bestätigt",
-      item.last_confirmed_active_at ? `zuletzt aktiv ${formatDate(item.last_confirmed_active_at)}` : null
+      t(locale, "status.stale"),
+      item.last_confirmed_active_at ? t(locale, "event.statusLine.lastActive", { date: formatDate(item.last_confirmed_active_at, locale) }) : null
     ].filter(Boolean).join(" · ");
   }
   if (item.status === "resolved") {
     if (isAutoClosed(detail)) {
       return [
-        "Automatisch abgeschlossen",
-        item.last_confirmed_active_at ? `letzte Bestätigung ${formatDate(item.last_confirmed_active_at)}` : null,
-        "Dauer unbekannt"
+        t(locale, "status.autoClosed"),
+        item.last_confirmed_active_at ? t(locale, "event.statusLine.lastConfirm", { date: formatDate(item.last_confirmed_active_at, locale) }) : null,
+        t(locale, "event.statusLine.durationUnknown")
       ].filter(Boolean).join(" · ");
     }
-    const duration = formatDuration(item.duration_minutes);
+    const duration = formatDuration(item.duration_minutes, locale);
     return [
-      item.resolved_at ? "Behoben" : "Behoben gemeldet",
-      duration ? `dauerte ${duration}` : null,
-      !item.resolved_at ? "Zeitpunkt unbekannt" : null
+      item.resolved_at ? t(locale, "status.resolved") : t(locale, "status.resolvedReported"),
+      duration ? t(locale, "event.statusLine.lasted", { duration }) : null,
+      !item.resolved_at ? t(locale, "event.statusLine.timeUnknown") : null
     ].filter(Boolean).join(" · ");
   }
-  return statusText(detail);
+  return statusText(detail, locale);
 }
 
 function eventLocation(detail: PublicEventDetail): string {
-  return publicDisplayLocation(detail.item.location) || detail.map?.query || "der Schweiz";
+  return publicDisplayLocation(detail.item.location) || detail.map?.query || "Schweiz";
 }
 
-function shortDate(value: string | null): string | null {
+function eventKind(detail: PublicEventDetail, locale: AppLocale): string {
+  return detail.item.nature === "planned"
+    ? t(locale, "nature.plannedKind")
+    : t(locale, "nature.unplannedKind");
+}
+
+function eventKindShort(detail: PublicEventDetail, locale: AppLocale): string {
+  return detail.item.nature === "planned"
+    ? t(locale, "nature.plannedKindShort")
+    : t(locale, "nature.unplannedKindShort");
+}
+
+function shortDate(value: string | null, locale: AppLocale = "de"): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return null;
-  return new Intl.DateTimeFormat("de-CH", {
+  return new Intl.DateTimeFormat(DATE_LOCALE[locale], {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -121,135 +136,138 @@ function buildEventTitle(kindShort: string, location: string, date: string | nul
   return `${clampText(`${kindShort} ${place}`, 45)} | outage.ch`;
 }
 
-function padDescription(parts: string[], min = 120, max = 158): string {
+function padDescription(parts: string[], locale: AppLocale, min = 120, max = 158): string {
   const base = parts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   if (base.length >= min) return clampText(base, max);
-  const filler = " Details zu Beginn, Dauer, Ursache und Quellen auf outage.ch.";
+  const filler = t(locale, "event.descFiller");
   return clampText(`${base}${base.endsWith(".") ? "" : "."}${filler}`, max);
 }
 
-function consistentSummary(detail: PublicEventDetail): string {
+function consistentSummary(detail: PublicEventDetail, locale: AppLocale = "de"): string {
   const item = detail.item;
   const location = eventLocation(detail);
-  if (item.status === "upcoming") return `Für ${location} ist ein geplanter Stromunterbruch gemeldet.`;
-  if (item.status === "active") return `Für ${location} ist ein laufender Stromausfall gemeldet. Der jüngste bestätigte Stand ist unten ausgewiesen.`;
-  if (item.status === "stale_unconfirmed") return `Für ${location} liegt eine Stromausfallmeldung vor. Der aktuelle Status ist nicht mehr bestätigt.`;
-  if (isAutoClosed(detail)) return `Der Fall in ${location} wurde nach 24 Stunden ohne neue Bestätigung automatisch abgeschlossen. Ob und wann die Stromversorgung wiederhergestellt wurde, ist nicht bekannt.`;
-  if (item.status === "resolved" && !item.resolved_at) return `Der Stromausfall in ${location} wurde als behoben gemeldet. Der genaue Zeitpunkt ist nicht öffentlich bestätigt.`;
-  if (item.status === "resolved") return `Der Stromausfall in ${location} wurde als behoben gemeldet.`;
+  if (item.status === "upcoming") return t(locale, "event.summary.upcoming", { location });
+  if (item.status === "active") return t(locale, "event.summary.active", { location });
+  if (item.status === "stale_unconfirmed") return t(locale, "event.summary.stale", { location });
+  if (isAutoClosed(detail)) return t(locale, "event.summary.autoClosed", { location });
+  if (item.status === "resolved" && !item.resolved_at) return t(locale, "event.summary.resolvedUnknown", { location });
+  if (item.status === "resolved") return t(locale, "event.summary.resolved", { location });
   return item.summary;
 }
 
-export function eventFaq(detail: PublicEventDetail): Array<{ question: string; answer: string }> {
+export function eventFaq(detail: PublicEventDetail, locale: AppLocale = "de"): Array<{ question: string; answer: string }> {
   const item = detail.item;
   const location = eventLocation(detail);
-  const start = formatDate(item.started_at);
-  const end = formatDate(item.resolved_at);
+  const start = formatDate(item.started_at, locale);
+  const end = formatDate(item.resolved_at, locale);
   const operatorProfile = resolveOperatorProfile({
     name: detail.operator?.name ?? item.source.publisher,
     domain: detail.operator?.domain ?? item.source.domain,
     url: detail.operator?.url ?? item.source.url
   });
   const statusAnswer = item.status === "active"
-    ? `${statusLine(detail)}. Verbindlich ist der aktuelle Stand des zuständigen Netzbetreibers.`
+    ? t(locale, "event.faq.aActive", { status: statusLine(detail, locale) })
     : item.status === "upcoming"
-      ? `Der Stromunterbruch in ${location} ist geplant und steht noch bevor. Prüfen Sie das Zeitfenster direkt beim Netzbetreiber.`
+      ? t(locale, "event.faq.aUpcoming", { location })
       : item.status === "resolved"
         ? isAutoClosed(detail)
-          ? `${statusLine(detail)}. Das ist kein Nachweis einer Wiederherstellung; es liegt lediglich seit 24 Stunden keine neue Bestätigung vor.`
-          : `${statusLine(detail)}. Die öffentliche Quellenlage bezeichnet den Stromausfall in ${location} als behoben.`
+          ? t(locale, "event.faq.aResolvedAuto", { status: statusLine(detail, locale) })
+          : t(locale, "event.faq.aResolved", { status: statusLine(detail, locale), location })
         : item.status === "stale_unconfirmed"
-          ? `${statusLine(detail)}. Ohne neue Betreiberinformation wird die Meldung nicht als aktuell aktiv dargestellt.`
-        : `Die Meldung zu ${location} ist historisch. Ohne neue Betreiberinformation wird sie nicht als aktuell aktiv dargestellt.`;
+          ? t(locale, "event.faq.aStale", { status: statusLine(detail, locale) })
+        : t(locale, "event.faq.aHistorical", { location });
   return [
     {
-      question: `Ist der Stromausfall in ${location} noch aktiv?`,
+      question: t(locale, "event.faq.qActive", { location }),
       answer: statusAnswer
     },
     {
-      question: `Wann begann der Stromausfall in ${location}?`,
+      question: t(locale, "event.faq.qStart", { location }),
       answer: start
-        ? `Als Beginn ist ${start} dokumentiert.`
-        : "Eine genaue Startzeit wurde in den öffentlich verfügbaren Quellen bisher nicht bestätigt."
+        ? t(locale, "event.faq.aStart", { date: start })
+        : t(locale, "event.faq.aStartUnknown")
     },
     {
-      question: `Wann ist der Strom in ${location} wieder verfügbar?`,
+      question: t(locale, "event.faq.qEnd", { location }),
       answer: end
-        ? `Die Wiederherstellung wurde für ${end} gemeldet.`
-        : "Eine belastbare Endzeit ist noch nicht öffentlich bestätigt. Schätzungen werden auf outage.ch nicht als Tatsache dargestellt."
+        ? t(locale, "event.faq.aEnd", { date: end })
+        : t(locale, "event.faq.aEndUnknown")
     },
     {
-      question: `Was war die Ursache des Stromausfalls in ${location}?`,
+      question: t(locale, "event.faq.qCause", { location }),
       answer: item.cause
-        ? `Als Ursache wird ${item.cause} genannt.`
-        : "Zur Ursache liegt derzeit keine ausreichend konkrete öffentliche Angabe vor."
+        ? t(locale, "event.faq.aCause", { cause: item.cause })
+        : t(locale, "event.faq.aCauseUnknown")
     },
     {
-      question: `Welches Gebiet in ${location} ist betroffen?`,
+      question: t(locale, "event.faq.qArea", { location }),
       answer: item.affected_area
-        ? `Als betroffenes Gebiet wird ${item.affected_area} genannt.`
-        : `Die Meldung bezieht sich auf ${location}; eine genauere räumliche Abgrenzung ist öffentlich nicht bestätigt.`
+        ? t(locale, "event.faq.aArea", { area: item.affected_area })
+        : t(locale, "event.faq.aAreaFallback", { location })
     },
     {
-      question: "Wo finde ich verbindliche Informationen?",
+      question: t(locale, "event.faq.qOfficial"),
       answer: detail.operator
-        ? `Verbindliche Angaben erhalten Sie beim zuständigen Netzbetreiber ${detail.operator.name}. outage.ch dokumentiert öffentlich zugängliche Meldungen und deren Quellen.${
-            operatorProfile ? ` Weitere öffentliche Meldungen dieses Werks stehen unter ${SITE_ORIGIN}${operatorProfileUrl(operatorProfile)}.` : ""
-          }`
-        : "Verbindliche Angaben erhalten Sie beim lokalen Netzbetreiber. Dieser ist meist auf Ihrer Stromrechnung aufgeführt."
+        ? t(locale, "event.faq.aOfficial", { name: detail.operator.name }) + (
+            operatorProfile
+              ? t(locale, "event.faq.aOfficialProfile", { url: `${SITE_ORIGIN}${operatorProfileUrl(operatorProfile, locale)}` })
+              : ""
+          )
+        : t(locale, "event.faq.aOfficialFallback")
     }
   ];
 }
 
-export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
+export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN, locale: AppLocale = "de") {
   const siteOrigin = origin.includes("outage.ch") ? SITE_ORIGIN : origin.replace(/^http:/i, "https:");
   const item = detail.item;
   const location = eventLocation(detail);
-  const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
-  const kindShort = item.nature === "planned" ? "Unterbruch" : "Stromausfall";
-  const summary = consistentSummary(detail);
-  const date = shortDate(item.started_at ?? item.received_at);
+  const kind = eventKind(detail, locale);
+  const kindShort = eventKindShort(detail, locale);
+  const summary = consistentSummary(detail, locale);
+  const date = shortDate(item.started_at ?? item.received_at, locale);
   const title = buildEventTitle(kindShort, location, date);
   const operatorProfile = resolveOperatorProfile({
     name: detail.operator?.name ?? item.source.publisher,
     domain: detail.operator?.domain ?? item.source.domain,
     url: detail.operator?.url ?? item.source.url
   });
-  const operatorPage = operatorProfile ? `${siteOrigin}${operatorProfileUrl(operatorProfile)}` : null;
+  const operatorPage = operatorProfile ? `${siteOrigin}${operatorProfileUrl(operatorProfile, locale)}` : null;
   const statusBit = item.status === "upcoming"
-    ? "Bevorstehend"
+    ? t(locale, "event.statusBit.upcoming")
     : item.status === "resolved"
-      ? isAutoClosed(detail) ? "Automatisch abgeschlossen" : "Behoben"
+      ? isAutoClosed(detail) ? t(locale, "event.statusBit.autoClosed") : t(locale, "event.statusBit.resolved")
       : item.status === "stale_unconfirmed"
-        ? "Status unbestätigt"
+        ? t(locale, "event.statusBit.stale")
         : item.status === "historical"
-          ? "Historische Meldung"
-          : "Aktuelle Infos";
+          ? t(locale, "event.statusBit.historical")
+          : t(locale, "event.statusBit.active");
   const description = padDescription([
-    `${kind} in ${location}.`,
+    t(locale, "event.desc.kindIn", { kind, location }),
     `${statusBit}.`,
-    item.cause ? `Ursache: ${item.cause}.` : "",
-    item.affected_area ? `Betroffen: ${item.affected_area}.` : "",
-    detail.operator ? `Netzbetreiber: ${detail.operator.name}.` : "",
+    item.cause ? t(locale, "event.desc.cause", { cause: item.cause }) : "",
+    item.affected_area ? t(locale, "event.desc.area", { area: item.affected_area }) : "",
+    detail.operator ? t(locale, "event.desc.operator", { name: detail.operator.name }) : "",
     summary
-  ]);
-  const canonical = absoluteUrl(item.url, siteOrigin);
+  ], locale);
+  const canonical = absoluteUrl(localizeStoredEventUrl(item.url, locale), siteOrigin);
   const ogImage = detail.evidence[0]?.image_url
     ? absoluteUrl(detail.evidence[0].image_url, siteOrigin)
     : absoluteUrl(DEFAULT_OG_IMAGE_PATH, siteOrigin);
   const pageId = `${canonical}#webpage`;
+  const homeUrl = `${siteOrigin}${pathFor({ kind: "home" }, locale)}`;
   const graph: Record<string, unknown>[] = [
-    { "@type": "WebSite", "@id": websiteId(siteOrigin), url: `${siteOrigin}/`, name: "outage.ch", inLanguage: "de-CH", publisher: { "@id": organizationId(siteOrigin) } },
+    { "@type": "WebSite", "@id": websiteId(siteOrigin), url: homeUrl, name: "outage.ch", inLanguage: HTML_LANG[locale], publisher: { "@id": organizationId(siteOrigin) } },
     {
       "@type": "WebPage", "@id": pageId, url: canonical, name: title, description,
-      isPartOf: { "@id": websiteId(siteOrigin) }, dateModified: item.updated_at, inLanguage: "de-CH",
+      isPartOf: { "@id": websiteId(siteOrigin) }, dateModified: item.updated_at, inLanguage: HTML_LANG[locale],
       breadcrumb: { "@id": `${canonical}#breadcrumb` },
       primaryImageOfPage: { "@type": "ImageObject", url: ogImage }
     },
     {
       "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`,
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${siteOrigin}/` },
+        { "@type": "ListItem", position: 1, name: t(locale, "site.breadcrumbHome"), item: homeUrl },
         ...(operatorPage && operatorProfile
           ? [
               { "@type": "ListItem", position: 2, name: operatorProfile.name, item: operatorPage },
@@ -264,7 +282,7 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
   graph.push({
     "@type": "FAQPage",
     "@id": faqId,
-    mainEntity: eventFaq(detail).map((faq) => ({
+    mainEntity: eventFaq(detail, locale).map((faq) => ({
       "@type": "Question",
       name: faq.question,
       acceptedAnswer: { "@type": "Answer", text: faq.answer }
@@ -274,7 +292,7 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
     const eventId = `${canonical}#event`;
     graph[1].about = { "@id": eventId };
     graph.push({
-      "@type": "Event", "@id": eventId, name: `${kind} in ${location}`,
+      "@type": "Event", "@id": eventId, name: t(locale, "event.in", { kind, location }),
       description: summary, startDate: item.started_at,
       ...(item.resolved_at ? { endDate: item.resolved_at } : {}),
       ...(item.status === "upcoming" ? { eventStatus: "https://schema.org/EventScheduled" } : {}),
@@ -288,123 +306,126 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
       organizer: {
         "@type": "Organization",
         name: detail.operator?.name ?? operatorProfile?.name ?? "outage.ch",
-        url: operatorPage ?? detail.operator?.url ?? `${siteOrigin}/`
+        url: operatorPage ?? detail.operator?.url ?? homeUrl
       }
     });
   } else {
-    graph[1].about = { "@type": "Thing", name: `${kind} in ${location}` };
+    graph[1].about = { "@type": "Thing", name: t(locale, "event.in", { kind, location }) };
   }
   return { title, description, canonical, ogImage, jsonLd: JSON.stringify({ "@context": "https://schema.org", "@graph": graph }) };
 }
 
-function renderSourceRole(role: PublicEventDetail["sources"][number]["role"]): string {
-  return role === "operator" ? "Netzbetreiber" : role === "authority" ? "Behörde" : "Medienquelle";
+function renderSourceRole(role: PublicEventDetail["sources"][number]["role"], locale: AppLocale): string {
+  if (role === "operator") return t(locale, "event.source.operator");
+  if (role === "authority") return t(locale, "event.source.authority");
+  return t(locale, "event.source.media");
 }
 
-function renderSourceCards(detail: PublicEventDetail): string {
+function renderSourceCards(detail: PublicEventDetail, locale: AppLocale): string {
   if (!detail.sources.length) return "";
   return `<section class="sources-block" aria-labelledby="sources-heading">
-    <div class="section-heading"><span>Transparenz</span><h2 id="sources-heading">Quellen und gemeldete Inhalte</h2></div>
-    <p class="section-intro">Diese Vorfallsakte basiert auf den folgenden öffentlichen Meldungen. Angezeigt werden nur Aussagen, die einer Quelle zugeordnet werden können.</p>
+    <div class="section-heading"><span>${escapeHtml(t(locale, "event.source.kicker"))}</span><h2 id="sources-heading">${escapeHtml(t(locale, "event.source.heading"))}</h2></div>
+    <p class="section-intro">${escapeHtml(t(locale, "event.source.intro"))}</p>
     <div class="source-report-list">${detail.sources.map((source, index) => {
       const screenshot = detail.evidence.find((entry) => entry.source_url === source.url);
       return `<article class="source-report">
-        ${screenshot ? `<a class="source-preview" href="${escapeHtml(screenshot.image_url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(screenshot.image_url)}" alt="Archivierter Screenshot der Quelle ${escapeHtml(source.publisher)}" loading="lazy"><span>Archivierte Ansicht · PNG</span></a>` : ""}
+        ${screenshot ? `<a class="source-preview" href="${escapeHtml(screenshot.image_url)}" target="_blank" rel="noreferrer"><img src="${escapeHtml(screenshot.image_url)}" alt="${escapeHtml(t(locale, "event.source.screenshotAlt", { publisher: source.publisher }))}" loading="lazy"><span>${escapeHtml(t(locale, "event.source.preview"))}</span></a>` : ""}
         <div class="source-report-body">
-          <div class="source-report-meta"><span>${String(index + 1).padStart(2, "0")}</span><b>${escapeHtml(renderSourceRole(source.role))}</b>${source.published_at ? `<time datetime="${escapeHtml(source.published_at)}">${escapeHtml(formatDate(source.published_at))}</time>` : ""}</div>
+          <div class="source-report-meta"><span>${String(index + 1).padStart(2, "0")}</span><b>${escapeHtml(renderSourceRole(source.role, locale))}</b>${source.published_at ? `<time datetime="${escapeHtml(source.published_at)}">${escapeHtml(formatDate(source.published_at, locale))}</time>` : ""}</div>
           <h3>${escapeHtml(source.title || source.publisher)}</h3>
-          ${source.excerpt ? `<blockquote>${escapeHtml(source.excerpt)}</blockquote>` : `<p class="source-empty">Die Quelle bestätigt den Vorfall, enthält aber keine weitere öffentlich belegte Detailangabe.</p>`}
-          ${source.facts.length ? `<dl class="source-facts">${source.facts.map((fact) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.format === "datetime" ? formatDate(fact.value) : fact.value)}</dd></div>`).join("")}</dl>` : ""}
-          <div class="source-report-footer"><span>${escapeHtml(source.domain)}</span><a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">Originalquelle öffnen ↗</a></div>
-          ${screenshot ? `<small class="source-proof">Screenshot erfasst ${escapeHtml(formatDate(screenshot.captured_at))} · SHA-256 ${escapeHtml(screenshot.sha256.slice(0, 16))}…</small>` : ""}
+          ${source.excerpt ? `<blockquote>${escapeHtml(source.excerpt)}</blockquote>` : `<p class="source-empty">${escapeHtml(t(locale, "event.source.empty"))}</p>`}
+          ${source.facts.length ? `<dl class="source-facts">${source.facts.map((fact) => `<div><dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.format === "datetime" ? formatDate(fact.value, locale) : fact.value)}</dd></div>`).join("")}</dl>` : ""}
+          <div class="source-report-footer"><span>${escapeHtml(source.domain)}</span><a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(t(locale, "event.source.open"))}</a></div>
+          ${screenshot ? `<small class="source-proof">${escapeHtml(t(locale, "event.source.proof", { date: formatDate(screenshot.captured_at, locale), hash: screenshot.sha256.slice(0, 16) }))}</small>` : ""}
         </div>
       </article>`;
     }).join("")}</div>
   </section>`;
 }
 
-function renderIncidentAnswers(detail: PublicEventDetail): string {
+function renderIncidentAnswers(detail: PublicEventDetail, locale: AppLocale): string {
   const item = detail.item;
   const location = eventLocation(detail);
-  type AnswerState = "Bestätigt" | "Gemeldet" | "Automatisch" | "Offen";
-  const rows = [
-    ["Aktueller Status", statusLine(detail), isAutoClosed(detail) ? "Automatisch" : "Gemeldet"],
-    ["Beginn", formatDate(item.started_at) ?? "Noch nicht bestätigt", item.started_at ? "Bestätigt" : "Offen"],
-    ["Ende / Wiederherstellung", formatDate(item.resolved_at) ?? (isAutoClosed(detail) ? "Nicht bekannt" : item.status === "resolved" ? "Behoben gemeldet · Zeitpunkt unbekannt" : "Noch nicht bestätigt"), item.resolved_at ? "Bestätigt" : isAutoClosed(detail) ? "Offen" : item.status === "resolved" ? "Gemeldet" : "Offen"],
-    ["Ursache", item.cause ?? "Noch nicht öffentlich bekannt", item.cause ? "Gemeldet" : "Offen"],
-    ["Betroffenes Gebiet", item.affected_area ?? location, "Gemeldet"]
-  ] as Array<[string, string, AnswerState]>;
-  const known = rows.filter((row) => row[2] !== "Offen").length;
+  type AnswerState = "confirmed" | "reported" | "automatic" | "open";
+  const stateLabel = (state: AnswerState) => t(locale, `event.answers.${state}`);
+  const rows: Array<[string, string, AnswerState]> = [
+    [t(locale, "event.answers.status"), statusLine(detail, locale), isAutoClosed(detail) ? "automatic" : "reported"],
+    [t(locale, "event.answers.start"), formatDate(item.started_at, locale) ?? t(locale, "event.answers.notConfirmed"), item.started_at ? "confirmed" : "open"],
+    [t(locale, "event.answers.end"), formatDate(item.resolved_at, locale) ?? (isAutoClosed(detail) ? t(locale, "event.answers.unknown") : item.status === "resolved" ? t(locale, "event.answers.resolvedTimeUnknown") : t(locale, "event.answers.notConfirmed")), item.resolved_at ? "confirmed" : isAutoClosed(detail) ? "open" : item.status === "resolved" ? "reported" : "open"],
+    [t(locale, "event.answers.cause"), item.cause ?? t(locale, "event.answers.causeUnknown"), item.cause ? "reported" : "open"],
+    [t(locale, "event.answers.area"), item.affected_area ?? location, "reported"]
+  ];
+  const known = rows.filter((row) => row[2] !== "open").length;
   return `<section class="answers-block fold-block" aria-labelledby="answers-heading">
     <details>
       <summary>
-        <span class="fold-kicker">Abgleich</span>
-        <strong>Was bestätigt ist</strong>
-        <span class="fold-hint">${known} von ${rows.length} Angaben belegt</span>
+        <span class="fold-kicker">${escapeHtml(t(locale, "event.answers.kicker"))}</span>
+        <strong>${escapeHtml(t(locale, "event.answers.summary"))}</strong>
+        <span class="fold-hint">${escapeHtml(t(locale, "event.answers.hint", { known, total: rows.length }))}</span>
       </summary>
-      <h2 id="answers-heading">Was zum Stromausfall in ${escapeHtml(location)} bekannt ist</h2>
-      <div class="answer-grid">${rows.map(([label, value, state]) => `<div class="${state === "Offen" ? "is-open" : "is-known"}"><span>${state}</span><h3>${escapeHtml(label)}</h3><p>${escapeHtml(value)}</p></div>`).join("")}</div>
+      <h2 id="answers-heading">${escapeHtml(t(locale, "event.answers.heading", { location }))}</h2>
+      <div class="answer-grid">${rows.map(([label, value, state]) => `<div class="${state === "open" ? "is-open" : "is-known"}"><span>${escapeHtml(stateLabel(state))}</span><h3>${escapeHtml(label)}</h3><p>${escapeHtml(value)}</p></div>`).join("")}</div>
     </details>
   </section>`;
 }
 
-function renderFaq(detail: PublicEventDetail): string {
-  const faqs = eventFaq(detail);
+function renderFaq(detail: PublicEventDetail, locale: AppLocale): string {
+  const faqs = eventFaq(detail, locale);
   return `<section class="event-faq fold-block" aria-labelledby="faq-heading">
     <details>
       <summary>
-        <span class="fold-kicker">FAQ</span>
-        <strong id="faq-heading">Häufige Fragen zu diesem Vorfall</strong>
-        <span class="fold-hint">${faqs.length} Fragen</span>
+        <span class="fold-kicker">${escapeHtml(t(locale, "event.faq.kicker"))}</span>
+        <strong id="faq-heading">${escapeHtml(t(locale, "event.faq.heading"))}</strong>
+        <span class="fold-hint">${escapeHtml(t(locale, "event.faq.hint", { count: faqs.length }))}</span>
       </summary>
       ${faqs.map((faq) => `<details><summary>${escapeHtml(faq.question)}</summary><p>${escapeHtml(faq.answer)}</p></details>`).join("")}
     </details>
   </section>`;
 }
 
-function renderKnowledgeLinks(): string {
+function renderKnowledgeLinks(locale: AppLocale): string {
   return `<section class="knowledge-links" aria-labelledby="knowledge-heading">
-    <div class="section-heading"><span>Einordnung</span><h2 id="knowledge-heading">Mehr über Stromausfälle wissen</h2></div>
-    <div>${relatedKnowledgeArticles(3).map((article, index) => `<a href="${knowledgeArticleUrl(article)}"><span>${String(index + 1).padStart(2, "0")}</span><div><small>${article.readingMinutes} Minuten</small><strong>${escapeHtml(article.shortTitle)}</strong><p>${escapeHtml(article.description)}</p></div><b>→</b></a>`).join("")}</div>
-    <a class="all-guides" href="/ratgeber/">Alle Ratgeber ansehen</a>
+    <div class="section-heading"><span>${escapeHtml(t(locale, "event.knowledge.kicker"))}</span><h2 id="knowledge-heading">${escapeHtml(t(locale, "event.knowledge.heading"))}</h2></div>
+    <div>${relatedKnowledgeArticles(3).map((article, index) => `<a href="${knowledgeArticleUrl(article)}"><span>${String(index + 1).padStart(2, "0")}</span><div><small>${escapeHtml(t(locale, "guides.minutes", { count: article.readingMinutes }))}</small><strong>${escapeHtml(article.shortTitle)}</strong><p>${escapeHtml(article.description)}</p></div><b>→</b></a>`).join("")}</div>
+    <a class="all-guides" href="${pathFor({ kind: "guides" }, locale)}">${escapeHtml(t(locale, "event.knowledge.all"))}</a>
   </section>`;
 }
 
-function relatedStatusLabel(item: PublicFeedItem): string {
-  if (item.status === "upcoming") return "Bevorstehend";
-  if (item.status === "active") return "Aktiv";
-  if (item.status === "resolved") return "Behoben";
-  if (item.status === "stale_unconfirmed") return "Unbestätigt";
-  if (item.status === "historical") return "Historisch";
-  return "Meldung";
+function relatedStatusLabel(item: PublicFeedItem, locale: AppLocale): string {
+  if (item.status === "upcoming") return t(locale, "status.upcoming");
+  if (item.status === "active") return t(locale, "status.activeShort");
+  if (item.status === "resolved") return t(locale, "status.resolved");
+  if (item.status === "stale_unconfirmed") return t(locale, "status.staleShort");
+  if (item.status === "historical") return t(locale, "status.historicalShort");
+  return t(locale, "status.report");
 }
 
-function renderRelatedEvents(related: PublicFeedItem[], heading?: string): string {
+function renderRelatedEvents(related: PublicFeedItem[], locale: AppLocale, heading?: string): string {
   if (!related.length) return "";
-  const title = heading ?? "Aktuelle Stromausfälle in der Schweiz";
+  const title = heading ?? t(locale, "event.related.heading");
   return `<section class="related-events" aria-labelledby="related-heading">
-    <div class="section-heading"><span>Weitere Meldungen</span><h2 id="related-heading">${escapeHtml(title)}</h2></div>
+    <div class="section-heading"><span>${escapeHtml(t(locale, "event.related.kicker"))}</span><h2 id="related-heading">${escapeHtml(title)}</h2></div>
     <div class="related-list">${related.map((item) => {
       const location = publicDisplayLocation(item.location);
-      const kind = item.nature === "planned" ? "Geplanter Unterbruch" : "Stromausfall";
-      return `<a href="${escapeHtml(item.url)}"><span>${escapeHtml(relatedStatusLabel(item))}</span><strong>${escapeHtml(kind)} in ${escapeHtml(location)}</strong><small>${escapeHtml(item.source.publisher)}</small></a>`;
+      const kind = item.nature === "planned" ? t(locale, "nature.plannedList") : t(locale, "nature.unplannedKind");
+      return `<a href="${escapeHtml(localizeStoredEventUrl(item.url, locale))}"><span>${escapeHtml(relatedStatusLabel(item, locale))}</span><strong>${escapeHtml(t(locale, "event.in", { kind, location }))}</strong><small>${escapeHtml(item.source.publisher)}</small></a>`;
     }).join("")}</div>
-    <a class="all-guides" href="/">Alle Meldungen ansehen</a>
+    <a class="all-guides" href="${pathFor({ kind: "home" }, locale)}">${escapeHtml(t(locale, "event.related.all"))}</a>
   </section>`;
 }
 
-function renderOperator(operator: PublicEventDetail["operator"], live?: OperatorLiveContext | null): string {
+function renderOperator(operator: PublicEventDetail["operator"], locale: AppLocale, live?: OperatorLiveContext | null): string {
   const profile = live?.profile
     ?? (operator ? resolveOperatorProfile({ name: operator.name, domain: operator.domain, url: operator.url }) : null)
     ?? findOperatorProfile(operator?.name);
   if (!operator && !profile) return "";
   const name = operator?.name ?? profile?.name ?? "";
   const area = operator?.area ?? profile?.area ?? "";
-  const role = operator?.role ?? "Netzbetreiber";
+  const role = operator?.role ?? t(locale, "event.source.operator");
   const officialUrl = operator?.url ?? profile?.officialUrl ?? "";
-  const profileUrl = profile ? operatorProfileUrl(profile) : "";
+  const profileUrl = profile ? operatorProfileUrl(profile, locale) : "";
   const stats = live?.stats;
-  const footnote = "Zählung auf outage.ch, nicht die komplette Betriebsstatistik des Werks.";
+  const footnote = t(locale, "event.operator.statsNote");
   return `<aside class="operator-block" aria-labelledby="operator-heading">
     <div class="operator-copy">
       <span>${escapeHtml(role)}</span>
@@ -412,75 +433,76 @@ function renderOperator(operator: PublicEventDetail["operator"], live?: Operator
       ${area ? `<p>${escapeHtml(area)}</p>` : ""}
       ${stats ? `<p class="operator-live-line">${escapeHtml(
         stats.active > 0
-          ? `${stats.total} öffentliche Meldungen im Radar, davon ${stats.active} aktiv.`
+          ? t(locale, "event.operator.liveActive", { total: stats.total, active: stats.active })
           : stats.upcoming > 0
-            ? `${stats.total} öffentliche Meldungen im Radar, davon ${stats.upcoming} geplant und bevorstehend.`
-            : `${stats.total} öffentliche Meldungen im Radar, derzeit keine aktiv.`
+            ? t(locale, "event.operator.liveUpcoming", { total: stats.total, upcoming: stats.upcoming })
+            : t(locale, "event.operator.liveNone", { total: stats.total })
       )}</p>` : ""}
     </div>
     <div class="operator-actions">
-      ${profileUrl ? `<a href="${escapeHtml(profileUrl)}">Meldungen von ${escapeHtml(name)}</a>` : ""}
-      ${officialUrl ? `<a class="operator-official-btn" href="${escapeHtml(officialUrl)}" target="_blank" rel="noreferrer">Offizielle Seite</a>` : ""}
+      ${profileUrl ? `<a href="${escapeHtml(profileUrl)}">${escapeHtml(t(locale, "event.operator.reports", { name }))}</a>` : ""}
+      ${officialUrl ? `<a class="operator-official-btn" href="${escapeHtml(officialUrl)}" target="_blank" rel="noreferrer">${escapeHtml(t(locale, "event.operator.official"))}</a>` : ""}
     </div>
-    ${stats ? renderOperatorStatsGrid(stats, footnote) : ""}
+    ${stats ? renderOperatorStatsGrid(stats, footnote, locale) : ""}
   </aside>`;
 }
 
-function renderTimeline(detail: PublicEventDetail): string {
+function renderTimeline(detail: PublicEventDetail, locale: AppLocale): string {
   if (!detail.timeline.length) return "";
   return `<ol class="brief__times">${detail.timeline.map((entry) =>
-    `<li><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(formatDate(entry.value))}</strong></li>`
+    `<li><span>${escapeHtml(entry.label)}</span><strong>${escapeHtml(formatDate(entry.value, locale))}</strong></li>`
   ).join("")}</ol>`;
 }
 
 export function renderEventSeoMarkup(
   detail: PublicEventDetail,
   related: PublicFeedItem[] = [],
-  live: OperatorLiveContext | null = null
+  live: OperatorLiveContext | null = null,
+  locale: AppLocale = "de"
 ): string {
   const item = detail.item;
   const location = eventLocation(detail);
-  const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
+  const kind = eventKind(detail, locale);
   const hasMap = Boolean(detail.map);
   const statusClass = item.status ?? "historical";
   const factRows = [
-    ["Art", item.nature === "planned" ? "Geplant" : item.nature === "unplanned" ? "Ungeplant" : "Noch unklar"],
-    ["Status", statusText(detail)],
-    ["Beginn", formatDate(item.started_at)],
-    ["Ende", formatDate(item.resolved_at) ?? (item.status === "resolved" ? "Nicht bekannt" : null)],
-    ["Dauer", formatDuration(item.duration_minutes)],
-    ["Betroffene Region", item.affected_area ?? location],
-    ["Ursache", item.cause]
+    [t(locale, "event.facts.kind"), item.nature === "planned" ? t(locale, "nature.planned") : item.nature === "unplanned" ? t(locale, "nature.unplanned") : t(locale, "nature.unknown")],
+    [t(locale, "event.facts.status"), statusText(detail, locale)],
+    [t(locale, "event.facts.start"), formatDate(item.started_at, locale)],
+    [t(locale, "event.facts.end"), formatDate(item.resolved_at, locale) ?? (item.status === "resolved" ? t(locale, "event.facts.endUnknown") : null)],
+    [t(locale, "event.facts.duration"), formatDuration(item.duration_minutes, locale)],
+    [t(locale, "event.facts.area"), item.affected_area ?? location],
+    [t(locale, "event.facts.cause"), item.cause]
   ].filter((row) => row[1]);
   const relatedHeading = live?.profile && related.length
-    ? `Weitere Meldungen von ${live.profile.name}`
+    ? t(locale, "event.related.headingOperator", { name: live.profile.name })
     : undefined;
   return `<article class="event-brief seo-event" data-status="${escapeHtml(statusClass)}">
     <header class="brief">
       <div class="brief__copy">
         <div class="brief__kicker">
-          <span class="radar-badge radar-badge--${escapeHtml(statusClass)}">${escapeHtml(statusText(detail))}</span>
-          <span class="trust-mark"><i></i>${escapeHtml(item.trust === "official" ? "Offizielle Quelle" : "Nachvollziehbar gemeldet")}</span>
-          <span>Aktualisiert ${escapeHtml(formatDate(item.updated_at))}</span>
+          <span class="radar-badge radar-badge--${escapeHtml(statusClass)}">${escapeHtml(statusText(detail, locale))}</span>
+          <span class="trust-mark"><i></i>${escapeHtml(item.trust === "official" ? t(locale, "event.trustOfficial") : t(locale, "event.trustReported"))}</span>
+          <span>${escapeHtml(t(locale, "event.updated", { date: formatDate(item.updated_at, locale) }))}</span>
         </div>
-        <p class="hero-statusline">${escapeHtml(statusLine(detail))}</p>
-        <h1>${escapeHtml(kind)} in ${escapeHtml(location)}</h1>
-        <p class="brief__lede">${escapeHtml(consistentSummary(detail))}</p>
-        <section class="fact-strip"><h2>Informationen zum Vorfall</h2><dl>${factRows.map(([label, value]) =>
+        <p class="hero-statusline">${escapeHtml(statusLine(detail, locale))}</p>
+        <h1>${escapeHtml(t(locale, "event.in", { kind, location }))}</h1>
+        <p class="brief__lede">${escapeHtml(consistentSummary(detail, locale))}</p>
+        <section class="fact-strip"><h2>${escapeHtml(t(locale, "event.factsHeading"))}</h2><dl>${factRows.map(([label, value]) =>
           `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>
-        ${renderTimeline(detail)}
-        ${renderOperator(detail.operator, live)}
+        ${renderTimeline(detail, locale)}
+        ${renderOperator(detail.operator, locale, live)}
       </div>
-      <div class="brief__map event-hero ${hasMap ? "has-map map-loading" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(detail.map!.label)}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(detail.map!.label)}</strong><small>Karte wird geladen</small></div>` : ""}<div class="hero-wash"></div>${hasMap ? `<span class="map-place">${escapeHtml(detail.map!.label)}</span>` : ""}</div>
+      <div class="brief__map event-hero ${hasMap ? "has-map map-loading" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="${escapeHtml(t(locale, "event.mapAria", { label: detail.map!.label }))}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(detail.map!.label)}</strong><small>${escapeHtml(t(locale, "event.mapLoading"))}</small></div>` : ""}<div class="hero-wash"></div>${hasMap ? `<span class="map-place">${escapeHtml(detail.map!.label)}</span>` : ""}</div>
     </header>
-    ${renderSourceCards(detail)}
-    ${renderIncidentAnswers(detail)}
-    ${renderFaq(detail)}
+    ${renderSourceCards(detail, locale)}
+    ${renderIncidentAnswers(detail, locale)}
+    ${renderFaq(detail, locale)}
     <div class="brief__more">
-      ${renderRelatedEvents(related, relatedHeading)}
-      ${renderKnowledgeLinks()}
+      ${renderRelatedEvents(related, locale, relatedHeading)}
+      ${renderKnowledgeLinks(locale)}
     </div>
-    <footer class="detail-note">Letzte Aktualisierung: ${escapeHtml(formatDate(item.updated_at))}. outage.ch dokumentiert öffentliche Meldungen und kennzeichnet fehlende Angaben bewusst als offen. Für verbindliche Informationen gelten Netzbetreiber und Behörden.</footer>
+    <footer class="detail-note">${escapeHtml(t(locale, "event.footer", { date: formatDate(item.updated_at, locale) }))}</footer>
   </article>`;
 }
 
@@ -499,9 +521,10 @@ export async function renderSeoEventAsset(
   related: PublicFeedItem[] = [],
   live: OperatorLiveContext | null = null
 ): Promise<Response> {
-  const assetUrl = new URL("/events/", request.url);
+  const locale = parseLocaleFromPath(new URL(request.url).pathname);
+  const assetUrl = new URL(pathFor({ kind: "eventsTemplate" }, locale), request.url);
   const asset = await env.ASSETS.fetch(new Request(assetUrl, request));
-  const seo = eventSeo(detail, SITE_ORIGIN);
+  const seo = eventSeo(detail, SITE_ORIGIN, locale);
   const data = JSON.stringify(detail).replace(/</g, "\\u003c");
   return new HTMLRewriter()
     .on("title", { element(element) { element.setInnerContent(seo.title); } })
@@ -518,31 +541,31 @@ export async function renderSeoEventAsset(
     .on("head", { element(element) {
       element.append(`<meta name="robots" content="index,follow,max-image-preview:large"><script type="application/ld+json">${seo.jsonLd}</script><script id="outage-event-data" type="application/json">${data}</script>`, { html: true });
     } })
-    .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail, related, live), { html: true }); element.setAttribute("aria-busy", "false"); } })
+    .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail, related, live, locale), { html: true }); element.setAttribute("aria-busy", "false"); } })
     .transform(new Response(asset.body, { status: asset.status, headers: { ...Object.fromEntries(asset.headers), "Cache-Control": "public,max-age=60,s-maxage=300,stale-while-revalidate=1800" } }));
 }
 
-export function renderHomeFeedLinks(items: PublicFeedItem[]): string {
+export function renderHomeFeedLinks(items: PublicFeedItem[], locale: AppLocale = "de"): string {
   const eventLinks = items.length
     ? `<ul>${items.map((item) => {
       const location = publicDisplayLocation(item.location);
-      const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
-      return `<li><a href="${escapeHtml(item.url)}">${escapeHtml(kind)} in ${escapeHtml(location)}</a></li>`;
+      const kind = item.nature === "planned" ? t(locale, "nature.plannedKind") : t(locale, "nature.unplannedKind");
+      return `<li><a href="${escapeHtml(localizeStoredEventUrl(item.url, locale))}">${escapeHtml(t(locale, "event.in", { kind, location }))}</a></li>`;
     }).join("")}</ul>`
-    : `<p>Aktuell sind keine öffentlichen Meldungen verfügbar.</p>`;
-  const faq = homeFaqs.map((item) => `<h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p>`).join("");
+    : `<p>${escapeHtml(t(locale, "home.seoEmpty"))}</p>`;
+  const faq = localizedHomeFaqs(locale).map((item) => `<h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p>`).join("");
   return `<section class="seo-feed-index">
-    <h2>Was outage.ch zeigt</h2>
-    <p>${escapeHtml(SITE_DESCRIPTION)}</p>
-    <h2>Aktuelle Meldungen</h2>
+    <h2>${escapeHtml(t(locale, "home.seoHeading"))}</h2>
+    <p>${escapeHtml(siteDescription(locale))}</p>
+    <h2>${escapeHtml(t(locale, "home.seoReports"))}</h2>
     ${eventLinks}
     <p>
-      <a href="/ratgeber/">Ratgeber zu Stromausfällen</a>
-      · <a href="/netzbetreiber/">Netzbetreiber-Verzeichnis</a>
-      · <a href="/ueber/">Methodik</a>
-      · <a href="/ratgeber/stromausfall-was-tun/">Was tun bei Stromausfall?</a>
+      <a href="${pathFor({ kind: "guides" }, locale)}">${escapeHtml(t(locale, "home.seoGuides"))}</a>
+      · <a href="${pathFor({ kind: "operators" }, locale)}">${escapeHtml(t(locale, "home.seoOperators"))}</a>
+      · <a href="${pathFor({ kind: "about" }, locale)}">${escapeHtml(t(locale, "home.seoAbout"))}</a>
+      · <a href="/ratgeber/stromausfall-was-tun/">${escapeHtml(t(locale, "home.seoHelp"))}</a>
     </p>
-    <h2>Häufige Fragen</h2>
+    <h2>${escapeHtml(t(locale, "home.seoFaq"))}</h2>
     ${faq}
   </section>`;
 }
@@ -552,10 +575,12 @@ export async function renderHomeSeoAsset(
   request: Request,
   items: PublicFeedItem[]
 ): Promise<Response> {
-  const asset = await env.ASSETS.fetch(new Request(new URL("/", request.url), request));
-  const canonical = absoluteUrl("/", SITE_ORIGIN);
+  const locale = parseLocaleFromPath(new URL(request.url).pathname);
+  const homePath = pathFor({ kind: "home" }, locale);
+  const asset = await env.ASSETS.fetch(new Request(new URL(homePath, request.url), request));
+  const canonical = absoluteUrl(homePath, SITE_ORIGIN);
   const ogImage = absoluteUrl(DEFAULT_OG_IMAGE_PATH, SITE_ORIGIN);
-  const feedLinks = renderHomeFeedLinks(items);
+  const feedLinks = renderHomeFeedLinks(items, locale);
   return new HTMLRewriter()
     .on('link[rel="canonical"]', { element(element) { element.setAttribute("href", canonical); } })
     .on('meta[property="og:url"]', setMetaContent(canonical))

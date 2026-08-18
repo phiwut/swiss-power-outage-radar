@@ -3,66 +3,95 @@
  * Radar home: desktop = split map|list (viewport-locked), mobile = map HUD.
  */
 import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import RadarLayout from "../layouts/RadarLayout.astro";
-import { homeJsonLd } from "../seo-site";
+import RadarLayout from "../../layouts/RadarLayout.astro";
+import AppLangSwitch from "@/components/app/AppLangSwitch.astro";
+import { homeJsonLd } from "../../seo-site";
+import {
+  EVENT_STEM,
+  localeFromParam,
+  localePrefix,
+  localeStaticPaths,
+  pathFor,
+  radarCopy,
+  t,
+  type AppLocale
+} from "../../i18n";
+import { SITE_ORIGIN, absoluteUrl } from "../../public-url";
 import { Button } from "@/components/starwind/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/starwind/input-group";
 import { Skeleton } from "@/components/starwind/skeleton";
 import Search from "@tabler/icons/outline/search.svg";
 import X from "@tabler/icons/outline/x.svg";
 import List from "@tabler/icons/outline/list.svg";
+
+export function getStaticPaths() {
+  return localeStaticPaths();
+}
+
+const locale: AppLocale = Astro.props.locale ?? localeFromParam(
+  Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale
+);
+const homePath = pathFor({ kind: "home" }, locale);
+const copyPayload = {
+  ...radarCopy(locale),
+  eventStem: EVENT_STEM[locale],
+  localePrefix: localePrefix(locale)
+};
 ---
 
 <RadarLayout
-  title="Stromausfälle Schweiz: aktuell & geplant | outage.ch"
-  description="Aktuelle und geplante Stromausfälle in der Schweiz mit Ort, Beginn, Ende, Dauer, Ursache, betroffener Region und nachvollziehbaren Quellen."
-  canonical="https://outage.ch/"
+  title={t(locale, "site.homeTitle")}
+  description={t(locale, "site.description")}
+  canonical={absoluteUrl(homePath, SITE_ORIGIN)}
   robots="index,follow,max-image-preview:large"
   shell="radar"
   activeNav="radar"
+  locale={locale}
 >
   <link slot="head" rel="stylesheet" href={maplibreCss} />
   <link slot="head" rel="preconnect" href="https://vectortiles.geo.admin.ch" crossorigin />
   <link slot="head" rel="dns-prefetch" href="https://vectortiles.geo.admin.ch" />
-  <script slot="head" type="application/ld+json" set:html={homeJsonLd()} />
+  <script slot="head" type="application/ld+json" set:html={homeJsonLd(SITE_ORIGIN, locale)} />
+  <script id="radar-i18n" type="application/json" set:html={JSON.stringify(copyPayload).replace(/</g, "\\u003c")} />
 
   <section class="radar" data-radar>
-    <h1 class="sr-only">Aktuelle und geplante Stromausfälle in der Schweiz</h1>
+    <h1 class="sr-only">{t(locale, "site.homeH1")}</h1>
     <div class="radar__map-wrap">
-      <div id="radar-map" class="radar__map" role="img" aria-label="Karte der Stromausfall-Meldungen"></div>
+      <div id="radar-map" class="radar__map" role="img" aria-label={t(locale, "home.mapAria")}></div>
       <div class="radar__legend">
-        <span data-shape="unplanned"><i class="radar-mark radar-mark--triangle" aria-hidden="true"></i>Ungeplant</span>
-        <span data-shape="planned"><i class="radar-mark radar-mark--square" aria-hidden="true"></i>Geplant</span>
-        <span data-tone="active"><i aria-hidden="true"></i>Aktiv</span>
-        <span data-tone="upcoming"><i aria-hidden="true"></i>Bevorstehend</span>
-        <span data-tone="resolved"><i aria-hidden="true"></i>Behoben</span>
-        <span data-tone="other"><i aria-hidden="true"></i>Archiv</span>
+        <span data-shape="unplanned"><i class="radar-mark radar-mark--triangle" aria-hidden="true"></i>{t(locale, "home.legendUnplanned")}</span>
+        <span data-shape="planned"><i class="radar-mark radar-mark--square" aria-hidden="true"></i>{t(locale, "home.legendPlanned")}</span>
+        <span data-tone="active"><i aria-hidden="true"></i>{t(locale, "home.legendActive")}</span>
+        <span data-tone="upcoming"><i aria-hidden="true"></i>{t(locale, "home.legendUpcoming")}</span>
+        <span data-tone="resolved"><i aria-hidden="true"></i>{t(locale, "home.legendResolved")}</span>
+        <span data-tone="other"><i aria-hidden="true"></i>{t(locale, "home.legendArchive")}</span>
       </div>
-      <p class="radar__disclaimer">Unabhängiger öffentlicher Radar — kein offizieller Notfallkanal.</p>
+      <p class="radar__disclaimer">{t(locale, "home.disclaimer")}</p>
     </div>
 
     <header class="radar__hud">
       <div class="radar__hud-bar">
-        <a class="radar__brand" href="/" aria-label="outage.ch Radar">outage.ch</a>
+        <a class="radar__brand" href={homePath} aria-label="outage.ch Radar">outage.ch</a>
         <InputGroup class="radar__search min-w-0 bg-card">
           <InputGroupAddon>
             <Search class="size-4" aria-hidden="true" />
           </InputGroupAddon>
-          <label class="sr-only" for="radar-search">Ort suchen</label>
+          <label class="sr-only" for="radar-search">{t(locale, "home.searchLabel")}</label>
           <InputGroupInput
             id="radar-search"
             type="search"
-            placeholder="Ort oder Region"
+            placeholder={t(locale, "home.searchPlaceholder")}
             autocomplete="off"
             enterkeyhint="search"
           />
         </InputGroup>
+        <AppLangSwitch locale={locale} class="app-langs--hud" />
       </div>
       <div class="radar__filters">
         <div class="radar__chips-scroller">
-          <div id="radar-chips" class="radar__chips" role="toolbar" aria-label="Status filtern"></div>
+          <div id="radar-chips" class="radar__chips" role="toolbar" aria-label={t(locale, "home.filterStatus")}></div>
           <span class="radar__chips-split" aria-hidden="true"></span>
-          <div id="radar-nature" class="radar__chips radar__chips--nature" role="toolbar" aria-label="Art filtern"></div>
+          <div id="radar-nature" class="radar__chips radar__chips--nature" role="toolbar" aria-label={t(locale, "home.filterNature")}></div>
         </div>
       </div>
     </header>
@@ -71,12 +100,12 @@ import List from "@tabler/icons/outline/list.svg";
       <div class="radar__handle" aria-hidden="true"></div>
       <div class="radar__panel-head">
         <div>
-          <h2>Meldungen</h2>
+          <h2>{t(locale, "home.reports")}</h2>
           <p id="radar-count" class="radar__count">…</p>
         </div>
         <div class="radar__panel-actions">
-          <Button type="button" id="radar-refresh" variant="ghost" size="sm">Aktualisieren</Button>
-          <Button type="button" id="radar-panel-close" variant="ghost" size="sm" class="radar__panel-close" aria-label="Liste schliessen">Schliessen</Button>
+          <Button type="button" id="radar-refresh" variant="ghost" size="sm">{t(locale, "home.refresh")}</Button>
+          <Button type="button" id="radar-panel-close" variant="ghost" size="sm" class="radar__panel-close" aria-label={t(locale, "home.closeList")}>{t(locale, "home.close")}</Button>
         </div>
       </div>
       <div id="radar-list" class="radar__list" aria-live="polite" aria-busy="true">
@@ -85,22 +114,22 @@ import List from "@tabler/icons/outline/list.svg";
         <Skeleton class="mx-4 my-2.5 h-20" />
       </div>
       <div class="radar__panel-foot">
-        <Button type="button" id="radar-more" variant="outline" size="sm" class="w-full" hidden>Weitere laden</Button>
-        <p id="radar-note" class="radar__note">Meldungen werden geladen …</p>
+        <Button type="button" id="radar-more" variant="outline" size="sm" class="w-full" hidden>{t(locale, "home.loadMore")}</Button>
+        <p id="radar-note" class="radar__note">{t(locale, "home.loading")}</p>
       </div>
     </aside>
 
     <div id="radar-sheet" class="radar__sheet" hidden>
-      <Button type="button" id="radar-sheet-close" variant="ghost" size="icon-sm" class="radar__sheet-x" aria-label="Vorschau schliessen">
+      <Button type="button" id="radar-sheet-close" variant="ghost" size="icon-sm" class="radar__sheet-x" aria-label={t(locale, "home.closePreview")}>
         <X class="size-4" />
       </Button>
       <div id="radar-sheet-body"></div>
-      <Button as="a" id="radar-sheet-link" href="#" class="mt-3 w-full">Meldung öffnen</Button>
+      <Button as="a" id="radar-sheet-link" href="#" class="mt-3 w-full">{t(locale, "home.openReport")}</Button>
     </div>
 
     <Button type="button" id="radar-list-fab" class="radar__fab" aria-controls="radar-panel">
       <List class="size-[1.05rem]" aria-hidden="true" />
-      Meldungen
+      {t(locale, "home.reports")}
       <b id="radar-fab-count">–</b>
     </Button>
   </section>
@@ -122,18 +151,39 @@ import List from "@tabler/icons/outline/list.svg";
 
     type Category = "active" | "upcoming" | "resolved" | "other";
 
+    type RadarCopy = {
+      locale: string;
+      eventStem: string;
+      localePrefix: string;
+      dateLocale: string;
+      status: Record<string, string>;
+      nature: Record<string, string>;
+      filters: Record<string, string>;
+      visibleCount: string;
+      loadError: string;
+      retry: string;
+      emptyQuery: string;
+      emptyFilter: string;
+      showAll: string;
+      openReport: string;
+      loading: string;
+      asOf: string;
+    };
+
+    const copy = JSON.parse(document.querySelector("#radar-i18n")?.textContent || "{}") as RadarCopy;
+
     const STATUS_FILTERS = [
-      { key: "", label: "Alle", tone: "all" },
-      { key: "active", label: "Aktiv", tone: "active" },
-      { key: "upcoming", label: "Bevorstehend", tone: "upcoming" },
-      { key: "resolved", label: "Behoben", tone: "resolved" },
-      { key: "historical", label: "Archiv", tone: "historical" }
+      { key: "", label: copy.filters.all, tone: "all" },
+      { key: "active", label: copy.filters.active, tone: "active" },
+      { key: "upcoming", label: copy.filters.upcoming, tone: "upcoming" },
+      { key: "resolved", label: copy.filters.resolved, tone: "resolved" },
+      { key: "historical", label: copy.filters.historical, tone: "historical" }
     ] as const;
 
     const NATURE_FILTERS = [
-      { key: "", label: "Alle Arten", mark: "mixed" },
-      { key: "unplanned", label: "Ungeplant", mark: "triangle" },
-      { key: "planned", label: "Geplant", mark: "square" }
+      { key: "", label: copy.filters.allNatures, mark: "mixed" },
+      { key: "unplanned", label: copy.filters.unplanned, mark: "triangle" },
+      { key: "planned", label: copy.filters.planned, mark: "square" }
     ] as const;
 
     const COLOR: Record<Category, string> = {
@@ -206,18 +256,24 @@ import List from "@tabler/icons/outline/list.svg";
     };
 
     const statusLabel = (status: PublicItem["status"]) => {
-      if (status === "active") return "Aktiv";
-      if (status === "upcoming") return "Bevorstehend";
-      if (status === "resolved") return "Behoben";
-      if (status === "stale_unconfirmed") return "Unbestätigt";
-      if (status === "historical") return "Archiv";
-      return "Unklar";
+      if (status === "active") return copy.status.active;
+      if (status === "upcoming") return copy.status.upcoming;
+      if (status === "resolved") return copy.status.resolved;
+      if (status === "stale_unconfirmed") return copy.status.stale;
+      if (status === "historical") return copy.status.historical;
+      return copy.status.unknown;
     };
 
     const natureLabel = (nature: PublicItem["nature"]) => {
-      if (nature === "planned") return "geplant";
-      if (nature === "unplanned") return "ungeplant";
-      return "unklar";
+      if (nature === "planned") return copy.nature.planned;
+      if (nature === "unplanned") return copy.nature.unplanned;
+      return copy.nature.unknown;
+    };
+
+    const eventHref = (item: PublicItem) => {
+      const slugId = item.url.match(/^\/stromausfall\/([a-z0-9-]+-\d+)\/?$/)?.[1];
+      if (!slugId) return item.url;
+      return `${copy.localePrefix}/${copy.eventStem}/${slugId}`;
     };
 
     const natureShape = (nature: PublicItem["nature"]) =>
@@ -472,7 +528,7 @@ import List from "@tabler/icons/outline/list.svg";
       const tone = categorize(item.status);
       const shape = natureShape(item.nature);
       return `
-        <a class="radar-row radar-row--${tone} ${selected ? "is-selected" : ""}" href="${escapeHtml(item.url)}" data-id="${item.id}">
+        <a class="radar-row radar-row--${tone} ${selected ? "is-selected" : ""}" href="${escapeHtml(eventHref(item))}" data-id="${item.id}">
           <div class="radar-row__top">
             <h2>${markHtml(shape)} ${escapeHtml(shortLocation(item.location))}${item.canton ? ` <span class="radar-row__canton">${escapeHtml(item.canton)}</span>` : ""}</h2>
             <span class="radar-badge radar-badge--${escapeHtml(badge)}">${escapeHtml(statusLabel(item.status))}</span>
@@ -480,7 +536,7 @@ import List from "@tabler/icons/outline/list.svg";
           <p>${escapeHtml(item.summary)}</p>
           <div class="radar-row__foot">
             <div class="radar-row__meta">${escapeHtml(natureLabel(item.nature))} · ${escapeHtml(item.source.publisher)}</div>
-            <span class="radar-row__cta" data-nav>Meldung öffnen</span>
+            <span class="radar-row__cta" data-nav>${escapeHtml(copy.openReport)}</span>
           </div>
         </a>`;
     }
@@ -511,7 +567,9 @@ import List from "@tabler/icons/outline/list.svg";
     function renderList() {
       const items = filtered();
       const mapped = items.filter((i) => pinFor(i)).length;
-      countEl.textContent = `${items.length} sichtbar · ${mapped} auf Karte`;
+      countEl.textContent = copy.visibleCount
+        .replace("{{visible}}", String(items.length))
+        .replace("{{mapped}}", String(mapped));
       listEl.setAttribute("aria-busy", state.loading ? "true" : "false");
 
       if (state.loading && !state.items.length) {
@@ -519,12 +577,12 @@ import List from "@tabler/icons/outline/list.svg";
         return;
       }
       if (state.error && !state.items.length) {
-        listEl.innerHTML = `<div class="radar__empty" role="alert"><p>Meldungen konnten nicht geladen werden.</p><p>${escapeHtml(state.error)}</p><button type="button" class="radar__ghost" data-retry>Erneut versuchen</button></div>`;
+        listEl.innerHTML = `<div class="radar__empty" role="alert"><p>${escapeHtml(copy.loadError)}</p><p>${escapeHtml(state.error)}</p><button type="button" class="radar__ghost" data-retry>${escapeHtml(copy.retry)}</button></div>`;
         return;
       }
       if (!items.length) {
         const q = state.query.trim();
-        listEl.innerHTML = `<div class="radar__empty"><p>${q ? `Keine Meldungen für «${escapeHtml(q)}».` : "Keine Meldungen für diesen Filter."}</p><button type="button" class="radar__ghost" data-reset>Alle Meldungen zeigen</button></div>`;
+        listEl.innerHTML = `<div class="radar__empty"><p>${q ? escapeHtml(copy.emptyQuery.replace("{{query}}", q)) : escapeHtml(copy.emptyFilter)}</p><button type="button" class="radar__ghost" data-reset>${escapeHtml(copy.showAll)}</button></div>`;
         return;
       }
       listEl.innerHTML = items.map((i) => rowHtml(i, state.selectedId === i.id)).join("");
@@ -540,7 +598,7 @@ import List from "@tabler/icons/outline/list.svg";
         </div>
         <p>${escapeHtml(item.summary)}</p>
         <div class="radar-row__meta">${escapeHtml(natureLabel(item.nature))} · ${escapeHtml(item.source.publisher)}</div>`;
-      sheetLink.href = item.url;
+      sheetLink.href = eventHref(item);
       sheetEl.hidden = false;
     }
 
@@ -576,9 +634,9 @@ import List from "@tabler/icons/outline/list.svg";
       renderList();
       moreBtn.hidden = !state.nextCursor || (!filtered().length && !state.loading);
       noteEl.textContent = state.generatedAt
-        ? `Stand ${new Date(state.generatedAt).toLocaleString("de-CH", { dateStyle: "short", timeStyle: "short" })}`
+        ? copy.asOf.replace("{{date}}", new Date(state.generatedAt).toLocaleString(copy.dateLocale, { dateStyle: "short", timeStyle: "short" }))
         : state.loading
-          ? "Meldungen werden geladen …"
+          ? copy.loading
           : "";
       fabEl.hidden = !isMobile() || state.drawerOpen;
       if (fabCountEl) fabCountEl.textContent = String(filtered().length);

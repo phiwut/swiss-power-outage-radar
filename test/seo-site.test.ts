@@ -25,7 +25,11 @@ describe("site SEO helpers", () => {
     const xml = buildSitemapXml(staticIndexablePages("https://outage.ch"));
     expect(xml.startsWith("<?xml version=\"1.0\"")).toBe(true);
     expect(xml).toContain("<loc>https://outage.ch/</loc>");
+    expect(xml).toContain("<loc>https://outage.ch/fr/</loc>");
+    expect(xml).toContain('hreflang="de-CH"');
+    expect(xml).toContain('hreflang="x-default"');
     expect(xml).toContain("<loc>https://outage.ch/ratgeber/</loc>");
+    expect(xml).toContain("<loc>https://outage.ch/fr/ratgeber/</loc>");
     expect(xml).toContain("<loc>https://outage.ch/netzbetreiber/</loc>");
     expect(xml).toContain("<loc>https://outage.ch/ueber/</loc>");
     expect(xml).toContain("<loc>https://outage.ch/ratgeber/stromausfall-was-tun/</loc>");

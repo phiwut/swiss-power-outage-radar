@@ -28,6 +28,7 @@ import { loadPublicEventDetail } from "./public-detail";
 import {
   SITE_ORIGIN,
   httpsRedirect,
+  localizeStoredEventUrl,
   publicEventIdFromPath,
   siteOriginFromRequest,
   toSitemapLastmod
@@ -43,6 +44,14 @@ import {
   renderSeoOperatorHubAsset
 } from "./seo-operator-page";
 import { buildLlmsTxt, buildRobotsTxt, buildSitemapXml, staticIndexablePages } from "./seo-site";
+import {
+  APP_LOCALES,
+  canonicalEventPath,
+  dePrefixTarget,
+  hreflangEntries,
+  parseLocaleFromPath,
+  t
+} from "./i18n";
 import { isBearerAuthorized } from "./auth";
 import type { Env } from "./types";
 
@@ -301,7 +310,7 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
-const PUBLIC_CACHE_VERSION = "seo-v5";
+const PUBLIC_CACHE_VERSION = "seo-v6";
 
 function publicCacheRequest(request: Request): Request {
   const url = new URL(request.url);
@@ -323,15 +332,22 @@ export default {
 
     const url = new URL(request.url);
     const publicOrigin = siteOriginFromRequest(request);
+    const strippedDe = dePrefixTarget(url.pathname);
+    if (strippedDe && (request.method === "GET" || request.method === "HEAD")) {
+      return Response.redirect(new URL(strippedDe + url.search, publicOrigin).toString(), 301);
+    }
     const isPublicGet = (request.method === "GET" || request.method === "HEAD") && (
       url.pathname === "/" ||
+      /^\/(fr|it|en)\/?$/.test(url.pathname) ||
       url.pathname === "/api/public/events" ||
       /^\/api\/public\/events\/\d+$/.test(url.pathname) ||
       /^\/api\/public\/evidence\/\d+\.png$/.test(url.pathname) ||
       url.pathname.startsWith("/stromausfall/") ||
+      /^\/(fr|it|en)\/(?:stromausfall|panne-de-courant|interruzione-di-corrente|power-outage)\//.test(url.pathname) ||
       url.pathname === "/netzbetreiber" ||
       url.pathname === "/netzbetreiber/" ||
       url.pathname.startsWith("/netzbetreiber/") ||
+      /^\/(fr|it|en)\/netzbetreiber(?:\/|$)/.test(url.pathname) ||
       url.pathname === "/sitemap.xml" ||
       url.pathname === "/robots.txt" ||
       url.pathname === "/llms.txt"
@@ -350,10 +366,12 @@ export default {
 
     const seoId = publicEventIdFromPath(url.pathname);
     if (seoId) {
+      const locale = parseLocaleFromPath(url.pathname);
       const detail = await loadPublicEventDetail(env, seoId);
-      if (!detail) return new Response("Event nicht gefunden", { status: 404 });
-      if (url.pathname !== detail.item.url) {
-        return Response.redirect(new URL(detail.item.url, publicOrigin).toString(), 301);
+      if (!detail) return new Response(t(locale, "notFound"), { status: 404 });
+      const expected = canonicalEventPath(detail.item.url, url.pathname);
+      if (url.pathname.replace(/\/+$/, "") !== expected) {
+        return Response.redirect(new URL(expected, publicOrigin).toString(), 301);
       }
       const liveProfile = resolveOperatorProfile({
         name: detail.operator?.name ?? detail.item.source.publisher,
@@ -374,7 +392,7 @@ export default {
       );
     }
 
-    if (url.pathname === "/" && request.method === "GET") {
+    if ((url.pathname === "/" || /^\/(fr|it|en)\/?$/.test(url.pathname)) && request.method === "GET") {
       const { items } = await getPublicFeedItems(env.DB, { limit: 25 });
       return cachePublic(
         await renderHomeSeoAsset(env, request, items),
@@ -420,9 +438,16 @@ export default {
         ]);
         xml = buildSitemapXml([
           ...staticIndexablePages(SITE_ORIGIN, operatorSitemapLastmods(operatorItems)),
-          ...items.map((item) => ({
-            loc: `${SITE_ORIGIN}${item.url}`,
-            lastmod: toSitemapLastmod(item.updated_at)
+          ...items.flatMap((item) => APP_LOCALES.map((locale) => {
+            const path = localizeStoredEventUrl(item.url, locale);
+            return {
+              loc: `${SITE_ORIGIN}${path}`,
+              lastmod: toSitemapLastmod(item.updated_at),
+              alternates: hreflangEntries(path, SITE_ORIGIN).map((entry) => ({
+                hreflang: entry.hreflang,
+                href: entry.href
+              }))
+            };
           }))
         ]);
       } catch {

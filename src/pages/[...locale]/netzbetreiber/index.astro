@@ -1,0 +1,99 @@
+---
+import RadarLayout from "../../../layouts/RadarLayout.astro";
+import { operatorProfileUrl, publicOperatorProfiles, sourceCategoryLabel } from "../../../operators";
+import { SITE_ORIGIN, absoluteUrl } from "../../../public-url";
+import { localeFromParam, localeStaticPaths, pathFor, t, type AppLocale } from "../../../i18n";
+import AppList from "@/components/app/AppList.astro";
+import AppListRow from "@/components/app/AppListRow.astro";
+import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
+import { Alert, AlertDescription } from "@/components/starwind/alert";
+
+export function getStaticPaths() {
+  return localeStaticPaths();
+}
+
+const locale: AppLocale = Astro.props.locale ?? localeFromParam(
+  Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale
+);
+const operators = publicOperatorProfiles();
+const canonical = absoluteUrl(pathFor({ kind: "operators" }, locale), SITE_ORIGIN);
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: t(locale, "operator.hubName"),
+      description: t(locale, "operator.hubDescription"),
+      inLanguage: locale === "en" ? "en" : `${locale}-CH`,
+      mainEntity: {
+        "@type": "ItemList",
+        numberOfItems: operators.length,
+        itemListElement: operators.map((operator, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${SITE_ORIGIN}${operatorProfileUrl(operator, locale)}`,
+          name: operator.name
+        }))
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: t(locale, "site.breadcrumbHome"), item: `${SITE_ORIGIN}${pathFor({ kind: "home" }, locale)}` },
+        { "@type": "ListItem", position: 2, name: t(locale, "operator.crumb"), item: canonical }
+      ]
+    }
+  ]
+};
+---
+
+<RadarLayout
+  title={t(locale, "operator.hubTitle")}
+  description={t(locale, "operator.hubDescription")}
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+  activeNav="operators"
+  locale={locale}
+>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <section class="mx-auto w-full max-w-4xl">
+    <PageHero
+      kicker={t(locale, "operator.hubKicker")}
+      title={t(locale, "operator.hubH1")}
+      lede={t(locale, "operator.hubLede")}
+    >
+      <Alert>
+        <AlertDescription id="operator-hub-live">
+          {t(locale, "operator.hubPlaceholder")}
+        </AlertDescription>
+      </Alert>
+    </PageHero>
+
+    <AppList id="operator-list">
+      {operators.map((operator) => (
+        <AppListRow
+          href={operatorProfileUrl(operator, locale)}
+          data-operator-slug={operator.slug}
+          title={operator.name}
+          description={`${operator.area} · ${sourceCategoryLabel(operator.sourceCategory, locale)}`}
+        />
+      ))}
+    </AppList>
+
+    <p class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed">
+      {t(locale, "operator.hubMissing")}
+      {" "}<a href="/ratgeber/netzbetreiber-finden/" class="underline underline-offset-4">{t(locale, "operator.findGuide")}</a>.
+    </p>
+
+    <PageCta
+      title={t(locale, "operator.ctaTitle")}
+      description={t(locale, "operator.ctaDescription")}
+      href={pathFor({ kind: "home" }, locale)}
+      label={t(locale, "operator.ctaLabel")}
+    />
+  </section>
+</RadarLayout>

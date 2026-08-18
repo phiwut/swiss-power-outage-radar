@@ -1,28 +1,38 @@
 ---
 import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import RadarLayout from "../../layouts/RadarLayout.astro";
+import RadarLayout from "../../../layouts/RadarLayout.astro";
 import { Button } from "@/components/starwind/button";
 import { Card } from "@/components/starwind/card";
 import { Skeleton } from "@/components/starwind/skeleton";
 import ArrowLeft from "@tabler/icons/outline/arrow-left.svg";
-import "../../styles/event-brief.css";
+import "../../../styles/event-brief.css";
+import { localeFromParam, localeStaticPaths, pathFor, t, type AppLocale } from "../../../i18n";
+
+export function getStaticPaths() {
+  return localeStaticPaths();
+}
+
+const locale: AppLocale = Astro.props.locale ?? localeFromParam(
+  Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale
+);
 ---
 
 <RadarLayout
-  title="Stromausfall-Meldung | outage.ch"
-  description="Stromausfall-Meldung mit Karte, bekannten Fakten, Netzbetreiber und Originalquellen."
+  title={`${t(locale, "nature.unplannedKind")} | outage.ch`}
+  description={t(locale, "site.description")}
   robots="noindex,follow"
   shell="content"
   activeNav="radar"
+  locale={locale}
 >
   <link slot="head" rel="stylesheet" href={maplibreCss} />
   <section class="detail-page">
-    <Button as="a" href="/" variant="ghost" size="sm" class="mb-2 -ml-2">
+    <Button as="a" href={pathFor({ kind: "home" }, locale)} variant="ghost" size="sm" class="mb-2 -ml-2">
       <ArrowLeft class="size-4" />
-      Zum Radar
+      {t(locale, "event.backToRadar")}
     </Button>
     <div id="event-shell" aria-live="polite" aria-busy="true">
-      <Card size="sm" class="grid gap-2.5 py-4" aria-label="Meldung wird geladen">
+      <Card size="sm" class="grid gap-2.5 py-4" aria-label={t(locale, "event.loadingAria")}>
         <div class="px-(--card-spacing) grid gap-2.5">
           <Skeleton class="h-4 max-w-40" />
           <Skeleton class="h-10 max-w-lg" />
@@ -82,7 +92,7 @@ import "../../styles/event-brief.css";
       evidence: Array<{ snapshot_id: number; image_url: string; source_url: string; publisher: string; captured_at: string; sha256: string; format: "png" }>;
     };
 
-    const eventId = location.pathname.match(/(?:\/events\/|\/stromausfall\/[^/]*-)(\d+)\/?$/)?.[1];
+    const eventId = location.pathname.match(/(?:\/events\/|\/(?:stromausfall|panne-de-courant|interruzione-di-corrente|power-outage)\/[^/]*-)(\d+)\/?$/)?.[1];
     const shell = document.querySelector<HTMLElement>("#event-shell")!;
     const escapeHtml = (value: unknown) => String(value ?? "")
       .replaceAll("&", "&amp;")

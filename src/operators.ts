@@ -1,4 +1,5 @@
 import { elcomFactsForSlug, elcomFaq } from "./elcom-operator-facts";
+import { pathFor, t, type AppLocale } from "./i18n";
 import { SOURCE_REGISTRY_SEEDS, type SourceRegistrySeed } from "./source-registry-seeds";
 import { publicDisplayLocation, publicEventSlug } from "./public-url";
 import type { PublicFeedItem } from "./types";
@@ -16,8 +17,11 @@ export interface OperatorProfile {
 
 const EXCLUDED_KEYS = new Set(["alertswiss"]);
 
-export function operatorProfileUrl(operator: Pick<OperatorProfile, "slug">): string {
-  return `/netzbetreiber/${operator.slug}/`;
+export function operatorProfileUrl(
+  operator: Pick<OperatorProfile, "slug">,
+  locale: AppLocale = "de"
+): string {
+  return pathFor({ kind: "operator", slug: operator.slug }, locale);
 }
 
 export function toOperatorProfile(seed: SourceRegistrySeed): OperatorProfile {
@@ -192,93 +196,108 @@ export function relatedOperatorProfiles(operator: OperatorProfile, limit = 4): O
   return [...sameLanguage, ...rest].slice(0, Math.max(0, limit));
 }
 
-export function sourceCategoryLabel(category: OperatorProfile["sourceCategory"]): string {
-  if (category === "outage_map") return "Störungskarte oder Lagebild";
-  if (category === "live_status") return "aktuelle Störungsseite";
-  if (category === "news_feed") return "News- oder Betriebsmeldungen";
-  return "öffentliche Hinweisquelle";
+export function sourceCategoryLabel(
+  category: OperatorProfile["sourceCategory"],
+  locale: AppLocale = "de"
+): string {
+  if (category === "outage_map") return t(locale, "operator.sourceCategory.outage_map");
+  if (category === "live_status") return t(locale, "operator.sourceCategory.live_status");
+  if (category === "news_feed") return t(locale, "operator.sourceCategory.news_feed");
+  return t(locale, "operator.sourceCategory.other");
 }
 
-export function operatorDefinition(operator: OperatorProfile): string {
-  return `${operator.name} ist Verteilnetzbetreiber für ${operator.area}. Verbindliche Angaben zu Stromausfällen und geplanten Unterbrüchen veröffentlicht ${operator.name} auf der offiziellen Störungsseite. outage.ch beobachtet diese Quelle, ersetzt den Pikettdienst aber nicht.`;
+export function operatorDefinition(operator: OperatorProfile, locale: AppLocale = "de"): string {
+  return t(locale, "operator.definition", { name: operator.name, area: operator.area });
 }
 
-export function operatorLanguageNote(operator: OperatorProfile): string | null {
-  if (operator.language === "fr") {
-    return `Die Originalquelle von ${operator.name} ist französischsprachig. outage.ch führt öffentlich belegte Ereignisse trotzdem im deutschsprachigen Radar, sobald die Quellenregel erfüllt ist.`;
-  }
-  if (operator.language === "it") {
-    return `Die Originalquelle von ${operator.name} ist italienischsprachig. Öffentlich belegte Ereignisse erscheinen im Radar auf Deutsch, sobald die Quellenregel erfüllt ist.`;
-  }
-  return null;
+export function operatorLanguageNote(operator: OperatorProfile, locale: AppLocale = "de"): string | null {
+  if (operator.language === locale) return null;
+  return t(locale, "operator.languageNote", {
+    name: operator.name,
+    language: t(locale, `operator.language.${operator.language}`)
+  });
 }
 
-export function operatorSourceExplanation(operator: OperatorProfile): string {
+export function operatorSourceExplanation(operator: OperatorProfile, locale: AppLocale = "de"): string {
+  const source = sourceCategoryLabel(operator.sourceCategory, locale);
   if (operator.sourceCategory === "outage_map") {
-    return `${operator.name} veröffentlicht Störungen über eine ${sourceCategoryLabel(operator.sourceCategory)}. outage.ch prüft diese Quelle etwa alle ${operator.checkMinutes} Minuten und übernimmt nur Einträge, die sich als Stromereignis belegen lassen.`;
+    return t(locale, "operator.sourceExplain.outage_map", { name: operator.name, source, minutes: operator.checkMinutes });
   }
   if (operator.sourceCategory === "news_feed") {
-    return `${operator.name} kommuniziert Störungen vor allem über ${sourceCategoryLabel(operator.sourceCategory)}. Solche Seiten mischen oft Archiv, Medienmitteilungen und aktuelle Hinweise. Der Radar filtert deshalb strenger und veröffentlicht nicht jeden Seitentext.`;
+    return t(locale, "operator.sourceExplain.news_feed", { name: operator.name, source, minutes: operator.checkMinutes });
   }
   if (operator.sourceCategory === "live_status") {
-    return `${operator.name} führt eine ${sourceCategoryLabel(operator.sourceCategory)}. outage.ch ruft sie etwa alle ${operator.checkMinutes} Minuten ab. Negative Meldungen wie «keine Störung» werden nicht als Ausfall dargestellt.`;
+    return t(locale, "operator.sourceExplain.live_status", { name: operator.name, source, minutes: operator.checkMinutes });
   }
-  return `${operator.name} hat eine öffentliche Hinweisquelle. outage.ch nutzt sie zur Einordnung, nicht als alleinigen Beweis für einen Ausfall.`;
+  return t(locale, "operator.sourceExplain.other", { name: operator.name, source, minutes: operator.checkMinutes });
 }
 
-export function operatorLiveInsight(operator: OperatorProfile, stats: OperatorLiveStats): string {
+export function operatorLiveInsight(
+  operator: OperatorProfile,
+  stats: OperatorLiveStats,
+  locale: AppLocale = "de"
+): string {
   if (stats.total === 0) {
-    return `Im öffentlichen Radar von outage.ch liegt derzeit keine belegte Meldung aus der Quelle von ${operator.name}. Das heisst nicht, dass in ${operator.area} keine Störung existiert – verbindlich bleibt die offizielle Störungsseite des Werks.`;
+    return t(locale, "operator.insightNone", { name: operator.name, area: operator.area });
   }
   const current = [
-    stats.active ? `${stats.active} aktive` : null,
-    stats.upcoming ? `${stats.upcoming} geplante, noch bevorstehende` : null
+    stats.active ? t(locale, "operator.currentActive", { count: stats.active }) : null,
+    stats.upcoming ? t(locale, "operator.currentUpcoming", { count: stats.upcoming }) : null
   ].filter(Boolean);
   if (current.length) {
-    return `outage.ch führt derzeit ${stats.total} öffentliche Meldungen aus der Quelle von ${operator.name}, davon ${current.join(" und ")}. Gezählt werden nur Ereignisse, die die Veröffentlichungsregel erfüllen – nicht die komplette Betriebsstatistik des Werks.`;
+    return t(locale, "operator.insightCurrent", {
+      name: operator.name,
+      total: stats.total,
+      current: current.join(locale === "en" ? " and " : locale === "de" ? " und " : locale === "fr" ? " et " : " e ")
+    });
   }
   const mix = [
-    stats.unplanned ? `${stats.unplanned} ungeplante` : null,
-    stats.planned ? `${stats.planned} geplante` : null
+    stats.unplanned ? t(locale, "operator.mixUnplanned", { count: stats.unplanned }) : null,
+    stats.planned ? t(locale, "operator.mixPlanned", { count: stats.planned }) : null
   ].filter(Boolean);
-  return `outage.ch hat ${stats.total} öffentliche Meldungen aus der Quelle von ${operator.name} erfasst${mix.length ? ` (${mix.join(", ")})` : ""}. Derzeit ist keine davon als aktiv oder bevorstehend ausgewiesen.`;
+  return t(locale, "operator.insightArchived", {
+    name: operator.name,
+    total: stats.total,
+    mix: mix.length ? ` (${mix.join(", ")})` : ""
+  });
 }
 
 export function operatorFaqs(
   operator: OperatorProfile,
-  stats?: OperatorLiveStats | null
+  stats?: OperatorLiveStats | null,
+  locale: AppLocale = "de"
 ): Array<{ question: string; answer: string }> {
   const radarAnswer = !stats || stats.total === 0
-    ? `Aktuell liegt keine öffentliche Meldung von ${operator.name} im Radar. outage.ch zeigt nur Ereignisse, die offiziell oder durch zwei unabhängige Quellen belegt sind.`
+    ? t(locale, "operator.faqNowNone", { name: operator.name })
     : stats.active > 0
-      ? `Ja, im Radar sind derzeit ${stats.active} aktive öffentliche Meldungen von ${operator.name} sichtbar. Verbindlich bleibt trotzdem die Originalseite des Werks.`
+      ? t(locale, "operator.faqNowActive", { name: operator.name, count: stats.active })
       : stats.upcoming > 0
-        ? `Derzeit sind ${stats.upcoming} geplante Unterbrüche von ${operator.name} im Radar, aber keine als aktiv ausgewiesene Störung.`
-        : `Im Radar sind ${stats.total} öffentliche Meldungen von ${operator.name} erfasst, derzeit keine als aktiv.`;
+        ? t(locale, "operator.faqNowUpcoming", { name: operator.name, count: stats.upcoming })
+        : t(locale, "operator.faqNowOther", { name: operator.name, count: stats.total });
   const faqs = [
     {
-      question: `Wer ist bei einem Stromausfall im Gebiet von ${operator.name} zuständig?`,
-      answer: `Für die Behebung ist ${operator.name} als Verteilnetzbetreiber zuständig, nicht der Stromlieferant und nicht outage.ch. Das Versorgungsgebiet umfasst ${operator.area}.`
+      question: t(locale, "operator.faqWho", { name: operator.name }),
+      answer: t(locale, "operator.faqWhoA", { name: operator.name, area: operator.area })
     },
     {
-      question: `Gibt es aktuell eine öffentliche Störungsmeldung von ${operator.name}?`,
+      question: t(locale, "operator.faqNow", { name: operator.name }),
       answer: radarAnswer
     },
     {
-      question: `Wo veröffentlicht ${operator.name} aktuelle Störungen?`,
-      answer: `Auf der offiziellen Seite ${operator.officialUrl}. Das ist die verbindliche Auskunft.`
+      question: t(locale, "operator.faqWhere", { name: operator.name }),
+      answer: t(locale, "operator.faqWhereA", { url: operator.officialUrl })
     }
   ];
   const elcom = elcomFactsForSlug(operator.slug);
-  if (elcom) faqs.push(elcomFaq(operator.name, elcom));
+  if (elcom) faqs.push(elcomFaq(operator.name, elcom, locale));
   faqs.push(
     {
-      question: `Kann ich eine Störung im Netz von ${operator.name} bei outage.ch melden?`,
-      answer: `Nein. Melden Sie den Ausfall direkt bei ${operator.name}. outage.ch zeigt nur öffentlich nachvollziehbare Meldungen.`
+      question: t(locale, "operator.faqReport", { name: operator.name }),
+      answer: t(locale, "operator.faqReportA", { name: operator.name })
     },
     {
-      question: `Wie oft prüft outage.ch die Quelle von ${operator.name}?`,
-      answer: `Etwa alle ${operator.checkMinutes} Minuten, sofern die Quelle erreichbar ist. Eine öffentliche Meldung auf outage.ch erscheint erst, wenn die Veröffentlichungsregel erfüllt ist.`
+      question: t(locale, "operator.faqCheck", { name: operator.name }),
+      answer: t(locale, "operator.faqCheckA", { minutes: operator.checkMinutes })
     }
   );
   return faqs;

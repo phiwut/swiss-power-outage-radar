@@ -41,6 +41,16 @@ describe("SEO event page", () => {
     expect(graph.some((entry: { "@type": string }) => entry["@type"] === "FAQPage")).toBe(true);
   });
 
+  it("localizes event URLs and chrome without translating source quotes", () => {
+    const seo = eventSeo(detail(), "https://outage.ch", "fr");
+    expect(seo.canonical).toBe("https://outage.ch/fr/panne-de-courant/zurich-42");
+    expect(seo.title).toContain("Interruption");
+    const html = renderEventSeoMarkup(detail(), [], null, "fr");
+    expect(html).toContain("<h1>Interruption électrique planifiée à Zürich</h1>");
+    expect(html).toContain("Wegen Wartungsarbeiten wird die Versorgung");
+    expect(html).toContain("/fr/ratgeber/");
+  });
+
   it("keeps long compound locations readable in the title without ellipsis", () => {
     const long = detail();
     long.item.location = "Füllinsdorf, Basel-Landschaft, Schweiz";

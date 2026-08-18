@@ -1,0 +1,115 @@
+---
+import RadarLayout from "../../../layouts/RadarLayout.astro";
+import { SITE_ORIGIN, absoluteUrl } from "../../../public-url";
+import { organizationId } from "../../../seo-site";
+import { HTML_LANG, localeFromParam, localeStaticPaths, pathFor, t, type AppLocale } from "../../../i18n";
+import AppBreadcrumb from "@/components/app/AppBreadcrumb.astro";
+import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
+import { Alert, AlertDescription } from "@/components/starwind/alert";
+import { Prose } from "@/components/starwind/prose";
+
+export function getStaticPaths() {
+  return localeStaticPaths();
+}
+
+const locale: AppLocale = Astro.props.locale ?? localeFromParam(
+  Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale
+);
+const canonical = absoluteUrl(pathFor({ kind: "about" }, locale), SITE_ORIGIN);
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "AboutPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: t(locale, "about.name"),
+      description: t(locale, "site.description"),
+      inLanguage: HTML_LANG[locale],
+      mainEntity: { "@id": organizationId() }
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: t(locale, "site.breadcrumbHome"), item: `${SITE_ORIGIN}${pathFor({ kind: "home" }, locale)}` },
+        { "@type": "ListItem", position: 2, name: t(locale, "about.crumb"), item: canonical }
+      ]
+    }
+  ]
+};
+---
+
+<RadarLayout
+  title={t(locale, "about.title")}
+  description={t(locale, "about.description")}
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+  locale={locale}
+>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <article class="mx-auto w-full max-w-4xl">
+    <AppBreadcrumb items={[
+      { href: pathFor({ kind: "home" }, locale), label: t(locale, "site.breadcrumbHomeShort") },
+      { label: t(locale, "about.crumb") }
+    ]} />
+
+    <PageHero
+      kicker={t(locale, "about.kicker")}
+      title={t(locale, "about.h1")}
+      lede={t(locale, "about.lede")}
+    >
+      <Alert>
+        <AlertDescription>{t(locale, "site.description")}</AlertDescription>
+      </Alert>
+      <p class="text-muted-foreground font-mono text-[0.68rem]">{t(locale, "about.updated")}</p>
+    </PageHero>
+
+    <Prose class="max-w-none text-sm [--prose-heading-spacing:1.05em] [--prose-h2-size:1.2em] [--prose-spacing:0.75em] md:text-[0.95rem]">
+      <section>
+        <h2>{t(locale, "about.s1h")}</h2>
+        <p>{t(locale, "about.s1p1")}</p>
+        <p>{t(locale, "about.s1p2")}</p>
+      </section>
+      <section>
+        <h2>{t(locale, "about.s2h")}</h2>
+        <p>{t(locale, "about.s2p1")}</p>
+        <p>{t(locale, "about.s2p2")}</p>
+        <p>{t(locale, "about.s2p3")}</p>
+      </section>
+      <section>
+        <h2>{t(locale, "about.s3h")}</h2>
+        <p>
+          {t(locale, "about.s3p1")}
+          {" "}<a href="https://www.strompreis.elcom.admin.ch/">ElCom</a>.
+        </p>
+      </section>
+      <section>
+        <h2>{t(locale, "about.s4h")}</h2>
+        <ul>
+          <li>{t(locale, "about.s4l1")}</li>
+          <li>{t(locale, "about.s4l2")}</li>
+          <li>{t(locale, "about.s4l3")}</li>
+          <li>{t(locale, "about.s4l4")}</li>
+        </ul>
+      </section>
+      <section>
+        <h2>{t(locale, "about.s5h")}</h2>
+        <p>
+          {t(locale, "about.s5p1")}
+          {" "}<a href="mailto:alert@outage.ch">alert@outage.ch</a>
+          {" · "}
+          <a href={pathFor({ kind: "operators" }, locale)}>{t(locale, "nav.operators")}</a>.
+        </p>
+      </section>
+    </Prose>
+
+    <PageCta
+      title={t(locale, "about.ctaTitle")}
+      description={t(locale, "about.ctaDescription")}
+      href={pathFor({ kind: "home" }, locale)}
+      label={t(locale, "about.ctaLabel")}
+    />
+  </article>
+</RadarLayout>

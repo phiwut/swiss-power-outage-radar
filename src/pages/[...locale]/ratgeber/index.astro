@@ -1,0 +1,98 @@
+---
+import RadarLayout from "../../../layouts/RadarLayout.astro";
+import AppList from "@/components/app/AppList.astro";
+import AppListRow from "@/components/app/AppListRow.astro";
+import PageCta from "@/components/app/PageCta.astro";
+import PageHero from "@/components/app/PageHero.astro";
+import { knowledgeArticles, knowledgeArticleUrl } from "../../../knowledge";
+import { SITE_ORIGIN, absoluteUrl } from "../../../public-url";
+import { HTML_LANG, localeFromParam, localeStaticPaths, pathFor, t, type AppLocale } from "../../../i18n";
+
+export function getStaticPaths() {
+  return localeStaticPaths();
+}
+
+const locale: AppLocale = Astro.props.locale ?? localeFromParam(
+  Array.isArray(Astro.params.locale) ? Astro.params.locale[0] : Astro.params.locale
+);
+const canonical = absoluteUrl(pathFor({ kind: "guides" }, locale), SITE_ORIGIN);
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: t(locale, "guides.name"),
+      description: t(locale, "guides.description"),
+      inLanguage: HTML_LANG[locale],
+      mainEntity: {
+        "@type": "ItemList",
+        itemListElement: knowledgeArticles.map((article, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${SITE_ORIGIN}${knowledgeArticleUrl(article)}`,
+          name: article.title
+        }))
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: t(locale, "site.breadcrumbHome"), item: `${SITE_ORIGIN}${pathFor({ kind: "home" }, locale)}` },
+        { "@type": "ListItem", position: 2, name: t(locale, "guides.crumb"), item: canonical }
+      ]
+    }
+  ]
+};
+---
+
+<RadarLayout
+  title={t(locale, "guides.title")}
+  description={t(locale, "guides.description")}
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+  activeNav="ratgeber"
+  locale={locale}
+>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <section class="mx-auto w-full max-w-4xl">
+    <PageHero
+      kicker={t(locale, "guides.kicker")}
+      title={t(locale, "guides.h1")}
+      lede={t(locale, "guides.lede")}
+    />
+
+    {locale !== "de" && (
+      <p class="text-muted-foreground mb-4 max-w-xl text-sm leading-relaxed">
+        {t(locale, "guides.originalNote")}
+      </p>
+    )}
+
+    <AppList>
+      {knowledgeArticles.map((article, index) => (
+        <AppListRow
+          href={knowledgeArticleUrl(article)}
+          kicker={`${String(index + 1).padStart(2, "0")} · ${t(locale, "guides.minutes", { count: article.readingMinutes })}`}
+          title={article.shortTitle}
+          description={article.description}
+        />
+      ))}
+    </AppList>
+
+    <p class="text-muted-foreground mt-4 max-w-xl text-sm leading-relaxed">
+      {t(locale, "guides.operatorsLink")}
+      {" "}<a href={pathFor({ kind: "operators" }, locale)} class="underline underline-offset-4">{t(locale, "nav.operators")}</a>
+      {" · "}
+      <a href={pathFor({ kind: "about" }, locale)} class="underline underline-offset-4">{t(locale, "nav.about")}</a>.
+    </p>
+
+    <PageCta
+      title={t(locale, "guides.ctaTitle")}
+      description={t(locale, "guides.ctaDescription")}
+      href={pathFor({ kind: "home" }, locale)}
+      label={t(locale, "guides.ctaLabel")}
+    />
+  </section>
+</RadarLayout>
