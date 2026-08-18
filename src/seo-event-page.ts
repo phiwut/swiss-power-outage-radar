@@ -1,12 +1,14 @@
 import type { PublicEventDetail } from "./public-detail";
 import type { Env, PublicFeedItem } from "./types";
 import { relatedKnowledgeArticles, knowledgeArticleUrl } from "./knowledge";
+import { findOperatorProfile, operatorProfileUrl } from "./operators";
 import {
   DEFAULT_OG_IMAGE_PATH,
   SITE_ORIGIN,
   absoluteUrl,
   publicDisplayLocation
 } from "./public-url";
+import { homeFaqs, organizationId, SITE_DESCRIPTION, websiteId } from "./seo-site";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -223,10 +225,10 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
     : absoluteUrl(DEFAULT_OG_IMAGE_PATH, siteOrigin);
   const pageId = `${canonical}#webpage`;
   const graph: Record<string, unknown>[] = [
-    { "@type": "WebSite", "@id": `${siteOrigin}/#website`, url: `${siteOrigin}/`, name: "outage.ch", inLanguage: "de-CH" },
+    { "@type": "WebSite", "@id": websiteId(siteOrigin), url: `${siteOrigin}/`, name: "outage.ch", inLanguage: "de-CH", publisher: { "@id": organizationId(siteOrigin) } },
     {
       "@type": "WebPage", "@id": pageId, url: canonical, name: title, description,
-      isPartOf: { "@id": `${siteOrigin}/#website` }, dateModified: item.updated_at, inLanguage: "de-CH",
+      isPartOf: { "@id": websiteId(siteOrigin) }, dateModified: item.updated_at, inLanguage: "de-CH",
       breadcrumb: { "@id": `${canonical}#breadcrumb` },
       primaryImageOfPage: { "@type": "ImageObject", url: ogImage }
     },
@@ -369,11 +371,16 @@ function renderRelatedEvents(related: PublicFeedItem[]): string {
 
 function renderOperator(operator: PublicEventDetail["operator"]): string {
   if (!operator) return "";
+  const profile = findOperatorProfile(operator.name);
+  const profileLink = profile
+    ? `<a href="${escapeHtml(operatorProfileUrl(profile))}">Profil auf outage.ch</a>`
+    : "";
   return `<aside class="operator-block" aria-labelledby="operator-heading">
     <div class="operator-copy">
       <span>${escapeHtml(operator.role)}</span>
       <h2 id="operator-heading">${escapeHtml(operator.name)}</h2>
       ${operator.area ? `<p>${escapeHtml(operator.area)}</p>` : ""}
+      ${profileLink}
     </div>
     <a href="${escapeHtml(operator.url)}" target="_blank" rel="noreferrer">Beim Betreiber öffnen</a>
   </aside>`;
@@ -468,18 +475,28 @@ export async function renderSeoEventAsset(
 }
 
 export function renderHomeFeedLinks(items: PublicFeedItem[]): string {
-  if (!items.length) {
-    return `<nav class="seo-feed-index" aria-hidden="true"><p>Aktuell sind keine öffentlichen Meldungen verfügbar.</p><a href="/ratgeber/">Stromausfall-Ratgeber</a></nav>`;
-  }
-  return `<nav class="seo-feed-index" aria-hidden="true">
-    <h2>Aktuelle Meldungen</h2>
-    <ul>${items.map((item) => {
+  const eventLinks = items.length
+    ? `<ul>${items.map((item) => {
       const location = publicDisplayLocation(item.location);
       const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
       return `<li><a href="${escapeHtml(item.url)}">${escapeHtml(kind)} in ${escapeHtml(location)}</a></li>`;
-    }).join("")}</ul>
-    <p><a href="/ratgeber/">Ratgeber zu Stromausfällen</a></p>
-  </nav>`;
+    }).join("")}</ul>`
+    : `<p>Aktuell sind keine öffentlichen Meldungen verfügbar.</p>`;
+  const faq = homeFaqs.map((item) => `<h3>${escapeHtml(item.question)}</h3><p>${escapeHtml(item.answer)}</p>`).join("");
+  return `<section class="seo-feed-index">
+    <h2>Was outage.ch zeigt</h2>
+    <p>${escapeHtml(SITE_DESCRIPTION)}</p>
+    <h2>Aktuelle Meldungen</h2>
+    ${eventLinks}
+    <p>
+      <a href="/ratgeber/">Ratgeber zu Stromausfällen</a>
+      · <a href="/netzbetreiber/">Netzbetreiber-Verzeichnis</a>
+      · <a href="/ueber/">Methodik</a>
+      · <a href="/ratgeber/stromausfall-was-tun/">Was tun bei Stromausfall?</a>
+    </p>
+    <h2>Häufige Fragen</h2>
+    ${faq}
+  </section>`;
 }
 
 export async function renderHomeSeoAsset(

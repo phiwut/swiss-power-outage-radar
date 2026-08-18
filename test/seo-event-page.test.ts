@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventSeo, renderEventSeoMarkup } from "../src/seo-event-page";
+import { eventSeo, renderEventSeoMarkup, renderHomeFeedLinks } from "../src/seo-event-page";
 import type { PublicEventDetail } from "../src/public-detail";
 
 function detail(): PublicEventDetail {
@@ -156,5 +156,27 @@ describe("SEO event page", () => {
     expect(html).toContain("Ende / Wiederherstellung</h3><p>Nicht bekannt");
     expect(html).not.toContain("Behoben gemeldet · Zeitpunkt unbekannt");
     expect(html).not.toContain("<dt>Dauer</dt>");
+  });
+
+  it("links matching operators to their profile page", () => {
+    const withOperator = detail();
+    withOperator.operator = {
+      name: "ewz",
+      role: "Netzbetreiber",
+      area: "Stadt Zürich",
+      url: "https://www.ewz.ch/de/services/stoerungen.html",
+      domain: "ewz.ch"
+    };
+    const html = renderEventSeoMarkup(withOperator);
+    expect(html).toContain("/netzbetreiber/ewz/");
+    expect(html).toContain("Profil auf outage.ch");
+  });
+
+  it("exposes crawlable homepage answers without hiding them from extractors", () => {
+    const html = renderHomeFeedLinks([]);
+    expect(html).not.toContain("aria-hidden");
+    expect(html).toContain("Was outage.ch zeigt");
+    expect(html).toContain("/netzbetreiber/");
+    expect(html).toContain("Ist outage.ch ein offizieller Störungsdienst?");
   });
 });

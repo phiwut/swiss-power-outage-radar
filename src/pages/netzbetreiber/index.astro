@@ -1,0 +1,76 @@
+---
+import RadarLayout from "../../layouts/RadarLayout.astro";
+import { operatorProfileUrl, publicOperatorProfiles, sourceCategoryLabel } from "../../operators";
+import { SITE_ORIGIN } from "../../public-url";
+import "../../styles/knowledge.css";
+
+const operators = publicOperatorProfiles();
+const canonical = `${SITE_ORIGIN}/netzbetreiber/`;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: "Netzbetreiber Schweiz: Störungsseiten",
+      description:
+        "Verteilnetzbetreiber, deren öffentliche Störungsquellen outage.ch beobachtet, mit Gebiet und Link zur offiziellen Seite.",
+      inLanguage: "de-CH",
+      mainEntity: {
+        "@type": "ItemList",
+        numberOfItems: operators.length,
+        itemListElement: operators.map((operator, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${SITE_ORIGIN}${operatorProfileUrl(operator)}`,
+          name: operator.name
+        }))
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${SITE_ORIGIN}/` },
+        { "@type": "ListItem", position: 2, name: "Netzbetreiber", item: canonical }
+      ]
+    }
+  ]
+};
+---
+
+<RadarLayout
+  title="Netzbetreiber Schweiz: Störungsseiten | outage.ch"
+  description="Welche Verteilnetzbetreiber outage.ch beobachtet, wo deren offizielle Störungsseite liegt und wer bei einem Stromausfall zuständig ist."
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+  activeNav="ratgeber"
+>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <section class="knowledge-hub">
+    <header>
+      <p>Verzeichnis · Schweiz</p>
+      <h1>Netzbetreiber und offizielle Störungsseiten</h1>
+      <div>
+        Für die Behebung eines Stromausfalls ist der Verteilnetzbetreiber zuständig, nicht der Stromlieferant. Hier stehen die Werke, deren öffentliche Quellen der Radar regelmässig prüft – jeweils mit Gebiet und Link zur Originalseite.
+      </div>
+    </header>
+    <div class="operator-list">
+      {operators.map((operator) => (
+        <a href={operatorProfileUrl(operator)}>
+          <strong>{operator.name}</strong>
+          <span>{operator.area} · {sourceCategoryLabel(operator.sourceCategory)}</span>
+        </a>
+      ))}
+    </div>
+    <p style="margin-top:2rem;color:var(--color-muted);max-width:40rem;line-height:1.65;">
+      Fehlt Ihr Werk, bleibt es trotzdem zuständig. Wie Sie den Betreiber auf der Rechnung finden, erklärt der Ratgeber
+      <a href="/ratgeber/netzbetreiber-finden/">Netzbetreiber finden</a>.
+    </p>
+    <a class="back-to-events" href="/">
+      Aktuelle Stromausfälle ansehen
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+  </section>
+</RadarLayout>

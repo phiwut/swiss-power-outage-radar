@@ -1,8 +1,40 @@
 ---
 import RadarLayout from "../../layouts/RadarLayout.astro";
 import { knowledgeArticles, knowledgeArticleUrl } from "../../knowledge";
+import { SITE_ORIGIN } from "../../public-url";
+import "../../styles/knowledge.css";
 
-const canonical = "https://outage.ch/ratgeber/";
+const canonical = `${SITE_ORIGIN}/ratgeber/`;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: "Stromausfall-Ratgeber Schweiz",
+      description:
+        "Verständliche Antworten zu Stromausfällen in der Schweiz: richtig handeln, Dauer einordnen, geplante Unterbrüche vorbereiten und den Netzbetreiber finden.",
+      inLanguage: "de-CH",
+      mainEntity: {
+        "@type": "ItemList",
+        itemListElement: knowledgeArticles.map((article, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          url: `${SITE_ORIGIN}${knowledgeArticleUrl(article)}`,
+          name: article.title
+        }))
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${SITE_ORIGIN}/` },
+        { "@type": "ListItem", position: 2, name: "Ratgeber", item: canonical }
+      ]
+    }
+  ]
+};
 ---
 
 <RadarLayout
@@ -13,11 +45,12 @@ const canonical = "https://outage.ch/ratgeber/";
   shell="content"
   activeNav="ratgeber"
 >
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <section class="knowledge-hub">
     <header>
       <p>Wissen · Schweiz</p>
       <h1>Stromausfall verstehen und richtig handeln</h1>
-      <div>Die Vorfallsseiten zeigen, was an einem konkreten Ort bekannt ist. Hier finden Sie die Antworten auf die allgemeinen Fragen dahinter.</div>
+      <div>Die Vorfallsseiten zeigen, was an einem konkreten Ort bekannt ist. Hier stehen die allgemeinen Fragen dahinter: Was tun, wen rufen, wie lange dauert es, und worin unterscheiden sich Ausfall, Mangellage und Blackout.</div>
     </header>
     <div class="knowledge-grid">
       {knowledgeArticles.map((article, index) => (
@@ -32,36 +65,14 @@ const canonical = "https://outage.ch/ratgeber/";
         </a>
       ))}
     </div>
+    <p style="margin-top:2rem;color:var(--color-muted);max-width:40rem;line-height:1.65;">
+      Den zuständigen Verteilnetzbetreiber und dessen offizielle Störungsseite finden Sie im
+      <a href="/netzbetreiber/">Netzbetreiber-Verzeichnis</a>. Wie outage.ch Quellen prüft, steht in der
+      <a href="/ueber/">Methodik</a>.
+    </p>
     <a class="back-to-events" href="/">
       Aktuelle Stromausfälle ansehen
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </a>
   </section>
-
-  <style>
-    .knowledge-hub { margin: 0 auto; max-width: 960px; padding: clamp(1.5rem, 4vw, 3rem) 0 2rem; }
-    header { border-bottom: 1px solid var(--color-rule); padding-bottom: clamp(1.8rem, 5vw, 3rem); }
-    header > p, small { color: var(--color-accent); font-family: var(--font-mono); font-size: .66rem; letter-spacing: .09em; text-transform: uppercase; }
-    h1 { font-family: var(--font-display); font-size: clamp(2.05rem, 5vw, 3.15rem); letter-spacing: -.04em; line-height: 1.05; margin: .8rem 0 1.2rem; max-width: 18ch; text-wrap: balance; }
-    header > div { color: var(--color-muted); font-size: clamp(1.05rem, 2vw, 1.2rem); line-height: 1.7; max-width: 40rem; }
-    .knowledge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .knowledge-grid > a { color: inherit; display: grid; gap: 1.2rem; grid-template-columns: 32px 1fr auto; min-height: 240px; padding: 2rem 1.35rem 2rem 0; text-decoration: none; }
-    .knowledge-grid > a:nth-child(odd) { border-right: 1px solid var(--color-rule); }
-    .knowledge-grid > a:nth-child(even) { padding-left: 1.5rem; }
-    .knowledge-grid > a:nth-child(n+3) { border-top: 1px solid var(--color-rule); }
-    .knowledge-index { color: var(--color-faint); font-family: var(--font-mono); font-size: .7rem; }
-    .knowledge-grid h2 { font-family: var(--font-display); font-size: clamp(1.35rem, 3vw, 1.85rem); letter-spacing: -.03em; margin: .45rem 0 .7rem; }
-    .knowledge-grid p { color: var(--color-muted); line-height: 1.65; margin: 0; }
-    .knowledge-arrow { align-self: end; width: 1.35rem; height: 1.35rem; stroke: var(--color-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .knowledge-grid > a:hover { background: color-mix(in oklch, var(--color-accent-soft) 55%, transparent); }
-    .knowledge-grid > a:hover .knowledge-arrow { transform: translateX(3px); }
-    .back-to-events { align-items: center; background: var(--color-ink); border-radius: 999px; color: var(--color-surface); display: inline-flex; font-weight: 700; gap: .5rem; margin-top: 2.5rem; min-height: 44px; padding: .85rem 1.15rem; text-decoration: none; }
-    .back-to-events svg { width: 1rem; height: 1rem; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .back-to-events:hover { transform: translateY(-1px); }
-    @media (max-width: 680px) {
-      h1 { max-width: none; }
-      .knowledge-grid { grid-template-columns: 1fr; }
-      .knowledge-grid > a, .knowledge-grid > a:nth-child(even) { border-left: 0; border-right: 0; border-top: 1px solid var(--color-rule); min-height: 0; padding: 1.5rem 0; }
-    }
-  </style>
 </RadarLayout>

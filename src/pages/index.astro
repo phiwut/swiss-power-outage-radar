@@ -4,6 +4,7 @@
  */
 import maplibreCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import RadarLayout from "../layouts/RadarLayout.astro";
+import { homeJsonLd } from "../seo-site";
 ---
 
 <RadarLayout
@@ -17,8 +18,10 @@ import RadarLayout from "../layouts/RadarLayout.astro";
   <link slot="head" rel="stylesheet" href={maplibreCss} />
   <link slot="head" rel="preconnect" href="https://vectortiles.geo.admin.ch" crossorigin />
   <link slot="head" rel="dns-prefetch" href="https://vectortiles.geo.admin.ch" />
+  <script slot="head" type="application/ld+json" set:html={homeJsonLd()} />
 
   <section class="radar" data-radar>
+    <h1 class="sr-only">Aktuelle und geplante Stromausfälle in der Schweiz</h1>
     <div class="radar__map-wrap">
       <div id="radar-map" class="radar__map" role="img" aria-label="Karte der Stromausfall-Meldungen"></div>
       <div class="radar__legend">
@@ -51,7 +54,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
       <div class="radar__handle" aria-hidden="true"></div>
       <div class="radar__panel-head">
         <div>
-          <h1>Meldungen</h1>
+          <h2>Meldungen</h2>
           <p id="radar-count" class="radar__count">…</p>
         </div>
         <div class="radar__panel-actions">
@@ -947,7 +950,7 @@ import RadarLayout from "../layouts/RadarLayout.astro";
     flex-shrink: 0;
   }
 
-  .radar__panel-head h1 {
+  .radar__panel-head h2 {
     margin: 0;
     font: 750 1.15rem/1.2 var(--font-display);
     letter-spacing: -0.03em;

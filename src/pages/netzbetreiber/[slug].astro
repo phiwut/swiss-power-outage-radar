@@ -1,0 +1,167 @@
+---
+import RadarLayout from "../../layouts/RadarLayout.astro";
+import {
+  operatorBySlug,
+  operatorDefinition,
+  operatorFaqs,
+  operatorLanguageNote,
+  operatorProfileUrl,
+  operatorSourceExplanation,
+  publicOperatorProfiles,
+  sourceCategoryLabel
+} from "../../operators";
+import { SITE_ORIGIN } from "../../public-url";
+import { organizationId } from "../../seo-site";
+import "../../styles/knowledge.css";
+
+export function getStaticPaths() {
+  return publicOperatorProfiles().map((operator) => ({
+    params: { slug: operator.slug }
+  }));
+}
+
+const slug = Astro.params.slug as string;
+const operator = operatorBySlug(slug);
+if (!operator) {
+  throw new Error(`Unknown operator ${slug}`);
+}
+
+const canonical = `${SITE_ORIGIN}${operatorProfileUrl(operator)}`;
+const definition = operatorDefinition(operator);
+const languageNote = operatorLanguageNote(operator);
+const sourceText = operatorSourceExplanation(operator);
+const faqs = operatorFaqs(operator);
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: `Störungen ${operator.name}`,
+      description: definition,
+      inLanguage: "de-CH",
+      about: {
+        "@type": "Organization",
+        name: operator.name,
+        url: operator.officialUrl,
+        areaServed: operator.area
+      },
+      publisher: { "@id": organizationId() }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": `${canonical}#faq`,
+      mainEntity: faqs.map((faq) => ({
+        "@type": "Question",
+        name: faq.question,
+        acceptedAnswer: { "@type": "Answer", text: faq.answer }
+      }))
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${SITE_ORIGIN}/` },
+        { "@type": "ListItem", position: 2, name: "Netzbetreiber", item: `${SITE_ORIGIN}/netzbetreiber/` },
+        { "@type": "ListItem", position: 3, name: operator.name, item: canonical }
+      ]
+    }
+  ]
+};
+---
+
+<RadarLayout
+  title={`Störungen ${operator.name}: offizielle Quelle | outage.ch`}
+  description={definition}
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+  activeNav="ratgeber"
+>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <article class="knowledge-page">
+    <nav aria-label="Breadcrumb">
+      <a href="/">Stromausfälle</a><span>/</span>
+      <a href="/netzbetreiber/">Netzbetreiber</a>
+    </nav>
+    <header class="knowledge-hero">
+      <p class="knowledge-kicker">Verteilnetzbetreiber · {sourceCategoryLabel(operator.sourceCategory)}</p>
+      <h1>Störungen bei {operator.name}</h1>
+      <div class="lede">
+        {operator.name} versorgt {operator.area}. Verbindliche Störungsmeldungen stehen auf der offiziellen Seite des Werks. outage.ch beobachtet diese Quelle und übernimmt nur öffentlich nachvollziehbare Stromereignisse in den Radar.
+      </div>
+      <aside class="knowledge-definition">
+        <p>{definition}</p>
+      </aside>
+    </header>
+    <div class="article-layout">
+      <aside class="article-toc">
+        <strong>Inhalt</strong>
+        <a href="#quelle">Offizielle Quelle</a>
+        <a href="#radar">Was outage.ch daraus macht</a>
+        <a href="#handeln">Was Sie tun</a>
+        <a href="#faq">Fragen</a>
+      </aside>
+      <div class="article-body">
+        <section id="quelle">
+          <h2>Offizielle Störungsseite</h2>
+          <p class="article-lead">
+            {operator.name} veröffentlicht Störungen als {sourceCategoryLabel(operator.sourceCategory)}. Das ist die verbindliche Auskunft für {operator.area}.
+          </p>
+          <p>{sourceText}</p>
+          {languageNote && <p>{languageNote}</p>}
+          <a class="operator-official" href={operator.officialUrl} target="_blank" rel="noreferrer">
+            Offizielle Seite von {operator.name} öffnen
+            <span>↗</span>
+          </a>
+        </section>
+        <section id="radar">
+          <h2>Was outage.ch daraus macht</h2>
+          <p>
+            Der Radar prüft die öffentliche Quelle von {operator.name} etwa alle {operator.checkMinutes} Minuten. In die öffentliche Übersicht gelangt ein Ereignis nur, wenn mindestens eine offizielle Netz- oder Behördenquelle vorliegt oder zwei unabhängige glaubwürdige Quellen dasselbe Ereignis belegen.
+          </p>
+          <p>
+            outage.ch schätzt keine Wiederherstellungszeit und nimmt keine Störungsmeldungen für das Gebiet von {operator.name} entgegen. Fehlt auf der Originalseite eine Angabe, bleibt sie auf outage.ch offen.
+          </p>
+        </section>
+        <section id="handeln">
+          <h2>Wenn bei Ihnen der Strom fehlt</h2>
+          <ol class="article-steps">
+            <li>
+              <strong>Umfang prüfen</strong>
+              <p>Nur die eigene Wohnung oder auch Nachbarn und Strasse? Interne Defekte gehören zur Elektrofachperson, Netzstörungen zu {operator.name}.</p>
+            </li>
+            <li>
+              <strong>Offizielle Seite lesen</strong>
+              <p>Zuerst die Störungsinfo von {operator.name} prüfen. Danach optional den Radar auf outage.ch, falls bereits eine öffentliche Meldung existiert.</p>
+            </li>
+            <li>
+              <strong>Störung dort melden</strong>
+              <p>Wenn keine Meldung sichtbar ist und mehrere Anschlüsse betroffen scheinen, den Pikettdienst von {operator.name} informieren.</p>
+            </li>
+          </ol>
+          <p>
+            Praktische Schritte für den Haushalt stehen im Ratgeber
+            <a href="/ratgeber/stromausfall-was-tun/">Was tun bei Stromausfall?</a>
+            Die Unterscheidung von Lieferant und Netzbetreiber erklärt
+            <a href="/ratgeber/netzbetreiber-finden/">Netzbetreiber finden</a>.
+          </p>
+        </section>
+        <section id="faq" class="article-faq">
+          <p class="knowledge-eyebrow">Häufige Fragen</p>
+          <h2>Fragen zu {operator.name}</h2>
+          {faqs.map((faq) => (
+            <details>
+              <summary>{faq.question}</summary>
+              <p>{faq.answer}</p>
+            </details>
+          ))}
+        </section>
+      </div>
+    </div>
+    <footer class="knowledge-cta">
+      <div><strong>Aktuelle Meldungen ansehen</strong><span>Der Radar zeigt öffentlich belegte Ereignisse in der ganzen Schweiz.</span></div>
+      <a href="/">Zur Übersicht</a>
+    </footer>
+  </article>
+</RadarLayout>

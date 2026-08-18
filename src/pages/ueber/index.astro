@@ -1,0 +1,94 @@
+---
+import RadarLayout from "../../layouts/RadarLayout.astro";
+import { SITE_ORIGIN } from "../../public-url";
+import { organizationId, SITE_DESCRIPTION } from "../../seo-site";
+import "../../styles/knowledge.css";
+
+const canonical = `${SITE_ORIGIN}/ueber/`;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "AboutPage",
+      "@id": `${canonical}#page`,
+      url: canonical,
+      name: "Methodik von outage.ch",
+      description: SITE_DESCRIPTION,
+      inLanguage: "de-CH",
+      mainEntity: { "@id": organizationId() }
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${SITE_ORIGIN}/` },
+        { "@type": "ListItem", position: 2, name: "Methodik", item: canonical }
+      ]
+    }
+  ]
+};
+---
+
+<RadarLayout
+  title="Methodik: so arbeitet outage.ch | outage.ch"
+  description="Wie outage.ch öffentliche Stromausfälle in der Schweiz erfasst, welche Quellenregel gilt und was die Seite nicht ist."
+  canonical={canonical}
+  robots="index,follow,max-image-preview:large"
+  shell="content"
+>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <article class="knowledge-page">
+    <nav aria-label="Breadcrumb"><a href="/">Stromausfälle</a><span>/</span><span>Methodik</span></nav>
+    <header class="knowledge-hero">
+      <p class="knowledge-kicker">Über outage.ch</p>
+      <h1>Ein öffentlicher Radar, kein Notfallkanal</h1>
+      <div class="lede">
+        outage.ch sammelt öffentlich zugängliche Meldungen zu Stromausfällen und geplanten Unterbrüchen in der Schweiz. Die Seite ist unabhängig, quellentransparent und ersetzt weder Netzbetreiber noch Behörden.
+      </div>
+      <aside class="knowledge-definition">
+        <p>{SITE_DESCRIPTION}</p>
+      </aside>
+      <small class="knowledge-meta">Aktualisiert am 18. August 2026</small>
+    </header>
+    <div class="article-body">
+      <section>
+        <h2>Was outage.ch zeigt</h2>
+        <p class="article-lead">
+          Jede öffentliche Vorfallsseite nennt Ort, Art, Status, belegte Zeiten, Ursache soweit bekannt und die Originalquellen.
+        </p>
+        <p>
+          Der Radar auf der Startseite bündelt aktuelle, bevorstehende, behobene und historische Meldungen. Geplante Unterbrüche erscheinen nach ihrem angekündigten Beginn. Unbelegte Schätzungen zur Wiederherstellung werden nicht als Tatsache dargestellt.
+        </p>
+      </section>
+      <section>
+        <h2>Quellenregel</h2>
+        <p>
+          Ein Ereignis wird nur veröffentlicht, wenn mindestens eine offizielle Netzbetreiber- oder Behördenquelle vorliegt oder mindestens zwei unabhängige glaubwürdige Quellen dasselbe Ereignis belegen. Ein einzelner Medien- oder Alert-Hinweis bleibt intern.
+        </p>
+        <p>
+          Google Alerts dienen der Entdeckung, nicht als Wahrheit. Direkte Betreiberseiten, Störungskarten und Behördenkanäle haben Vorrang. Relevante Seiten werden intern archiviert; öffentlich sichtbar bleibt nur, was zum veröffentlichten Ereignis gehört.
+        </p>
+      </section>
+      <section>
+        <h2>Was outage.ch nicht ist</h2>
+        <ul>
+          <li>Kein Pikettdienst und keine Stelle, bei der Sie einen Ausfall melden können.</li>
+          <li>Kein Ersatz für Alertswiss, Kantone oder den Notruf 112.</li>
+          <li>Keine behördliche Bestätigung nur weil ein Eintrag öffentlich ist.</li>
+          <li>Kein vollständiges Verzeichnis aller Schweizer Elektrizitätswerke.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Kontakt</h2>
+        <p>
+          Betrieb: outage.ch, E-Mail <a href="mailto:alert@outage.ch">alert@outage.ch</a>.
+          Für eine konkrete Störung wenden Sie sich an den
+          <a href="/netzbetreiber/">zuständigen Verteilnetzbetreiber</a>.
+        </p>
+      </section>
+    </div>
+    <footer class="knowledge-cta">
+      <div><strong>Zum Radar</strong><span>Aktuelle und geplante Stromausfälle in der Schweiz.</span></div>
+      <a href="/">Übersicht öffnen</a>
+    </footer>
+  </article>
+</RadarLayout>

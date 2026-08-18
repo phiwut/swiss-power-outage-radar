@@ -33,7 +33,7 @@ import {
 } from "./public-url";
 import { evidenceScreenshotKey } from "./snapshots";
 import { renderHomeSeoAsset, renderSeoEventAsset } from "./seo-event-page";
-import { knowledgeArticlePaths } from "./knowledge";
+import { buildLlmsTxt, buildRobotsTxt, buildSitemapXml, staticIndexablePages } from "./seo-site";
 import { isBearerAuthorized } from "./auth";
 import type { Env } from "./types";
 
@@ -321,7 +321,8 @@ export default {
       /^\/api\/public\/evidence\/\d+\.png$/.test(url.pathname) ||
       url.pathname.startsWith("/stromausfall/") ||
       url.pathname === "/sitemap.xml" ||
-      url.pathname === "/robots.txt"
+      url.pathname === "/robots.txt" ||
+      url.pathname === "/llms.txt"
     );
     if (isPublicGet && request.method === "GET") {
       const cached = await caches.default.match(publicCacheRequest(request));
@@ -361,6 +362,45 @@ export default {
       );
     }
 
+    if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
+      const headers = { "Content-Type": "application/xml; charset=utf-8" };
+      let xml: string;
+      try {
+        const items = await getPublicSitemapItems(env.DB);
+        xml = buildSitemapXml([
+          ...staticIndexablePages(SITE_ORIGIN),
+          ...items.map((item) => ({
+            loc: `${SITE_ORIGIN}${item.url}`,
+            lastmod: toSitemapLastmod(item.updated_at)
+          }))
+        ]);
+      } catch {
+        xml = buildSitemapXml(staticIndexablePages(SITE_ORIGIN));
+      }
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
+      }
+      return cachePublic(new Response(xml, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
+    }
+
+    if (url.pathname === "/robots.txt" && (request.method === "GET" || request.method === "HEAD")) {
+      const body = buildRobotsTxt(SITE_ORIGIN);
+      const headers = { "Content-Type": "text/plain; charset=utf-8" };
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
+      }
+      return cachePublic(new Response(body, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
+    }
+
+    if (url.pathname === "/llms.txt" && (request.method === "GET" || request.method === "HEAD")) {
+      const body = buildLlmsTxt(SITE_ORIGIN);
+      const headers = { "Content-Type": "text/plain; charset=utf-8" };
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
+      }
+      return cachePublic(new Response(body, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
+    }
+
     const asset = await assetResponse(env, request);
     if (asset) return asset;
 
@@ -391,29 +431,6 @@ export default {
       return cachePublic(new Response(object.body, {
         headers: { "Content-Type": "image/png", ETag: object.httpEtag }
       }), request, ctx, "public,max-age=300,s-maxage=300");
-    }
-
-    if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
-      const items = await getPublicSitemapItems(env.DB);
-      const origin = SITE_ORIGIN;
-      const knowledgeUrls = knowledgeArticlePaths.map((path) =>
-        `<url><loc>${origin}${path}</loc><lastmod>2026-07-30</lastmod></url>`
-      ).join("");
-      const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${origin}/</loc></url>${knowledgeUrls}${items.map((item) => `<url><loc>${origin}${item.url}</loc><lastmod>${toSitemapLastmod(item.updated_at)}</lastmod></url>`).join("")}</urlset>`;
-      const headers = { "Content-Type": "application/xml; charset=utf-8" };
-      if (request.method === "HEAD") {
-        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
-      }
-      return cachePublic(new Response(xml, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
-    }
-
-    if (url.pathname === "/robots.txt" && (request.method === "GET" || request.method === "HEAD")) {
-      const body = `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`;
-      const headers = { "Content-Type": "text/plain; charset=utf-8" };
-      if (request.method === "HEAD") {
-        return new Response(null, { status: 200, headers: { ...headers, "Cache-Control": "public,max-age=300,s-maxage=3600" } });
-      }
-      return cachePublic(new Response(body, { headers }), request, ctx, "public,max-age=300,s-maxage=3600");
     }
 
     if (url.pathname === "/admin/status-page" && request.method === "GET") {
