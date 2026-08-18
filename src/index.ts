@@ -10,6 +10,7 @@ import {
   getPublicFeedItems,
   getPublicSitemapItems,
   getRelatedPublicFeedItems,
+  listPublishedPublicFeedLite,
   isPublicEvidenceSnapshot,
   getPublicStatus,
   getRecentItems,
@@ -32,7 +33,15 @@ import {
   toSitemapLastmod
 } from "./public-url";
 import { evidenceScreenshotKey } from "./snapshots";
+import { operatorBySlug, resolveOperatorProfile } from "./operators";
 import { renderHomeSeoAsset, renderSeoEventAsset } from "./seo-event-page";
+import {
+  loadOperatorLive,
+  operatorSitemapLastmods,
+  parseOperatorPath,
+  renderSeoOperatorAsset,
+  renderSeoOperatorHubAsset
+} from "./seo-operator-page";
 import { buildLlmsTxt, buildRobotsTxt, buildSitemapXml, staticIndexablePages } from "./seo-site";
 import { isBearerAuthorized } from "./auth";
 import type { Env } from "./types";
@@ -292,7 +301,7 @@ async function renderEventPage(env: Env, eventId: number): Promise<Response> {
   });
 }
 
-const PUBLIC_CACHE_VERSION = "seo-v2";
+const PUBLIC_CACHE_VERSION = "seo-v4";
 
 function publicCacheRequest(request: Request): Request {
   const url = new URL(request.url);
@@ -320,6 +329,9 @@ export default {
       /^\/api\/public\/events\/\d+$/.test(url.pathname) ||
       /^\/api\/public\/evidence\/\d+\.png$/.test(url.pathname) ||
       url.pathname.startsWith("/stromausfall/") ||
+      url.pathname === "/netzbetreiber" ||
+      url.pathname === "/netzbetreiber/" ||
+      url.pathname.startsWith("/netzbetreiber/") ||
       url.pathname === "/sitemap.xml" ||
       url.pathname === "/robots.txt" ||
       url.pathname === "/llms.txt"
@@ -343,9 +355,19 @@ export default {
       if (url.pathname !== detail.item.url) {
         return Response.redirect(new URL(detail.item.url, publicOrigin).toString(), 301);
       }
-      const related = await getRelatedPublicFeedItems(env.DB, { excludeId: seoId, limit: 6 });
+      const liveProfile = resolveOperatorProfile({
+        name: detail.operator?.name ?? detail.item.source.publisher,
+        domain: detail.operator?.domain ?? detail.item.source.domain,
+        url: detail.operator?.url ?? detail.item.source.url
+      });
+      const live = liveProfile
+        ? await loadOperatorLive(env.DB, liveProfile, { excludeId: seoId })
+        : null;
+      const related = live?.recent.length
+        ? live.recent.slice(0, 6)
+        : await getRelatedPublicFeedItems(env.DB, { excludeId: seoId, limit: 6 });
       return cachePublic(
-        await renderSeoEventAsset(env, request, detail, related),
+        await renderSeoEventAsset(env, request, detail, related, live),
         request,
         ctx,
         "public,max-age=60,s-maxage=300,stale-while-revalidate=1800"
@@ -362,6 +384,29 @@ export default {
       );
     }
 
+    const operatorPath = parseOperatorPath(url.pathname);
+    if (operatorPath && request.method === "GET") {
+      if (operatorPath.hub) {
+        const items = await listPublishedPublicFeedLite(env.DB);
+        return cachePublic(
+          await renderSeoOperatorHubAsset(env, request, items),
+          request,
+          ctx,
+          "public,max-age=60,s-maxage=180,stale-while-revalidate=900"
+        );
+      }
+      const profile = operatorBySlug(operatorPath.slug);
+      if (profile) {
+        const live = await loadOperatorLive(env.DB, profile);
+        return cachePublic(
+          await renderSeoOperatorAsset(env, request, live),
+          request,
+          ctx,
+          "public,max-age=60,s-maxage=300,stale-while-revalidate=1800"
+        );
+      }
+    }
+
     if (url.pathname === "/sitemap.xml" && (request.method === "GET" || request.method === "HEAD")) {
       const headers = {
         "Content-Type": "application/xml; charset=utf-8",
@@ -369,9 +414,12 @@ export default {
       };
       let xml: string;
       try {
-        const items = await getPublicSitemapItems(env.DB);
+        const [items, operatorItems] = await Promise.all([
+          getPublicSitemapItems(env.DB),
+          listPublishedPublicFeedLite(env.DB)
+        ]);
         xml = buildSitemapXml([
-          ...staticIndexablePages(SITE_ORIGIN),
+          ...staticIndexablePages(SITE_ORIGIN, operatorSitemapLastmods(operatorItems)),
           ...items.map((item) => ({
             loc: `${SITE_ORIGIN}${item.url}`,
             lastmod: toSitemapLastmod(item.updated_at)

@@ -45,7 +45,7 @@ const jsonLd = {
   canonical={canonical}
   robots="index,follow,max-image-preview:large"
   shell="content"
-  activeNav="ratgeber"
+  activeNav="operators"
 >
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   <section class="knowledge-hub">
@@ -53,10 +53,13 @@ const jsonLd = {
       <p>Verzeichnis · Schweiz</p>
       <h1>Netzbetreiber und offizielle Störungsseiten</h1>
       <div>
-        Für die Behebung eines Stromausfalls ist der Verteilnetzbetreiber zuständig, nicht der Stromlieferant. Hier stehen die Werke, deren öffentliche Quellen der Radar regelmässig prüft – jeweils mit Gebiet und Link zur Originalseite.
+        Für die Behebung eines Stromausfalls ist der Verteilnetzbetreiber zuständig, nicht der Stromlieferant. Hier stehen die Werke, deren öffentliche Quellen der Radar regelmässig prüft – jeweils mit Gebiet und, sobald vorhanden, der Zahl öffentlicher Meldungen im Radar.
       </div>
     </header>
-    <div class="operator-list">
+    <p id="operator-hub-live" class="operator-hub-live">
+      Die Meldezahlen erscheinen, sobald outage.ch öffentlich belegte Ereignisse einem beobachteten Werk zuordnen kann.
+    </p>
+    <div class="operator-list" id="operator-list">
       {operators.map((operator) => (
         <a href={operatorProfileUrl(operator)}>
           <strong>{operator.name}</strong>

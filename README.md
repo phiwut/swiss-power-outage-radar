@@ -89,7 +89,7 @@ Die kanonische Quellenliste steht in D1 unter `source_registry`. Die Migration `
 - Energie Wasser Bern: `https://www.ewb.ch/stoerungsmeldungen/`
 - Repower: `https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle`
 
-Die erweiterte Seed-Liste wird zusätzlich in `src/source-registry-seeds.ts` gepflegt. Sie enthält die im Projekt priorisierten Betreiberquellen von BKW, Romande Energie, ewz, SAK, CKW, AEW, IWB, Primeo, EBL, Repower, ewb, WWZ, ewl Luzern, ESB Biel, Evolon, EWS, ebs, Energie Uster, IBB Brugg, Regionalwerke Baden, ibw Wohlen, Genossenschaft Elektra, Werke am Zürichsee, Energie Kreuzlingen, EW Neuenhof, EW Urnäsch, Elektra Fislisbach, TB Flawil, TBGN, TBGS, Stadtwerke Gossau, Technische Betriebe Wil, Thurplus, Viteos und Alertswiss.
+Die erweiterte Seed-Liste wird zusätzlich in `src/source-registry-seeds.ts` gepflegt. Sie enthält die im Projekt priorisierten Betreiberquellen von BKW, EKZ, Romande Energie, Groupe E, ewz, SAK, CKW, AEW, SIG, IWB, Primeo, EBL, AIL, SIL Lausanne, Repower, ewb, WWZ, ewl Luzern, ESB Biel, Stadtwerk Winterthur, St.Galler Stadtwerke, Evolon, EWS, ebs, Energie Uster, IBB Brugg, Regionalwerke Baden, ibw Wohlen, Genossenschaft Elektra, Werke am Zürichsee, Energie Kreuzlingen, EW Neuenhof, EW Urnäsch, Elektra Fislisbach, TB Flawil, TBGN, TBGS, Stadtwerke Gossau, Technische Betriebe Wil, Thurplus, Viteos, OIKEN, EKS, SES, Energie Thun, Regio Energie Solothurn und Alertswiss. Alertswiss wird über den öffentlichen JSON-Feed nur auf strombezogene Warnungen gefiltert. Die Migration `0017_more_operators_alertswiss_json.sql` schreibt diese Quellen nach D1. Betreiberseiten zeigen wo verfügbar einen ElCom-H4-Snapshot (kein individueller Tarif).
 
 Wichtige Felder:
 

@@ -2,6 +2,7 @@ import { canonicalSourceUrl, classifySource } from "./intelligence";
 import { normalizePlaceText } from "./places";
 import { getOutageEvent, getOutageEventFacts, getOutageEventSnapshots, getOutageEventSources, getPublicFeedItem } from "./db";
 import { evidenceScreenshotKey } from "./snapshots";
+import { operatorHostnames, operatorProfileUrl, resolveOperatorProfile } from "./operators";
 import type { Env, OutageEvent, OutageFact, OutageSource, PublicFeedItem, SourceSnapshot } from "./types";
 
 export interface GeoAdminSearchResult {
@@ -39,6 +40,7 @@ export interface PublicDetailOperator {
   area: string | null;
   url: string;
   domain: string;
+  profile_url: string | null;
 }
 
 export interface PublicDetailSource {
@@ -547,13 +549,38 @@ async function getPublicOperator(db: D1Database, eventId: number): Promise<Publi
       primary_source_domain: string;
     }>();
   if (!row?.display_name && !row?.operator_name) return null;
-  return {
+  return withOperatorProfile({
     name: row.operator_name?.trim() || row.display_name!.trim(),
     role: row.authority_kind === "operator" ? "Netzbetreiber" : "Behörde",
     area: row.area_text?.trim() || null,
     url: row.primary_source_url,
     domain: row.primary_source_domain
-  };
+  });
+}
+
+function withOperatorProfile(operator: Omit<PublicDetailOperator, "profile_url">): PublicDetailOperator {
+  const profile = resolveOperatorProfile({
+    name: operator.name,
+    domain: operator.domain,
+    url: operator.url
+  });
+  return { ...operator, profile_url: profile ? operatorProfileUrl(profile) : null };
+}
+
+function operatorFromPublicItem(item: PublicFeedItem): PublicDetailOperator | null {
+  const profile = resolveOperatorProfile({
+    name: item.source.publisher,
+    domain: item.source.domain,
+    url: item.source.url
+  });
+  if (!profile) return null;
+  return withOperatorProfile({
+    name: profile.name,
+    role: "Netzbetreiber",
+    area: profile.area,
+    url: profile.officialUrl,
+    domain: operatorHostnames(profile)[0] ?? item.source.domain
+  });
 }
 
 export async function loadPublicEventDetail(
@@ -571,7 +598,14 @@ export async function loadPublicEventDetail(
     resolvePublicEventLocation(env.DB, event),
     getPublicOperator(env.DB, eventId)
   ]);
-  const base = buildPublicEventDetail({ item, event, facts, sources, location, operator });
+  const base = buildPublicEventDetail({
+    item,
+    event,
+    facts,
+    sources,
+    location,
+    operator: operator ?? operatorFromPublicItem(item)
+  });
   const evidence = await publicEvidenceScreenshots(env.SNAPSHOTS, sources, snapshots, base.sources);
   return { ...base, evidence };
 }

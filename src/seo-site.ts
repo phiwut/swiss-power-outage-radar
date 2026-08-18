@@ -1,4 +1,4 @@
-import { SITE_ORIGIN, absoluteUrl, DEFAULT_OG_IMAGE_PATH } from "./public-url";
+import { SITE_ORIGIN, absoluteUrl, DEFAULT_OG_IMAGE_PATH, toSitemapLastmod } from "./public-url";
 import { knowledgeArticles, knowledgeArticleUrl } from "./knowledge";
 import { operatorProfileUrl, publicOperatorProfiles } from "./operators";
 
@@ -173,7 +173,7 @@ outage.ch sammelt öffentlich zugängliche Meldungen von Verteilnetzbetreibern, 
 
 - [Aktuelle Stromausfälle](${origin}/): Karte und Liste mit Status, Ort und Quellen
 - [Ratgeber](${origin}${GUIDES_HUB_PATH}): praktische Anleitungen für Haushalt und Betrieb
-- [Netzbetreiber](${origin}${OPERATORS_HUB_PATH}): beobachtete Verteilnetzbetreiber und deren offizielle Störungsseiten
+- [Netzbetreiber](${origin}${OPERATORS_HUB_PATH}): beobachtete Verteilnetzbetreiber, offizielle Störungsseiten und öffentliche Meldezahlen im Radar
 - [Methodik](${origin}${ABOUT_PATH}): Quellenregeln, Veröffentlichung und Grenzen
 
 ## Ratgeber
@@ -186,23 +186,28 @@ ${guides}
 `;
 }
 
-export function staticIndexablePages(origin = SITE_ORIGIN): Array<{ loc: string; lastmod: string }> {
+export function staticIndexablePages(
+  origin = SITE_ORIGIN,
+  operatorLastmods: Map<string, string> | Record<string, string> = new Map()
+): Array<{ loc: string; lastmod: string }> {
+  const lastmods = operatorLastmods instanceof Map ? operatorLastmods : new Map(Object.entries(operatorLastmods));
   const guideUpdated = knowledgeArticles.reduce(
     (latest, article) => (article.updatedAt > latest ? article.updatedAt : latest),
     STATIC_CONTENT_UPDATED_AT
   );
+  const hubLastmod = [...lastmods.values()].sort().at(-1) ?? STATIC_CONTENT_UPDATED_AT;
   return [
     { loc: `${origin}/`, lastmod: STATIC_CONTENT_UPDATED_AT },
     { loc: `${origin}${ABOUT_PATH}`, lastmod: STATIC_CONTENT_UPDATED_AT },
     { loc: `${origin}${GUIDES_HUB_PATH}`, lastmod: guideUpdated },
-    { loc: `${origin}${OPERATORS_HUB_PATH}`, lastmod: STATIC_CONTENT_UPDATED_AT },
+    { loc: `${origin}${OPERATORS_HUB_PATH}`, lastmod: toSitemapLastmod(hubLastmod) },
     ...knowledgeArticles.map((article) => ({
       loc: `${origin}${knowledgeArticleUrl(article)}`,
       lastmod: article.updatedAt
     })),
     ...publicOperatorProfiles().map((operator) => ({
       loc: `${origin}${operatorProfileUrl(operator)}`,
-      lastmod: STATIC_CONTENT_UPDATED_AT
+      lastmod: toSitemapLastmod(lastmods.get(operator.slug) ?? STATIC_CONTENT_UPDATED_AT)
     }))
   ];
 }

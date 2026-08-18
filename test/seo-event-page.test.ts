@@ -165,11 +165,65 @@ describe("SEO event page", () => {
       role: "Netzbetreiber",
       area: "Stadt Zürich",
       url: "https://www.ewz.ch/de/services/stoerungen.html",
-      domain: "ewz.ch"
+      domain: "ewz.ch",
+      profile_url: "/netzbetreiber/ewz/"
     };
     const html = renderEventSeoMarkup(withOperator);
     expect(html).toContain("/netzbetreiber/ewz/");
-    expect(html).toContain("Profil auf outage.ch");
+    expect(html).toContain("Meldungen von ewz");
+    expect(html).toContain("Offizielle Seite");
+  });
+
+  it("shows operator radar stats and related events on the incident page", () => {
+    const withOperator = detail();
+    withOperator.operator = {
+      name: "ewz",
+      role: "Netzbetreiber",
+      area: "Stadt Zürich",
+      url: "https://www.ewz.ch/de/services/stoerungen.html",
+      domain: "ewz.ch",
+      profile_url: "/netzbetreiber/ewz/"
+    };
+    const live = {
+      profile: {
+        slug: "ewz",
+        name: "ewz",
+        area: "Stadt Zürich, Mittelbünden und Bergell",
+        officialUrl: "https://www.ewz.ch/de/services/stoerungen.html",
+        sourceCategory: "live_status" as const,
+        language: "de" as const,
+        checkMinutes: 10,
+        sourceKey: "ewz-stoerungen"
+      },
+      stats: {
+        total: 4,
+        active: 1,
+        upcoming: 1,
+        resolved: 2,
+        planned: 2,
+        unplanned: 2,
+        last30Days: 3,
+        knownDurations: 1,
+        medianDurationMinutes: 120,
+        lastUpdatedAt: "2026-08-02T08:00:00.000Z",
+        topLocations: [{ label: "Zürich", count: 3 }]
+      },
+      recent: [{
+        ...withOperator.item,
+        id: 41,
+        url: "/stromausfall/seefeld-41",
+        location: "Seefeld",
+        status: "active" as const,
+        nature: "unplanned" as const
+      }]
+    };
+    const html = renderEventSeoMarkup(withOperator, live.recent, live);
+    expect(html).toContain("Öffentliche Meldungen");
+    expect(html).toContain(">4<");
+    expect(html).toContain("4 öffentliche Meldungen im Radar, davon 1 aktiv.");
+    expect(html).toContain("Weitere Meldungen von ewz");
+    expect(html).toContain("/stromausfall/seefeld-41");
+    expect(html).toContain("Zählung auf outage.ch, nicht die komplette Betriebsstatistik des Werks.");
   });
 
   it("exposes crawlable homepage answers without hiding them from extractors", () => {

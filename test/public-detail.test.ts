@@ -127,7 +127,8 @@ describe("public event detail", () => {
         role: "Netzbetreiber",
         area: "Primeo Netzgebiet Nordwestschweiz",
         url: item.source.url,
-        domain: "primeo-energie.ch"
+        domain: "primeo-energie.ch",
+        profile_url: "/netzbetreiber/primeo-energie/"
       }
     });
 

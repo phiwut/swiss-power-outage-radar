@@ -642,7 +642,7 @@ export const knowledgeArticles: KnowledgeArticle[] = [
       {
         heading: "Was der Netzbetreiber leistet",
         paragraphs: [
-          "Der Verteilnetzbetreiber veröffentlicht geplante Unterbrüche und aktuelle Störungen in seinem Netzgebiet. Das ist die Quelle für «läuft der Strom in meiner Strasse?». outage.ch liest genau solche öffentlichen Seiten und nimmt Alertswiss als zusätzliche Entdeckungsquelle, nicht als Ersatz für die Betreiberakte."
+          "Der Verteilnetzbetreiber veröffentlicht geplante Unterbrüche und aktuelle Störungen in seinem Netzgebiet. Das ist die Quelle für «läuft der Strom in meiner Strasse?». outage.ch liest genau solche öffentlichen Seiten. Alertswiss wird zusätzlich als Entdeckungsquelle für strombezogene Warnungen gelesen, ohne die amtlichen Volltexte zu übernehmen. Das ersetzt weder die Betreiberakte noch Alertswiss selbst."
         ]
       },
       {
@@ -673,7 +673,7 @@ export const knowledgeArticles: KnowledgeArticle[] = [
       {
         question: "Wertet outage.ch Alertswiss als Beweis für einen Stromausfall?",
         answer:
-          "Alertswiss ist eine offizielle Entdeckungsquelle. Veröffentlicht wird ein Ereignis erst, wenn die Quellenregel erfüllt ist – also offizielle Netz- oder Behördeninformation oder zwei unabhängige glaubwürdige Quellen."
+          "Alertswiss ist eine offizielle Entdeckungsquelle. outage.ch liest den öffentlichen Feed und behält nur strombezogene Warnungen, mit Quellenangabe www.alertswiss.ch. Veröffentlicht wird ein Ereignis erst, wenn die Quellenregel erfüllt ist – also offizielle Netz- oder Behördeninformation oder zwei unabhängige glaubwürdige Quellen. Die Alertswiss-Volltexte werden nicht übernommen."
       },
       {
         question: "Ersetzt Twitter oder ein Dorfchat Alertswiss?",

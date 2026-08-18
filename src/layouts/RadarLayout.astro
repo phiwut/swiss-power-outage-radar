@@ -14,7 +14,7 @@ interface Props {
   robots?: string;
   /** radar = full-bleed map home; content = article/detail shell */
   shell?: "radar" | "content";
-  activeNav?: "radar" | "ratgeber" | "help";
+  activeNav?: "radar" | "ratgeber" | "help" | "operators";
 }
 
 const {
@@ -77,6 +77,7 @@ const hideTopOnRadarMobile = shell === "radar";
         </a>
         <nav class="app-top__nav" aria-label="Hauptnavigation">
           <a href="/" aria-current={activeNav === "radar" ? "page" : undefined}>Radar</a>
+          <a href="/netzbetreiber/" aria-current={activeNav === "operators" ? "page" : undefined}>Betreiber</a>
           <a href="/ratgeber/" aria-current={activeNav === "ratgeber" ? "page" : undefined}>Ratgeber</a>
           <a href="/ratgeber/stromausfall-was-tun/" aria-current={activeNav === "help" ? "page" : undefined}>Was tun?</a>
         </nav>
@@ -97,6 +98,10 @@ const hideTopOnRadarMobile = shell === "radar";
         <a href="/" aria-current={activeNav === "radar" ? "page" : undefined}>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" opacity=".45"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
           Radar
+        </a>
+        <a href="/netzbetreiber/" aria-current={activeNav === "operators" ? "page" : undefined}>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg>
+          Betreiber
         </a>
         <a href="/ratgeber/" aria-current={activeNav === "ratgeber" ? "page" : undefined}>
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19.5V6a2 2 0 0 1 2-2h11v15.5"/><path d="M6 19.5h13"/><path d="M8 8h7M8 12h7"/></svg>

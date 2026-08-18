@@ -603,6 +603,78 @@ async function parseEwzHtml(
   return { observations, schemaMatched: true };
 }
 
+const ELECTRICITY_ALERTSWISS_PATTERN = /stromausfall|stromunterbruch|stromversorgung|netzstörung|netzstoerung|\bblackout\b|strommangellage|coupure de courant|panne de courant|interruption de (?:courant|l['’]électricité)|interruzione di corrente|power outage|électri(?:cité|que)|electricit(?:y|é)/i;
+
+function localizedAlertText(value: unknown): string {
+  if (typeof value === "string") return compact(value);
+  const record = recordOf(value);
+  return compact(stringOrNull(record.title) ?? stringOrNull(record.description) ?? stringOrNull(record.text) ?? "");
+}
+
+function alertswissAreaText(alert: Record<string, unknown>): string | null {
+  if (!Array.isArray(alert.areas)) return null;
+  const areas = alert.areas
+    .map((area) => localizedAlertText(recordOf(area).description))
+    .filter(Boolean);
+  return areas.length ? compact(areas.slice(0, 4).join(", ")) : null;
+}
+
+function isElectricityAlertswissAlert(alert: Record<string, unknown>): boolean {
+  return ELECTRICITY_ALERTSWISS_PATTERN.test([
+    stringOrNull(alert.event),
+    localizedAlertText(alert.title),
+    localizedAlertText(alert.description)
+  ].join(" "));
+}
+
+async function parseAlertswissPayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  const root = recordOf(payload);
+  if (!Array.isArray(root.alerts)) return { observations: [], schemaMatched: false };
+  if (typeof root.heartbeatAgeInMillis !== "number" && typeof root.renderTime !== "string") {
+    return { observations: [], schemaMatched: false };
+  }
+
+  const observations = await Promise.all(root.alerts.flatMap((raw) => {
+    const alert = recordOf(raw);
+    if (alert.testAlert === true || alert.technicalTestAlert === true) return [];
+    if (String(alert.event ?? "").toLowerCase().includes("cap test")) return [];
+    if (!isElectricityAlertswissAlert(alert)) return [];
+    const identifier = stringOrNull(alert.identifier) ?? "ohne-id";
+    const title = localizedAlertText(alert.title) || stringOrNull(alert.event) || "Stromwarnung Alertswiss";
+    const location = alertswissAreaText(alert);
+    const planned = /geplant|travaux planif|planned interruption/i.test(title);
+    const status: CanonicalObservationStatus = alert.allClear === true ? "resolved" : planned ? "planned" : "unplanned";
+    const text = compact([
+      title,
+      location ? `Gebiet: ${location}.` : null,
+      `Alertswiss-Meldung ${identifier}.`,
+      "Quelle: www.alertswiss.ch."
+    ].filter(Boolean).join(" "));
+    return [makeSourceObservationFromText(source, {
+      title: title.slice(0, 220),
+      url: source.url,
+      text,
+      locationText: location,
+      observedAt,
+      canonicalStatus: status,
+      raw: {
+        adapter: "alertswiss",
+        identifier,
+        event: stringOrNull(alert.event),
+        publisherName: stringOrNull(alert.publisherName),
+        area: location,
+        allClear: alert.allClear === true
+      }
+    })];
+  }));
+
+  return { observations, schemaMatched: true };
+}
+
 async function parseKnownApiPayload(
   source: SourceRegistryEntry,
   payload: unknown,
@@ -612,6 +684,7 @@ async function parseKnownApiPayload(
   if (source.source_key === "sak-netzstatus") return parseSakPayload(source, payload, observedAt);
   if (source.source_key === "romande-energie-pannes") return parseRomandePayload(source, payload, observedAt);
   if (source.source_key === "primeo-netzstatus") return parsePrimeoPayload(source, payload, observedAt);
+  if (source.source_key === "alertswiss") return parseAlertswissPayload(source, payload, observedAt);
   return null;
 }
 
@@ -675,7 +748,7 @@ export async function fetchSourceObservations(
   const config = parseConfig(source);
   try {
     const knownApiUrl = config.api_url;
-    if (knownApiUrl && ["bkw-outage", "sak-netzstatus", "romande-energie-pannes", "primeo-netzstatus"].includes(source.source_key)) {
+    if (knownApiUrl && ["bkw-outage", "sak-netzstatus", "romande-energie-pannes", "primeo-netzstatus", "alertswiss"].includes(source.source_key)) {
       const fetched = await fetchText(knownApiUrl);
       if (fetched.error) {
         return { observations: [], error: fetched.error, usedFirecrawl: false, transportStatus: "error", parserStatus: "error" };

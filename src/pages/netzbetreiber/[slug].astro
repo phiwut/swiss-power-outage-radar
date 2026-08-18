@@ -1,6 +1,13 @@
 ---
 import RadarLayout from "../../layouts/RadarLayout.astro";
 import {
+  ELCOM_PRICE_URL,
+  elcomFactsDisclaimer,
+  elcomFactsForSlug,
+  elcomFactsInsight,
+  elcomFactsRows
+} from "../../elcom-operator-facts";
+import {
   operatorBySlug,
   operatorDefinition,
   operatorFaqs,
@@ -8,10 +15,11 @@ import {
   operatorProfileUrl,
   operatorSourceExplanation,
   publicOperatorProfiles,
+  relatedOperatorProfiles,
   sourceCategoryLabel
 } from "../../operators";
 import { SITE_ORIGIN } from "../../public-url";
-import { organizationId } from "../../seo-site";
+import { operatorPageJsonLd } from "../../seo-operator-page";
 import "../../styles/knowledge.css";
 
 export function getStaticPaths() {
@@ -31,43 +39,9 @@ const definition = operatorDefinition(operator);
 const languageNote = operatorLanguageNote(operator);
 const sourceText = operatorSourceExplanation(operator);
 const faqs = operatorFaqs(operator);
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebPage",
-      "@id": `${canonical}#page`,
-      url: canonical,
-      name: `Störungen ${operator.name}`,
-      description: definition,
-      inLanguage: "de-CH",
-      about: {
-        "@type": "Organization",
-        name: operator.name,
-        url: operator.officialUrl,
-        areaServed: operator.area
-      },
-      publisher: { "@id": organizationId() }
-    },
-    {
-      "@type": "FAQPage",
-      "@id": `${canonical}#faq`,
-      mainEntity: faqs.map((faq) => ({
-        "@type": "Question",
-        name: faq.question,
-        acceptedAnswer: { "@type": "Answer", text: faq.answer }
-      }))
-    },
-    {
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${SITE_ORIGIN}/` },
-        { "@type": "ListItem", position: 2, name: "Netzbetreiber", item: `${SITE_ORIGIN}/netzbetreiber/` },
-        { "@type": "ListItem", position: 3, name: operator.name, item: canonical }
-      ]
-    }
-  ]
-};
+const related = relatedOperatorProfiles(operator, 4);
+const elcom = elcomFactsForSlug(operator.slug);
+const jsonLd = operatorPageJsonLd(operator, null);
 ---
 
 <RadarLayout
@@ -76,9 +50,9 @@ const jsonLd = {
   canonical={canonical}
   robots="index,follow,max-image-preview:large"
   shell="content"
-  activeNav="ratgeber"
+  activeNav="operators"
 >
-  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  <script slot="head" id="operator-jsonld" type="application/ld+json" set:html={jsonLd} />
   <article class="knowledge-page">
     <nav aria-label="Breadcrumb">
       <a href="/">Stromausfälle</a><span>/</span>
@@ -97,12 +71,43 @@ const jsonLd = {
     <div class="article-layout">
       <aside class="article-toc">
         <strong>Inhalt</strong>
+        <a href="#operator-live">Meldungen im Radar</a>
+        {elcom && <a href="#operator-facts">ElCom-Kennzahlen</a>}
         <a href="#quelle">Offizielle Quelle</a>
         <a href="#radar">Was outage.ch daraus macht</a>
         <a href="#handeln">Was Sie tun</a>
         <a href="#faq">Fragen</a>
       </aside>
       <div class="article-body">
+        <section id="operator-live" class="operator-live">
+          <h2>Öffentliche Meldungen im Radar</h2>
+          <p class="article-lead">
+            Sobald outage.ch eine öffentlich belegte Meldung aus der Quelle von {operator.name} übernimmt, erscheinen hier Anzahl, Status und Links zu den Vorfallsseiten. Ohne Eintrag im Radar bleibt {operator.name} trotzdem zuständig.
+          </p>
+        </section>
+        {elcom && (
+          <section id="operator-facts" class="operator-live">
+            <h2>ElCom-Kennzahlen</h2>
+            <p class="article-lead">{elcomFactsInsight(operator.name, elcom)}</p>
+            <div class="operator-stats">
+              <dl>
+                {elcomFactsRows(elcom).map(([label, value]) => (
+                  <div>
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p class="operator-stats-note">{elcomFactsDisclaimer()}</p>
+            </div>
+            <p>
+              <a class="operator-official" href={ELCOM_PRICE_URL} target="_blank" rel="noreferrer">
+                ElCom-Strompreisübersicht öffnen
+                <span>↗</span>
+              </a>
+            </p>
+          </section>
+        )}
         <section id="quelle">
           <h2>Offizielle Störungsseite</h2>
           <p class="article-lead">
@@ -150,13 +155,28 @@ const jsonLd = {
         <section id="faq" class="article-faq">
           <p class="knowledge-eyebrow">Häufige Fragen</p>
           <h2>Fragen zu {operator.name}</h2>
-          {faqs.map((faq) => (
-            <details>
-              <summary>{faq.question}</summary>
-              <p>{faq.answer}</p>
-            </details>
-          ))}
+          <div id="operator-faq">
+            {faqs.map((faq) => (
+              <details>
+                <summary>{faq.question}</summary>
+                <p>{faq.answer}</p>
+              </details>
+            ))}
+          </div>
         </section>
+        {related.length > 0 && (
+          <section class="related-guides" aria-labelledby="related-operators-heading">
+            <p class="knowledge-eyebrow">Weitere Werke</p>
+            <h2 id="related-operators-heading">Andere beobachtete Netzbetreiber</h2>
+            {related.map((profile) => (
+              <a href={`/netzbetreiber/${profile.slug}/`}>
+                <small>{sourceCategoryLabel(profile.sourceCategory)}</small>
+                <strong>{profile.name}</strong>
+                <p>{profile.area}</p>
+              </a>
+            ))}
+          </section>
+        )}
       </div>
     </div>
     <footer class="knowledge-cta">

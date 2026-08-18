@@ -1,5 +1,7 @@
+import { elcomFactsForSlug, elcomFaq } from "./elcom-operator-facts";
 import { SOURCE_REGISTRY_SEEDS, type SourceRegistrySeed } from "./source-registry-seeds";
-import { publicEventSlug } from "./public-url";
+import { publicDisplayLocation, publicEventSlug } from "./public-url";
+import type { PublicFeedItem } from "./types";
 
 export interface OperatorProfile {
   slug: string;
@@ -58,6 +60,138 @@ export function findOperatorProfile(name: string | null | undefined): OperatorPr
     ?? null;
 }
 
+export function operatorHostnames(operator: Pick<OperatorProfile, "officialUrl">): string[] {
+  try {
+    const host = new URL(operator.officialUrl).hostname.replace(/^www\./i, "").toLowerCase();
+    return host ? [host] : [];
+  } catch {
+    return [];
+  }
+}
+
+export function normalizeSourceHost(value: string | null | undefined): string {
+  const raw = (value ?? "").trim().toLowerCase();
+  if (!raw) return "";
+  try {
+    const host = raw.includes("://") ? new URL(raw).hostname : raw.split("/")[0] ?? raw;
+    return host.replace(/^www\./, "");
+  } catch {
+    return raw.replace(/^www\./, "");
+  }
+}
+
+export function findOperatorByDomain(domain: string | null | undefined): OperatorProfile | null {
+  const host = normalizeSourceHost(domain);
+  if (!host) return null;
+  return publicOperatorProfiles().find((profile) => {
+    return operatorHostnames(profile).some((official) => host === official || host.endsWith(`.${official}`));
+  }) ?? null;
+}
+
+export function resolveOperatorProfile(input: {
+  name?: string | null;
+  domain?: string | null;
+  url?: string | null;
+}): OperatorProfile | null {
+  return findOperatorProfile(input.name)
+    ?? findOperatorByDomain(input.domain)
+    ?? findOperatorByDomain(input.url)
+    ?? null;
+}
+
+export function eventMatchesOperator(
+  item: Pick<PublicFeedItem, "source">,
+  operator: OperatorProfile
+): boolean {
+  const host = normalizeSourceHost(item.source.domain || item.source.url);
+  const officialHosts = operatorHostnames(operator);
+  if (host && officialHosts.some((official) => host === official || host.endsWith(`.${official}`))) {
+    return true;
+  }
+  const matched = resolveOperatorProfile({
+    name: item.source.publisher,
+    domain: item.source.domain,
+    url: item.source.url
+  });
+  return matched?.slug === operator.slug;
+}
+
+export interface OperatorLiveStats {
+  total: number;
+  active: number;
+  upcoming: number;
+  resolved: number;
+  planned: number;
+  unplanned: number;
+  last30Days: number;
+  knownDurations: number;
+  medianDurationMinutes: number | null;
+  lastUpdatedAt: string | null;
+  topLocations: Array<{ label: string; count: number }>;
+}
+
+export interface OperatorLiveContext {
+  profile: OperatorProfile;
+  stats: OperatorLiveStats;
+  recent: PublicFeedItem[];
+}
+
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const ranked = [...values].sort((left, right) => left - right);
+  const mid = Math.floor(ranked.length / 2);
+  return ranked.length % 2 === 0
+    ? Math.round(((ranked[mid - 1] ?? 0) + (ranked[mid] ?? 0)) / 2)
+    : ranked[mid] ?? null;
+}
+
+export function summarizeOperatorEvents(
+  items: PublicFeedItem[],
+  now = Date.now()
+): OperatorLiveStats {
+  const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+  const locations = new Map<string, number>();
+  const durations: number[] = [];
+  let lastUpdatedAt: string | null = null;
+  for (const item of items) {
+    const location = publicDisplayLocation(item.location);
+    if (location && location !== "Schweiz") {
+      locations.set(location, (locations.get(location) ?? 0) + 1);
+    }
+    if (typeof item.duration_minutes === "number" && item.duration_minutes >= 0) {
+      durations.push(item.duration_minutes);
+    }
+    if (!lastUpdatedAt || item.updated_at > lastUpdatedAt) lastUpdatedAt = item.updated_at;
+  }
+  const topLocations = [...locations.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "de-CH"))
+    .slice(0, 5)
+    .map(([label, count]) => ({ label, count }));
+  return {
+    total: items.length,
+    active: items.filter((item) => item.status === "active").length,
+    upcoming: items.filter((item) => item.status === "upcoming").length,
+    resolved: items.filter((item) => item.status === "resolved").length,
+    planned: items.filter((item) => item.nature === "planned").length,
+    unplanned: items.filter((item) => item.nature === "unplanned").length,
+    last30Days: items.filter((item) => {
+      const stamp = Date.parse(item.started_at ?? item.received_at ?? item.updated_at);
+      return Number.isFinite(stamp) && stamp >= monthAgo;
+    }).length,
+    knownDurations: durations.length,
+    medianDurationMinutes: median(durations),
+    lastUpdatedAt,
+    topLocations
+  };
+}
+
+export function relatedOperatorProfiles(operator: OperatorProfile, limit = 4): OperatorProfile[] {
+  const others = publicOperatorProfiles().filter((profile) => profile.slug !== operator.slug);
+  const sameLanguage = others.filter((profile) => profile.language === operator.language);
+  const rest = others.filter((profile) => profile.language !== operator.language);
+  return [...sameLanguage, ...rest].slice(0, Math.max(0, limit));
+}
+
 export function sourceCategoryLabel(category: OperatorProfile["sourceCategory"]): string {
   if (category === "outage_map") return "Störungskarte oder Lagebild";
   if (category === "live_status") return "aktuelle Störungsseite";
@@ -92,16 +226,52 @@ export function operatorSourceExplanation(operator: OperatorProfile): string {
   return `${operator.name} hat eine öffentliche Hinweisquelle. outage.ch nutzt sie zur Einordnung, nicht als alleinigen Beweis für einen Ausfall.`;
 }
 
-export function operatorFaqs(operator: OperatorProfile): Array<{ question: string; answer: string }> {
-  return [
+export function operatorLiveInsight(operator: OperatorProfile, stats: OperatorLiveStats): string {
+  if (stats.total === 0) {
+    return `Im öffentlichen Radar von outage.ch liegt derzeit keine belegte Meldung aus der Quelle von ${operator.name}. Das heisst nicht, dass in ${operator.area} keine Störung existiert – verbindlich bleibt die offizielle Störungsseite des Werks.`;
+  }
+  const current = [
+    stats.active ? `${stats.active} aktive` : null,
+    stats.upcoming ? `${stats.upcoming} geplante, noch bevorstehende` : null
+  ].filter(Boolean);
+  if (current.length) {
+    return `outage.ch führt derzeit ${stats.total} öffentliche Meldungen aus der Quelle von ${operator.name}, davon ${current.join(" und ")}. Gezählt werden nur Ereignisse, die die Veröffentlichungsregel erfüllen – nicht die komplette Betriebsstatistik des Werks.`;
+  }
+  const mix = [
+    stats.unplanned ? `${stats.unplanned} ungeplante` : null,
+    stats.planned ? `${stats.planned} geplante` : null
+  ].filter(Boolean);
+  return `outage.ch hat ${stats.total} öffentliche Meldungen aus der Quelle von ${operator.name} erfasst${mix.length ? ` (${mix.join(", ")})` : ""}. Derzeit ist keine davon als aktiv oder bevorstehend ausgewiesen.`;
+}
+
+export function operatorFaqs(
+  operator: OperatorProfile,
+  stats?: OperatorLiveStats | null
+): Array<{ question: string; answer: string }> {
+  const radarAnswer = !stats || stats.total === 0
+    ? `Aktuell liegt keine öffentliche Meldung von ${operator.name} im Radar. outage.ch zeigt nur Ereignisse, die offiziell oder durch zwei unabhängige Quellen belegt sind.`
+    : stats.active > 0
+      ? `Ja, im Radar sind derzeit ${stats.active} aktive öffentliche Meldungen von ${operator.name} sichtbar. Verbindlich bleibt trotzdem die Originalseite des Werks.`
+      : stats.upcoming > 0
+        ? `Derzeit sind ${stats.upcoming} geplante Unterbrüche von ${operator.name} im Radar, aber keine als aktiv ausgewiesene Störung.`
+        : `Im Radar sind ${stats.total} öffentliche Meldungen von ${operator.name} erfasst, derzeit keine als aktiv.`;
+  const faqs = [
     {
       question: `Wer ist bei einem Stromausfall im Gebiet von ${operator.name} zuständig?`,
       answer: `Für die Behebung ist ${operator.name} als Verteilnetzbetreiber zuständig, nicht der Stromlieferant und nicht outage.ch. Das Versorgungsgebiet umfasst ${operator.area}.`
     },
     {
+      question: `Gibt es aktuell eine öffentliche Störungsmeldung von ${operator.name}?`,
+      answer: radarAnswer
+    },
+    {
       question: `Wo veröffentlicht ${operator.name} aktuelle Störungen?`,
       answer: `Auf der offiziellen Seite ${operator.officialUrl}. Das ist die verbindliche Auskunft.`
-    },
+    }
+  ];
+  const elcom = elcomFactsForSlug(operator.slug);
+  if (elcom) faqs.push(elcomFaq(operator.name, elcom));
+  faqs.push(
     {
       question: `Kann ich eine Störung im Netz von ${operator.name} bei outage.ch melden?`,
       answer: `Nein. Melden Sie den Ausfall direkt bei ${operator.name}. outage.ch zeigt nur öffentlich nachvollziehbare Meldungen.`
@@ -110,5 +280,6 @@ export function operatorFaqs(operator: OperatorProfile): Array<{ question: strin
       question: `Wie oft prüft outage.ch die Quelle von ${operator.name}?`,
       answer: `Etwa alle ${operator.checkMinutes} Minuten, sofern die Quelle erreichbar ist. Eine öffentliche Meldung auf outage.ch erscheint erst, wenn die Veröffentlichungsregel erfüllt ist.`
     }
-  ];
+  );
+  return faqs;
 }

@@ -1,13 +1,14 @@
 import type { PublicEventDetail } from "./public-detail";
 import type { Env, PublicFeedItem } from "./types";
 import { relatedKnowledgeArticles, knowledgeArticleUrl } from "./knowledge";
-import { findOperatorProfile, operatorProfileUrl } from "./operators";
+import { findOperatorProfile, operatorProfileUrl, resolveOperatorProfile, type OperatorLiveContext } from "./operators";
 import {
   DEFAULT_OG_IMAGE_PATH,
   SITE_ORIGIN,
   absoluteUrl,
   publicDisplayLocation
 } from "./public-url";
+import { renderOperatorStatsGrid } from "./seo-operator-page";
 import { homeFaqs, organizationId, SITE_DESCRIPTION, websiteId } from "./seo-site";
 
 function escapeHtml(value: unknown): string {
@@ -144,6 +145,11 @@ export function eventFaq(detail: PublicEventDetail): Array<{ question: string; a
   const location = eventLocation(detail);
   const start = formatDate(item.started_at);
   const end = formatDate(item.resolved_at);
+  const operatorProfile = resolveOperatorProfile({
+    name: detail.operator?.name ?? item.source.publisher,
+    domain: detail.operator?.domain ?? item.source.domain,
+    url: detail.operator?.url ?? item.source.url
+  });
   const statusAnswer = item.status === "active"
     ? `${statusLine(detail)}. Verbindlich ist der aktuelle Stand des zuständigen Netzbetreibers.`
     : item.status === "upcoming"
@@ -187,7 +193,9 @@ export function eventFaq(detail: PublicEventDetail): Array<{ question: string; a
     {
       question: "Wo finde ich verbindliche Informationen?",
       answer: detail.operator
-        ? `Verbindliche Angaben erhalten Sie beim zuständigen Netzbetreiber ${detail.operator.name}. outage.ch dokumentiert öffentlich zugängliche Meldungen und deren Quellen.`
+        ? `Verbindliche Angaben erhalten Sie beim zuständigen Netzbetreiber ${detail.operator.name}. outage.ch dokumentiert öffentlich zugängliche Meldungen und deren Quellen.${
+            operatorProfile ? ` Weitere öffentliche Meldungen dieses Werks stehen unter ${SITE_ORIGIN}${operatorProfileUrl(operatorProfile)}.` : ""
+          }`
         : "Verbindliche Angaben erhalten Sie beim lokalen Netzbetreiber. Dieser ist meist auf Ihrer Stromrechnung aufgeführt."
     }
   ];
@@ -202,6 +210,12 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
   const summary = consistentSummary(detail);
   const date = shortDate(item.started_at ?? item.received_at);
   const title = buildEventTitle(kindShort, location, date);
+  const operatorProfile = resolveOperatorProfile({
+    name: detail.operator?.name ?? item.source.publisher,
+    domain: detail.operator?.domain ?? item.source.domain,
+    url: detail.operator?.url ?? item.source.url
+  });
+  const operatorPage = operatorProfile ? `${siteOrigin}${operatorProfileUrl(operatorProfile)}` : null;
   const statusBit = item.status === "upcoming"
     ? "Bevorstehend"
     : item.status === "resolved"
@@ -236,7 +250,12 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
       "@type": "BreadcrumbList", "@id": `${canonical}#breadcrumb`,
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Stromausfälle Schweiz", item: `${siteOrigin}/` },
-        { "@type": "ListItem", position: 2, name: location, item: canonical }
+        ...(operatorPage && operatorProfile
+          ? [
+              { "@type": "ListItem", position: 2, name: operatorProfile.name, item: operatorPage },
+              { "@type": "ListItem", position: 3, name: location, item: canonical }
+            ]
+          : [{ "@type": "ListItem", position: 2, name: location, item: canonical }])
       ]
     }
   ];
@@ -266,7 +285,11 @@ export function eventSeo(detail: PublicEventDetail, origin = SITE_ORIGIN) {
         address: { "@type": "PostalAddress", addressLocality: location, addressRegion: item.canton ?? undefined, addressCountry: "CH" },
         ...(detail.map ? { geo: { "@type": "GeoCoordinates", latitude: detail.map.latitude, longitude: detail.map.longitude } } : {})
       },
-      organizer: { "@type": "Organization", name: detail.operator?.name ?? "outage.ch", url: detail.operator?.url ?? `${siteOrigin}/` }
+      organizer: {
+        "@type": "Organization",
+        name: detail.operator?.name ?? operatorProfile?.name ?? "outage.ch",
+        url: operatorPage ?? detail.operator?.url ?? `${siteOrigin}/`
+      }
     });
   } else {
     graph[1].about = { "@type": "Thing", name: `${kind} in ${location}` };
@@ -356,10 +379,11 @@ function relatedStatusLabel(item: PublicFeedItem): string {
   return "Meldung";
 }
 
-function renderRelatedEvents(related: PublicFeedItem[]): string {
+function renderRelatedEvents(related: PublicFeedItem[], heading?: string): string {
   if (!related.length) return "";
+  const title = heading ?? "Aktuelle Stromausfälle in der Schweiz";
   return `<section class="related-events" aria-labelledby="related-heading">
-    <div class="section-heading"><span>Weitere Meldungen</span><h2 id="related-heading">Aktuelle Stromausfälle in der Schweiz</h2></div>
+    <div class="section-heading"><span>Weitere Meldungen</span><h2 id="related-heading">${escapeHtml(title)}</h2></div>
     <div class="related-list">${related.map((item) => {
       const location = publicDisplayLocation(item.location);
       const kind = item.nature === "planned" ? "Geplanter Unterbruch" : "Stromausfall";
@@ -369,20 +393,36 @@ function renderRelatedEvents(related: PublicFeedItem[]): string {
   </section>`;
 }
 
-function renderOperator(operator: PublicEventDetail["operator"]): string {
-  if (!operator) return "";
-  const profile = findOperatorProfile(operator.name);
-  const profileLink = profile
-    ? `<a href="${escapeHtml(operatorProfileUrl(profile))}">Profil auf outage.ch</a>`
-    : "";
+function renderOperator(operator: PublicEventDetail["operator"], live?: OperatorLiveContext | null): string {
+  const profile = live?.profile
+    ?? (operator ? resolveOperatorProfile({ name: operator.name, domain: operator.domain, url: operator.url }) : null)
+    ?? findOperatorProfile(operator?.name);
+  if (!operator && !profile) return "";
+  const name = operator?.name ?? profile?.name ?? "";
+  const area = operator?.area ?? profile?.area ?? "";
+  const role = operator?.role ?? "Netzbetreiber";
+  const officialUrl = operator?.url ?? profile?.officialUrl ?? "";
+  const profileUrl = profile ? operatorProfileUrl(profile) : "";
+  const stats = live?.stats;
+  const footnote = "Zählung auf outage.ch, nicht die komplette Betriebsstatistik des Werks.";
   return `<aside class="operator-block" aria-labelledby="operator-heading">
     <div class="operator-copy">
-      <span>${escapeHtml(operator.role)}</span>
-      <h2 id="operator-heading">${escapeHtml(operator.name)}</h2>
-      ${operator.area ? `<p>${escapeHtml(operator.area)}</p>` : ""}
-      ${profileLink}
+      <span>${escapeHtml(role)}</span>
+      <h2 id="operator-heading">${escapeHtml(name)}</h2>
+      ${area ? `<p>${escapeHtml(area)}</p>` : ""}
+      ${stats ? `<p class="operator-live-line">${escapeHtml(
+        stats.active > 0
+          ? `${stats.total} öffentliche Meldungen im Radar, davon ${stats.active} aktiv.`
+          : stats.upcoming > 0
+            ? `${stats.total} öffentliche Meldungen im Radar, davon ${stats.upcoming} geplant und bevorstehend.`
+            : `${stats.total} öffentliche Meldungen im Radar, derzeit keine aktiv.`
+      )}</p>` : ""}
     </div>
-    <a href="${escapeHtml(operator.url)}" target="_blank" rel="noreferrer">Beim Betreiber öffnen</a>
+    <div class="operator-actions">
+      ${profileUrl ? `<a href="${escapeHtml(profileUrl)}">Meldungen von ${escapeHtml(name)}</a>` : ""}
+      ${officialUrl ? `<a class="operator-official-btn" href="${escapeHtml(officialUrl)}" target="_blank" rel="noreferrer">Offizielle Seite</a>` : ""}
+    </div>
+    ${stats ? renderOperatorStatsGrid(stats, footnote) : ""}
   </aside>`;
 }
 
@@ -393,7 +433,11 @@ function renderTimeline(detail: PublicEventDetail): string {
   ).join("")}</ol>`;
 }
 
-export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicFeedItem[] = []): string {
+export function renderEventSeoMarkup(
+  detail: PublicEventDetail,
+  related: PublicFeedItem[] = [],
+  live: OperatorLiveContext | null = null
+): string {
   const item = detail.item;
   const location = eventLocation(detail);
   const kind = item.nature === "planned" ? "Geplanter Stromunterbruch" : "Stromausfall";
@@ -408,6 +452,9 @@ export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicF
     ["Betroffene Region", item.affected_area ?? location],
     ["Ursache", item.cause]
   ].filter((row) => row[1]);
+  const relatedHeading = live?.profile && related.length
+    ? `Weitere Meldungen von ${live.profile.name}`
+    : undefined;
   return `<article class="event-brief seo-event" data-status="${escapeHtml(statusClass)}">
     <header class="brief">
       <div class="brief__copy">
@@ -422,7 +469,7 @@ export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicF
         <section class="fact-strip"><h2>Informationen zum Vorfall</h2><dl>${factRows.map(([label, value]) =>
           `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl></section>
         ${renderTimeline(detail)}
-        ${renderOperator(detail.operator)}
+        ${renderOperator(detail.operator, live)}
       </div>
       <div class="brief__map event-hero ${hasMap ? "has-map map-loading" : "no-map"}">${hasMap ? `<div id="event-map" role="img" aria-label="Karte von ${escapeHtml(detail.map!.label)}"></div><div class="map-fallback" aria-hidden="true"><span></span><strong>${escapeHtml(detail.map!.label)}</strong><small>Karte wird geladen</small></div>` : ""}<div class="hero-wash"></div>${hasMap ? `<span class="map-place">${escapeHtml(detail.map!.label)}</span>` : ""}</div>
     </header>
@@ -430,7 +477,7 @@ export function renderEventSeoMarkup(detail: PublicEventDetail, related: PublicF
     ${renderIncidentAnswers(detail)}
     ${renderFaq(detail)}
     <div class="brief__more">
-      ${renderRelatedEvents(related)}
+      ${renderRelatedEvents(related, relatedHeading)}
       ${renderKnowledgeLinks()}
     </div>
     <footer class="detail-note">Letzte Aktualisierung: ${escapeHtml(formatDate(item.updated_at))}. outage.ch dokumentiert öffentliche Meldungen und kennzeichnet fehlende Angaben bewusst als offen. Für verbindliche Informationen gelten Netzbetreiber und Behörden.</footer>
@@ -449,7 +496,8 @@ export async function renderSeoEventAsset(
   env: Pick<Env, "ASSETS">,
   request: Request,
   detail: PublicEventDetail,
-  related: PublicFeedItem[] = []
+  related: PublicFeedItem[] = [],
+  live: OperatorLiveContext | null = null
 ): Promise<Response> {
   const assetUrl = new URL("/events/", request.url);
   const asset = await env.ASSETS.fetch(new Request(assetUrl, request));
@@ -470,7 +518,7 @@ export async function renderSeoEventAsset(
     .on("head", { element(element) {
       element.append(`<meta name="robots" content="index,follow,max-image-preview:large"><script type="application/ld+json">${seo.jsonLd}</script><script id="outage-event-data" type="application/json">${data}</script>`, { html: true });
     } })
-    .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail, related), { html: true }); element.setAttribute("aria-busy", "false"); } })
+    .on("#event-shell", { element(element) { element.setInnerContent(renderEventSeoMarkup(detail, related, live), { html: true }); element.setAttribute("aria-busy", "false"); } })
     .transform(new Response(asset.body, { status: asset.status, headers: { ...Object.fromEntries(asset.headers), "Cache-Control": "public,max-age=60,s-maxage=300,stale-while-revalidate=1800" } }));
 }
 

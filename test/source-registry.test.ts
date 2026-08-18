@@ -10,6 +10,7 @@ import ewzNoCurrentFixture from "./fixtures/operators/ewz-no-current.html?raw";
 import primeoFixture from "./fixtures/operators/primeo.json?raw";
 import romandeFixture from "./fixtures/operators/romande-energie.json?raw";
 import sakFixture from "./fixtures/operators/sak.json?raw";
+import alertswissFixture from "./fixtures/operators/alertswiss.json?raw";
 
 function geoIdentifyBody(municipality: string, canton = "BE"): string {
   return JSON.stringify({
@@ -557,7 +558,8 @@ describe("source registry observations", () => {
     ["bkw-outage", "https://api-outage.bkw.ch/api/services/supplyZone/state", '[{"supplyState":"MAINTENANCE","city":"Bern"}]'],
     ["sak-netzstatus", "https://netzstatus.sak.ch/api/v1/failures", '[{"title":"Netzstörung Bern","status":9,"category":0,"start_date":"2026-07-15T08:00:00Z"}]'],
     ["romande-energie-pannes", "https://www.romande-energie.ch/re_infopannes/data", '[{"genre":"information","date_debut":"2026-07-15T08:00:00Z","geojson":{"type":"FeatureCollection","features":[]}}]'],
-    ["primeo-netzstatus", "https://www.primeo-energie.ch/magnolia/.rest/primeo/v1/gridStatus.json?limit=20", '{"current":[{"status":"ACKNOWLEDGED","title":"Liestal"}],"done":[]}']
+    ["primeo-netzstatus", "https://www.primeo-energie.ch/magnolia/.rest/primeo/v1/gridStatus.json?limit=20", '{"current":[{"status":"ACKNOWLEDGED","title":"Liestal"}],"done":[]}'],
+    ["alertswiss", "https://www.alert.swiss/content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json", '{"heartbeatAgeInMillis":1}']
   ])("fails closed on unknown %s operator enums", async (sourceKey, apiUrl, payload) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(payload, { status: 200 })));
     const result = await fetchSourceObservations(
@@ -569,6 +571,63 @@ describe("source registry observations", () => {
     expect(result.parserStatus).toBe("needs_adapter");
     expect(result.observations).toHaveLength(0);
     expect(result.error).toContain("schema_changed");
+  });
+
+  it("keeps only electricity-related Alertswiss alerts and does not copy full alert bodies", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(alertswissFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "alertswiss",
+        operator_name: "Alertswiss",
+        source_category: "discovery_only",
+        url: "https://www.alert.swiss/",
+        adapter_config_json: JSON.stringify({
+          api_url: "https://www.alert.swiss/content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json"
+        })
+      }),
+      "2026-08-18T09:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(2);
+    expect(result.observations.map((item) => item.canonicalStatus).sort()).toEqual(["resolved", "unplanned"]);
+    expect(result.observations.every((item) => item.locationText === "Chur")).toBe(true);
+    expect(result.observations.some((item) => item.title.includes("Stromausfall in Teilen der Stadt Chur"))).toBe(true);
+    expect(result.observations.every((item) => item.evidenceExcerpt.includes("Quelle: www.alertswiss.ch"))).toBe(true);
+    expect(result.observations.some((item) => item.evidenceExcerpt.includes("Volltext"))).toBe(false);
+    expect(result.observations.some((item) => item.title.includes("Feuerverbot"))).toBe(false);
+    expect(result.observations.some((item) => item.title.includes("Test:"))).toBe(false);
+  });
+
+  it("treats an Alertswiss feed without electricity alerts as no current outage", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      heartbeatAgeInMillis: 800,
+      renderTime: "18.08.2026 11:18:18.291 +0200",
+      alerts: [{
+        identifier: "FIRE-2",
+        title: { title: "Feuerverbot" },
+        description: { description: "Waldbrandgefahr." },
+        event: "Feuerverbot",
+        allClear: false,
+        testAlert: false,
+        technicalTestAlert: false,
+        areas: [{ description: { description: "Kanton Wallis" } }]
+      }]
+    }), { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "alertswiss",
+        adapter_config_json: '{"api_url":"https://www.alert.swiss/content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json"}'
+      }),
+      "2026-08-18T09:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("no_current_outage");
+    expect(result.observations).toHaveLength(0);
   });
 
   it("keeps single non-official discoveries below public corroboration while official sources pass", () => {

@@ -1,0 +1,50 @@
+{
+  "heartbeatAgeInMillis": 1200,
+  "renderTime": "18.08.2026 11:18:18.291 +0200",
+  "alerts": [
+    {
+      "identifier": "FIRE-1",
+      "title": { "title": "Absolutes Feuerverbot im Freien" },
+      "description": { "description": "Aufgrund der Trockenheit gilt ein Feuerverbot." },
+      "event": "Feuerverbot",
+      "allClear": false,
+      "testAlert": false,
+      "technicalTestAlert": false,
+      "publisherName": "Kanton Solothurn",
+      "areas": [{ "description": { "description": "Gesamter Kanton Solothurn" } }]
+    },
+    {
+      "identifier": "TEST-STROM-1",
+      "title": { "title": "Test: Stromausfall" },
+      "description": { "description": "Technischer Test einer Stromwarnung." },
+      "event": "Stromausfall",
+      "allClear": false,
+      "testAlert": true,
+      "technicalTestAlert": false,
+      "publisherName": "BABS",
+      "areas": [{ "description": { "description": "Schweiz" } }]
+    },
+    {
+      "identifier": "POA-STROM-1",
+      "title": { "title": "Stromausfall in Teilen der Stadt Chur" },
+      "description": { "description": "Die Stromversorgung ist unterbrochen. Diesen Volltext darf outage.ch nicht republizieren." },
+      "event": "Stromausfall",
+      "allClear": false,
+      "testAlert": false,
+      "technicalTestAlert": false,
+      "publisherName": "Kanton Graubünden",
+      "areas": [{ "description": { "description": "Chur" } }]
+    },
+    {
+      "identifier": "POA-STROM-CLEAR",
+      "title": { "title": "Stromausfall behoben" },
+      "description": { "description": "Die Stromversorgung ist wiederhergestellt." },
+      "event": "Stromausfall",
+      "allClear": true,
+      "testAlert": false,
+      "technicalTestAlert": false,
+      "publisherName": "Kanton Graubünden",
+      "areas": [{ "description": { "description": "Chur" } }]
+    }
+  ]
+}
