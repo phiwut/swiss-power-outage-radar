@@ -1010,12 +1010,8 @@ export async function reconcileSourcePresence(
          SELECT 1 FROM outage_event_source_presence p
          WHERE p.outage_event_id = outage_events.id
            AND p.consecutive_missing_checks < 2
-       )
-       AND datetime((
-         SELECT MAX(last_confirmed_at) FROM outage_event_source_presence p
-         WHERE p.outage_event_id = outage_events.id
-       )) <= datetime(?, '-24 hours')`
-  ).bind(checkedAt).run();
+       )`
+  ).run();
 }
 
 export async function markOutageEventEmailSent(

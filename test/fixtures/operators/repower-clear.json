@@ -1,0 +1,24 @@
+[
+  {
+    "regionKey": "Surselva",
+    "title": "Surselva",
+    "dateCreated": null,
+    "dateSolved": null,
+    "showWarningOnControlPanel": false,
+    "warningReason": null,
+    "effectedRegion": null,
+    "contact": { "name": "Surselva", "phoneNumber": "+41 81 926 2666" },
+    "history": null
+  },
+  {
+    "regionKey": "Praettigau",
+    "title": "Prättigau / Rheintal",
+    "dateCreated": null,
+    "dateSolved": null,
+    "showWarningOnControlPanel": false,
+    "warningReason": null,
+    "effectedRegion": null,
+    "contact": { "name": "Prättigau / Rheintal", "phoneNumber": "+41 81 423 7711" },
+    "history": null
+  }
+]

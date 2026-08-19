@@ -1,0 +1,35 @@
+[
+  {
+    "regionKey": "Surselva",
+    "title": "Surselva",
+    "dateCreated": "2026-07-31T13:30:00+02:00",
+    "dateSolved": null,
+    "showWarningOnControlPanel": true,
+    "warningReason": "Gewitter",
+    "effectedRegion": "Ilanz",
+    "contact": { "name": "Surselva", "phoneNumber": "+41 81 926 2666" },
+    "history": null
+  },
+  {
+    "regionKey": "Praettigau",
+    "title": "Prättigau / Rheintal",
+    "dateCreated": null,
+    "dateSolved": null,
+    "showWarningOnControlPanel": false,
+    "warningReason": null,
+    "effectedRegion": null,
+    "contact": { "name": "Prättigau / Rheintal", "phoneNumber": "+41 81 423 7711" },
+    "history": null
+  },
+  {
+    "regionKey": "Engadin",
+    "title": "Engadin / Valposchiavo",
+    "dateCreated": null,
+    "dateSolved": null,
+    "showWarningOnControlPanel": false,
+    "warningReason": null,
+    "effectedRegion": null,
+    "contact": { "name": "Engadin / Valposchiavo", "phoneNumber": "+41 81 839 7575" },
+    "history": null
+  }
+]

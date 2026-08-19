@@ -162,10 +162,9 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     url: "https://www.repower.com/ch/kundencenter/stoerungen-stromausfaelle",
     area_text: "Repower Netzgebiet in Graubünden und angrenzenden Regionen",
     trust_level: "official",
-    check_interval_minutes: 15,
-    priority: 82,
+    check_interval_minutes: 10,
     firecrawl_enabled: 0,
-    adapter_config: { language: "de", status_mode: "outage_map", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms, historical_terms: ["vergangene störungen"] }
+    adapter_config: { language: "de", status_mode: "operator_api", api_url: "https://www.repower.com/umbraco/api/Stoerung/GetWarnings?culture=de", utility_filter: "electricity_only", no_outage_terms: commonNoOutageTerms, historical_terms: ["vergangene störungen"] }
   },
   {
     source_key: "ewb-stoerungsmeldungen",
@@ -522,14 +521,14 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     source_key: "ail-homepage",
     operator_name: "AIL",
     source_type: "html",
-    source_category: "discovery_only",
-    url: "https://www.ail.ch/",
+    source_category: "news_feed",
+    url: "https://www.ail.ch/news-media/News.html",
     area_text: "Lugano und AIL Versorgungsgebiet",
     trust_level: "official",
     check_interval_minutes: 30,
     priority: 87,
     firecrawl_enabled: 0,
-    adapter_config: { language: "it", status_mode: "homepage_discovery", utility_filter: "electricity_only", no_outage_terms: ["nessun guasto", "nessuna interruzione", ...commonNoOutageTerms] }
+    adapter_config: { language: "it", status_mode: "news_feed", utility_filter: "electricity_only", no_outage_terms: ["nessun guasto", "nessuna interruzione", ...commonNoOutageTerms] }
   },
   {
     source_key: "sil-lausanne",
@@ -600,14 +599,14 @@ export const SOURCE_REGISTRY_SEEDS: SourceRegistrySeed[] = [
     source_key: "ses-homepage",
     operator_name: "SES",
     source_type: "html",
-    source_category: "discovery_only",
+    source_category: "live_status",
     url: "https://www.ses.ch/",
-    area_text: "SES Netzgebiet in der Waadt",
+    area_text: "SES Sopracenerina Netzgebiet im Locarnese und nördlichen Tessin",
     trust_level: "official",
-    check_interval_minutes: 30,
-    priority: 75,
+    check_interval_minutes: 15,
+    priority: 89,
     firecrawl_enabled: 0,
-    adapter_config: { language: "fr", status_mode: "homepage_discovery", utility_filter: "electricity_only", no_outage_terms: ["aucune panne", "pas de panne", ...commonNoOutageTerms] }
+    adapter_config: { language: "it", status_mode: "current_page", utility_filter: "electricity_only", no_outage_terms: ["nessuna criticità", "nessun guasto", "nessuna interruzione", ...commonNoOutageTerms] }
   },
   {
     source_key: "energie-thun",

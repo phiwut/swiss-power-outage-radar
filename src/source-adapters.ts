@@ -295,6 +295,52 @@ function earliestIso(values: Array<string | null | undefined>): string | null {
   return timestamps.length ? new Date(Math.min(...timestamps)).toISOString() : null;
 }
 
+function swissWallClockToIso(year: number, month: number, day: number, hour: number, minute: number): string | null {
+  for (const offsetHours of [2, 1]) {
+    const utc = Date.UTC(year, month - 1, day, hour - offsetHours, minute);
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Zurich",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(new Date(utc));
+    const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value);
+    if (value("year") === year && value("month") === month && value("day") === day && value("hour") === hour && value("minute") === minute) {
+      return new Date(utc).toISOString();
+    }
+  }
+  return null;
+}
+
+function parseSwissDateTimeRange(text: string): { startedAt: string | null; resolvedAt: string | null } {
+  const match = compact(text).match(
+    /(\d{2})\.(\d{2})\.(\d{4})\s*[,/]?\s*(\d{2}):(\d{2})\s*[-–]\s*(?:(\d{2})\.(\d{2})\.(\d{4})\s*[,/]?\s*)?(\d{2}):(\d{2})/
+  );
+  if (!match) return { startedAt: null, resolvedAt: null };
+  const startDay = Number(match[1]);
+  const startMonth = Number(match[2]);
+  const startYear = Number(match[3]);
+  const endDay = match[6] ? Number(match[6]) : startDay;
+  const endMonth = match[7] ? Number(match[7]) : startMonth;
+  const endYear = match[8] ? Number(match[8]) : startYear;
+  return {
+    startedAt: swissWallClockToIso(startYear, startMonth, startDay, Number(match[4]), Number(match[5])),
+    resolvedAt: swissWallClockToIso(endYear, endMonth, endDay, Number(match[9]), Number(match[10]))
+  };
+}
+
+function extractDivBlocks(html: string, className: string): string[] {
+  const starts: number[] = [];
+  const pattern = new RegExp(`<div\\b[^>]*class="[^"]*\\b${className}\\b[^"]*"`, "gi");
+  for (const match of html.matchAll(pattern)) {
+    if (typeof match.index === "number") starts.push(match.index);
+  }
+  return starts.map((start, index) => html.slice(start, starts[index + 1] ?? start + 5000));
+}
+
 function latestIso(values: Array<string | null | undefined>): string | null {
   const timestamps = values.filter((value): value is string => Boolean(value)).map((value) => Date.parse(value)).filter(Number.isFinite);
   return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
@@ -441,7 +487,7 @@ async function parseSakPayload(
   );
   if (rows.length > 0 && matching.length === 0) return { observations: [], schemaMatched: false };
   const now = Date.parse(observedAt);
-  const recentResolutionCutoff = now - 7 * 24 * 60 * 60 * 1000;
+  const recentResolutionCutoff = now - 14 * 24 * 60 * 60 * 1000;
   const relevant = matching.filter((row) => {
     const end = Date.parse(String(row.end_date ?? ""));
     const explicitlyResolved = Number(row.status) === 2;
@@ -456,7 +502,7 @@ async function parseSakPayload(
   });
   return {
     schemaMatched: true,
-    observations: await Promise.all(relevant.map((row) => {
+    observations: await Promise.all(relevant.map(async (row) => {
       const title = compact(String(row.title));
       const startedAt = isoOrNull(row.start_date);
       const endedAt = isoOrNull(row.end_date);
@@ -464,11 +510,17 @@ async function parseSakPayload(
       const resolved = Number(row.status) === 2 || officialEndHasPassed;
       const planned = Number(row.category) !== 0 && (startedAt ? Date.parse(startedAt) > now : false);
       const status: CanonicalObservationStatus = resolved ? "resolved" : planned ? "planned" : "unplanned";
+      const coords = recordOf(row.coordinates);
+      const location = await resolveIncidentLocation({
+        namedLocation: finiteNumber(coords.latitude) === null ? operatorLocation(title) : null,
+        latitude: finiteNumber(coords.latitude),
+        longitude: finiteNumber(coords.longitude)
+      }) ?? operatorLocation(title);
       return makeKnownObservation(source, {
         status,
         title,
         text: compact(`${title}. ${String(row.description ?? "")}`),
-        location: operatorLocation(title),
+        location,
         observedAt,
         startedAt,
         resolvedAt: resolved && officialEndHasPassed ? endedAt : null,
@@ -603,6 +655,130 @@ async function parseEwzHtml(
   return { observations, schemaMatched: true };
 }
 
+function titleCasePlace(value: string): string {
+  const name = compact(value);
+  if (!name) return name;
+  return name
+    .toLocaleLowerCase("de-CH")
+    .replace(/(^|[^\p{L}])(\p{L})/gu, (_full, prefix: string, letter: string) => `${prefix}${letter.toLocaleUpperCase("de-CH")}`);
+}
+
+function isNonElectricUtility(text: string): boolean {
+  return /\b(wasser|gas|fernwaerme|fernwärme|internet|glasfaser|darkfiber|waerme|wärme)\b/i.test(normalizeLocation(text));
+}
+
+async function parseEwlHtml(
+  source: SourceRegistryEntry,
+  html: string,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  if (!/\bdisturbances\b/i.test(html) || !/\bdisturbances__header\b/i.test(html)) {
+    return { observations: [], schemaMatched: false };
+  }
+  const observations: SourceObservationInput[] = [];
+  for (const block of extractDivBlocks(html, "disturbances__row")) {
+    const titles = [...block.matchAll(/class="[^"]*disturbances__title[^"]*"[^>]*>([\s\S]*?)<\/p>/gi)]
+      .map((match) => compact(stripHtml(match[1] ?? "")));
+    const place = titles[0];
+    const when = titles[1] ?? "";
+    const utility = titles[2] ?? "";
+    if (!place || isNonElectricUtility(utility || compact(stripHtml(block)))) continue;
+    const rowText = compact(stripHtml(block));
+    const range = parseSwissDateTimeRange(when || rowText);
+    const resolved = /\b(behoben|abgeschlossen)\b/i.test(rowText);
+    const planned = /\bgeplant/i.test(rowText);
+    const status: CanonicalObservationStatus = resolved ? "resolved" : planned ? "planned" : "unplanned";
+    const location = titleCasePlace(place);
+    const title = status === "planned"
+      ? `Geplanter Stromunterbruch in ${location}`
+      : status === "resolved"
+        ? `Behobener Stromausfall in ${location}`
+        : `Stromausfall in ${location}`;
+    observations.push(await makeKnownObservation(source, {
+      status,
+      title,
+      text: compact(`${title}. ${rowText}`),
+      location,
+      observedAt,
+      startedAt: range.startedAt,
+      resolvedAt: resolved ? range.resolvedAt : null,
+      raw: { adapter: "ewl-disturbances", excerpt: rowText.slice(0, 2000) }
+    }));
+  }
+  return { observations, schemaMatched: true };
+}
+
+async function parseSesHtml(
+  source: SourceRegistryEntry,
+  html: string,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  if (!/\bStatoReteTab\b/.test(html) && !/\bTabInterruzioni\b/.test(html) && !/\bNessunaCriticita\b/.test(html)) {
+    return { observations: [], schemaMatched: false };
+  }
+  const observations: SourceObservationInput[] = [];
+  for (const block of extractDivBlocks(html, "ListNews")) {
+    if (!/\bObjStatoReteData\b/.test(block)) continue;
+    const when = compact(stripHtml(block.match(/class="[^"]*ObjStatoReteData[^"]*"[^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? ""));
+    const place = compact(stripHtml(block.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/i)?.[1] ?? ""));
+    if (!place || !when) continue;
+    const range = parseSwissDateTimeRange(when);
+    const endHasPassed = Boolean(range.resolvedAt && Date.parse(range.resolvedAt) <= Date.parse(observedAt));
+    const status: CanonicalObservationStatus = endHasPassed ? "resolved" : "planned";
+    const location = titleCasePlace(place);
+    const title = `Interruzione di corrente pianificata a ${location}`;
+    observations.push(await makeKnownObservation(source, {
+      status,
+      title,
+      text: compact(`${title}. ${when}.`),
+      location,
+      observedAt,
+      startedAt: range.startedAt,
+      resolvedAt: range.resolvedAt,
+      raw: { adapter: "ses-stato-rete", excerpt: compact(stripHtml(block)).slice(0, 2000) }
+    }));
+  }
+  return { observations, schemaMatched: true };
+}
+
+async function parseRepowerPayload(
+  source: SourceRegistryEntry,
+  payload: unknown,
+  observedAt: string
+): Promise<KnownAdapterPayload> {
+  if (!Array.isArray(payload)) return { observations: [], schemaMatched: false };
+  const rows = payload.map(recordOf);
+  const matching = rows.filter((row) =>
+    typeof row.regionKey === "string" && typeof row.showWarningOnControlPanel === "boolean"
+  );
+  if (rows.length > 0 && matching.length === 0) return { observations: [], schemaMatched: false };
+  const active = matching.filter((row) =>
+    row.showWarningOnControlPanel === true || stringOrNull(row.dateCreated) !== null
+  );
+  return {
+    schemaMatched: true,
+    observations: await Promise.all(active.map((row) => {
+      const solved = stringOrNull(row.dateSolved);
+      const location = titleCasePlace(stringOrNull(row.effectedRegion) || stringOrNull(row.title) || String(row.regionKey));
+      const status: CanonicalObservationStatus = solved ? "resolved" : "unplanned";
+      const title = status === "resolved"
+        ? `Behobener Stromausfall in ${location}`
+        : `Stromausfall in ${location}`;
+      const reason = stringOrNull(row.warningReason);
+      return makeKnownObservation(source, {
+        status,
+        title,
+        text: compact(`${title}. ${reason ? `Ursache: ${reason}.` : ""} Region: ${String(row.regionKey)}.`),
+        location,
+        observedAt,
+        startedAt: isoOrNull(row.dateCreated),
+        resolvedAt: isoOrNull(row.dateSolved),
+        raw: { adapter: "repower-get-warnings", ...row }
+      });
+    }))
+  };
+}
+
 const ALERTSWISS_POWER_HEADLINE = /stromausfall|stromunterbruch|stromversorgung|netzstörung|netzstoerung|\bblackout\b|strommangellage|coupure de courant|panne de courant|interruption de (?:courant|l['’]électricité)|interruzione di corrente|power outage/i;
 
 const ALERTSWISS_NOT_POWER = /feuerverbot|interdiction de faire du feu|divieto di accendere fuochi|waldbrand|incendie|trockenheit|s[ée]cheresse|hitzewelle|canicule|chemikal|inondation|hochwasser|erdbeben|lawine|gewitter|\borage\b/i;
@@ -684,6 +860,7 @@ async function parseKnownApiPayload(
   if (source.source_key === "sak-netzstatus") return parseSakPayload(source, payload, observedAt);
   if (source.source_key === "romande-energie-pannes") return parseRomandePayload(source, payload, observedAt);
   if (source.source_key === "primeo-netzstatus") return parsePrimeoPayload(source, payload, observedAt);
+  if (source.source_key === "repower-stoerungen") return parseRepowerPayload(source, payload, observedAt);
   if (source.source_key === "alertswiss") return parseAlertswissPayload(source, payload, observedAt);
   return null;
 }
@@ -748,7 +925,7 @@ export async function fetchSourceObservations(
   const config = parseConfig(source);
   try {
     const knownApiUrl = config.api_url;
-    if (knownApiUrl && ["bkw-outage", "sak-netzstatus", "romande-energie-pannes", "primeo-netzstatus", "alertswiss"].includes(source.source_key)) {
+    if (knownApiUrl && ["bkw-outage", "sak-netzstatus", "romande-energie-pannes", "primeo-netzstatus", "repower-stoerungen", "alertswiss"].includes(source.source_key)) {
       const fetched = await fetchText(knownApiUrl);
       if (fetched.error) {
         return { observations: [], error: fetched.error, usedFirecrawl: false, transportStatus: "error", parserStatus: "error" };
@@ -832,12 +1009,18 @@ export async function fetchSourceObservations(
     }
 
     const fetched = await fetchText(source.url);
-    if (source.source_key === "ewz-stoerungen" && !fetched.error) {
-      const parsed = await parseEwzHtml(source, fetched.text, observedAt);
+    const htmlAdapters: Record<string, (source: SourceRegistryEntry, html: string, observedAt: string) => Promise<KnownAdapterPayload>> = {
+      "ewz-stoerungen": parseEwzHtml,
+      "ewl-luzern-stoerungen": parseEwlHtml,
+      "ses-homepage": parseSesHtml
+    };
+    const htmlAdapter = htmlAdapters[source.source_key];
+    if (htmlAdapter && !fetched.error) {
+      const parsed = await htmlAdapter(source, fetched.text, observedAt);
       if (!parsed.schemaMatched) {
         return {
           observations: [],
-          error: "parser_schema_changed: ewz-incident-messages component missing",
+          error: `parser_schema_changed: ${source.source_key} markup no longer matches the verified contract`,
           usedFirecrawl: false,
           transportStatus: "ok",
           parserStatus: "needs_adapter"

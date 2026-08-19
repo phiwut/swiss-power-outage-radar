@@ -7,10 +7,15 @@ import bkwFixture from "./fixtures/operators/bkw.json?raw";
 import bkwTrafoFixture from "./fixtures/operators/bkw-trafo.json?raw";
 import ewzFixture from "./fixtures/operators/ewz.html?raw";
 import ewzNoCurrentFixture from "./fixtures/operators/ewz-no-current.html?raw";
+import ewlFixture from "./fixtures/operators/ewl.html?raw";
+import ewlEmptyFixture from "./fixtures/operators/ewl-empty.html?raw";
 import primeoFixture from "./fixtures/operators/primeo.json?raw";
 import romandeFixture from "./fixtures/operators/romande-energie.json?raw";
 import sakFixture from "./fixtures/operators/sak.json?raw";
 import alertswissFixture from "./fixtures/operators/alertswiss.json?raw";
+import repowerWarningsFixture from "./fixtures/operators/repower-warnings.json?raw";
+import repowerClearFixture from "./fixtures/operators/repower-clear.json?raw";
+import sesFixture from "./fixtures/operators/ses.html?raw";
 
 function geoIdentifyBody(municipality: string, canton = "BE"): string {
   return JSON.stringify({
@@ -559,7 +564,8 @@ describe("source registry observations", () => {
     ["sak-netzstatus", "https://netzstatus.sak.ch/api/v1/failures", '[{"title":"Netzstörung Bern","status":9,"category":0,"start_date":"2026-07-15T08:00:00Z"}]'],
     ["romande-energie-pannes", "https://www.romande-energie.ch/re_infopannes/data", '[{"genre":"information","date_debut":"2026-07-15T08:00:00Z","geojson":{"type":"FeatureCollection","features":[]}}]'],
     ["primeo-netzstatus", "https://www.primeo-energie.ch/magnolia/.rest/primeo/v1/gridStatus.json?limit=20", '{"current":[{"status":"ACKNOWLEDGED","title":"Liestal"}],"done":[]}'],
-    ["alertswiss", "https://www.alert.swiss/content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json", '{"heartbeatAgeInMillis":1}']
+    ["alertswiss", "https://www.alert.swiss/content/alertswiss-internet/de/home/_jcr_content/polyalert.alertswiss_alerts.actual.json", '{"heartbeatAgeInMillis":1}'],
+    ["repower-stoerungen", "https://www.repower.com/umbraco/api/Stoerung/GetWarnings?culture=de", '[{"title":"Surselva","active":true}]']
   ])("fails closed on unknown %s operator enums", async (sourceKey, apiUrl, payload) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(payload, { status: 200 })));
     const result = await fetchSourceObservations(
@@ -658,6 +664,153 @@ describe("source registry observations", () => {
     expect(result.error).toBeNull();
     expect(result.parserStatus).toBe("no_current_outage");
     expect(result.observations).toHaveLength(0);
+  });
+
+  it("parses ewl disturbance rows for electricity and skips water", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(ewlFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "ewl-luzern-stoerungen",
+        operator_name: "ewl Luzern",
+        url: "https://www.ewl-luzern.ch/kundencenter/stoerungen",
+        area_text: "Stadt Luzern und ewl Versorgungsgebiet"
+      }),
+      "2026-08-19T08:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations.map((item) => `${item.canonicalStatus}:${item.locationText}`).sort()).toEqual([
+      "planned:Horw",
+      "resolved:Kriens",
+      "resolved:Luzern"
+    ]);
+    expect(result.observations.every((item) => !/Wasser|Geissensteinring/i.test(item.title + item.evidenceExcerpt))).toBe(true);
+    expect(result.observations.find((item) => item.locationText === "Kriens")?.startedAt).toBe("2026-08-17T05:20:00.000Z");
+  });
+
+  it("treats an empty ewl disturbance table as no current outage", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(ewlEmptyFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({ source_key: "ewl-luzern-stoerungen", operator_name: "ewl Luzern" }),
+      "2026-08-19T08:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("no_current_outage");
+    expect(result.observations).toHaveLength(0);
+  });
+
+  it("reads Repower region warnings from the map API instead of the SPA HTML", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(repowerWarningsFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "repower-stoerungen",
+        operator_name: "Repower",
+        adapter_config_json: '{"api_url":"https://www.repower.com/umbraco/api/Stoerung/GetWarnings?culture=de"}'
+      }),
+      "2026-07-31T14:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].canonicalStatus).toBe("unplanned");
+    expect(result.observations[0].locationText).toBe("Ilanz");
+    expect(result.observations[0].title).toMatch(/Surselva|Ilanz/);
+  });
+
+  it("treats Repower regions without a control-panel warning as no current outage", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(repowerClearFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "repower-stoerungen",
+        adapter_config_json: '{"api_url":"https://www.repower.com/umbraco/api/Stoerung/GetWarnings?culture=de"}'
+      }),
+      "2026-08-19T08:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("no_current_outage");
+    expect(result.observations).toHaveLength(0);
+  });
+
+  it("parses SES Sopracenerina planned interruptions and ignores a quiet live grid", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(sesFixture, { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "ses-homepage",
+        operator_name: "SES",
+        url: "https://www.ses.ch/",
+        area_text: "SES Sopracenerina Netzgebiet im Locarnese und nördlichen Tessin",
+        adapter_config_json: '{"language":"it"}'
+      }),
+      "2026-08-13T10:00:00.000Z"
+    );
+
+    expect(result.error).toBeNull();
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations.map((item) => `${item.canonicalStatus}:${item.locationText}`).sort()).toEqual([
+      "planned:Gordola",
+      "planned:Quartino"
+    ]);
+  });
+
+  it("geocodes a SAK failure from coordinates when the title is not enough", async () => {
+    stubOperatorFetch(JSON.stringify([{
+      id: "jonschwil",
+      title: "Stromunterbruch Jonschwil",
+      description: "Wir haben einen Stromausfall festgestellt.",
+      status: 1,
+      category: 0,
+      publish_date: "2026-08-12T16:50:00.000+02:00",
+      start_date: "2026-08-12T16:41:00.000+02:00",
+      end_date: "2026-08-12T18:36:00.000+02:00",
+      coordinates: { latitude: 47.41754923317169, longitude: 9.08165163368193 }
+    }]), () => "Jonschwil");
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "sak-netzstatus",
+        operator_name: "SAK",
+        adapter_config_json: '{"api_url":"https://netzstatus.sak.ch/api/v1/failures"}'
+      }),
+      "2026-08-19T08:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].canonicalStatus).toBe("resolved");
+    expect(result.observations[0].locationText).toBe("Jonschwil");
+  });
+
+  it("keeps a SAK resolution from the last two weeks", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify([{
+      id: "stein",
+      title: "Netz Störung Stein AR",
+      description: "Die Stromversorgung wurde wiederhergestellt.",
+      status: 2,
+      category: 0,
+      publish_date: "2026-08-05T19:15:00.000+02:00",
+      start_date: "2026-08-05T18:30:00.000+02:00",
+      end_date: "2026-08-05T23:09:00.000+02:00"
+    }]), { status: 200 })));
+    const result = await fetchSourceObservations(
+      { FIRECRAWL_API_KEY: undefined },
+      registry({
+        source_key: "sak-netzstatus",
+        operator_name: "SAK",
+        adapter_config_json: '{"api_url":"https://netzstatus.sak.ch/api/v1/failures"}'
+      }),
+      "2026-08-19T08:00:00.000Z"
+    );
+
+    expect(result.parserStatus).toBe("ready");
+    expect(result.observations).toHaveLength(1);
+    expect(result.observations[0].locationText).toMatch(/Stein/);
   });
 
   it("keeps single non-official discoveries below public corroboration while official sources pass", () => {
