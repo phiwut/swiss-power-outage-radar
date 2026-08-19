@@ -333,8 +333,12 @@ function parseSwissDateTimeRange(text: string): { startedAt: string | null; reso
 }
 
 function extractDivBlocks(html: string, className: string): string[] {
+  return extractClassBlocks(html, "div", className);
+}
+
+function extractClassBlocks(html: string, tag: string, className: string): string[] {
   const starts: number[] = [];
-  const pattern = new RegExp(`<div\\b[^>]*class="[^"]*\\b${className}\\b[^"]*"`, "gi");
+  const pattern = new RegExp(`<${tag}\\b[^>]*class="[^"]*\\b${className}\\b[^"]*"`, "gi");
   for (const match of html.matchAll(pattern)) {
     if (typeof match.index === "number") starts.push(match.index);
   }
